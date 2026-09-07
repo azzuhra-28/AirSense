@@ -1,0 +1,34 @@
+# ===== RAHASIA - JANGAN PERNAH COMMIT =====
+firmware/esp32-airlytics/main/secrets.h
+
+# ===== Build artifacts =====
+*.o
+*.obj
+*.elf
+*.bin
+*.hex
+*.map
+build/
+Debug/
+Release/
+
+# ===== Python (analytics/dummy_data) =====
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# ===== Node (dashboard) =====
+node_modules/
+.next/
+dist/
+npm-debug.log*
+
+# ===== IDE / OS =====
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+.DS_Store
+desktop.ini

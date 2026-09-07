@@ -37,6 +37,7 @@ Detail lengkap format data: **`docs/DOKUMENTASI_FORMAT_DATA_AIRLYTICS.md`**
 
 ## Catatan Penting
 
-- ⚠️ `SUPABASE_API_KEY` masih hardcoded di `firmware/esp32-airlytics/main/main.ino`
-  (baris 29) — pindahkan ke file `secrets.h` sebelum repo dibagikan/publik.
+- ✅ Kredensial firmware sudah dipisah ke `firmware/esp32-airlytics/main/secrets.h`
+  (tidak ikut di-commit — lihat `.gitignore`; templat: `secrets.h.example`).
+  Kalau compile error "secrets.h not found" → copy `secrets.h.example` jadi `secrets.h`.
 - Dokumen jobdesk & laporan Yusuf ada di `docs/bacaan/`.

@@ -7,6 +7,7 @@
 #include <WiFiManager.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
+#include "secrets.h"   // kredensial WiFi & Supabase (JANGAN di-commit, lihat secrets.h.example)
 
 #define DHTPIN 33
 #define MQ131_ANALOG_PIN 32
@@ -22,11 +23,8 @@
 #define ADC_RESOLUTION 4095.0
 #define R0MQ131 330724.71
 
-const char* ssid = "mynameisyou";
-const char* password = "rezaaaaa";
-// const char* serverName = "http://34.101.72.50/senddata/insert_data.php"; 
-const char* SUPABASE_HOST = "fombbmohaexissdjhdpq.supabase.co";
-const char* SUPABASE_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZvbWJibW9oYWV4aXNzZGpoZHBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMzI1MzAsImV4cCI6MjA5NjYwODUzMH0.5RyOjbzLVyKVBLHhymv1N3VoAO4mnlf2rsJ6RrXj_Vk";
+// ssid, password, SUPABASE_HOST, SUPABASE_API_KEY
+// didefinisikan di secrets.h (lihat secrets.h.example untuk templatnya)
 const char* ENDPOINT_ANALOG_OUT = "/rest/v1/tb_analog_out";
 const char* ENDPOINT_UGM3 = "/rest/v1/tb_konsentrasi_gas";
 const char* ENDPOINT_ISPU = "/rest/v1/tb_prediksi_kualitas_udara";

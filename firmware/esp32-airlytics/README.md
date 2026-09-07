@@ -12,6 +12,21 @@ Firmware perangkat IoT Airlytics — Arduino sketch (folder `main`).
 | MQ-131 | O₃ (µg/m³) | ADC GPIO 32 |
 | Relay kipas | pendingin otomatis (suhu ≥35°C) | GPIO 4 |
 
+## Kredensial (secrets.h) ⚠️ PENTING
+
+WiFi & Supabase key **TIDAK lagi ditulis di main.ino** — sudah dipindah ke
+`secrets.h` yang tidak ikut di-commit (lihat `.gitignore` di root repo).
+
+Kalau compile error `fatal error: secrets.h: No such file or directory`:
+
+1. Copy `secrets.h.example` → rename jadi **`secrets.h`** (di folder yang sama dgn main.ino)
+2. Isi: nama WiFi, password, Project ID Supabase (`xxx.supabase.co` tanpa https://),
+   dan **publishable key** (`sb_publishable_...` — bukan yang `sb_secret_...`!)
+
+Kenapa dipisah? `sb_publishable` memang semi-publik, tapi begitu repo masuk
+GitHub, kredensial yang ter-commit = praktik buruk + susah di-revoke rapi.
+File contoh: `secrets.h.example`.
+
 ## Cara build & upload
 
 1. Arduino IDE → Open `main/main.ino` (file lain ikut kebuka sebagai tab)
@@ -28,10 +43,6 @@ Firmware perangkat IoT Airlytics — Arduino sketch (folder `main`).
 
 ## ⚠️ TODO sebelum repo dibagikan
 
-`main.ino` baris 28-29 masih hardcode `SUPABASE_HOST` & `SUPABASE_API_KEY`.
-Pindahkan ke `secrets.h` (gitignore) atau `#define` via build flag:
-```cpp
-// secrets.h (JANGAN di-commit)
-const char* SUPABASE_HOST   = "...";
-const char* SUPABASE_API_KEY = "...";
-```
+✅ SELESAI — `SUPABASE_HOST` & `SUPABASE_API_KEY` sudah dipindah ke `secrets.h`
+(dikecualikan via `.gitignore`; templat untuk anggota tim: `secrets.h.example`).
+Sisa tugas: pastikan `.gitignore` ikut ter-commit saat git init nanti.
