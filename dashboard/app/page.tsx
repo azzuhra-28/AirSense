@@ -32,6 +32,7 @@ export default function OverviewPage() {
   const [latest, setLatest] = useState<KonsentrasiGas | null>(null);
   const [history, setHistory] = useState<KonsentrasiGas[]>([]);
   const [tf, setTf] = useState<TimeframeKey>("1h");
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     getLatestGas().then((row) => setLatest(row ?? null)).catch(console.error);
@@ -41,8 +42,12 @@ export default function OverviewPage() {
       setLatest(row);
       setHistory((prev) => [...prev.slice(-1440), row]);
     });
+    // Tick 30 detik: biar status online/offline dihitung ulang
+    // walau tidak ada data baru masuk (device mati -> jadi Offline).
+    const tick = setInterval(() => setNow(Date.now()), 30_000);
     return () => {
       ch.unsubscribe();
+      clearInterval(tick);
     };
   }, [tf]);
 
@@ -84,7 +89,7 @@ export default function OverviewPage() {
       }));
   }, [history, tf]);
 
-  const isOnline = latest ? Date.now() - new Date(latest.created_at).getTime() < 3 * 60_000 : false;
+  const isOnline = latest ? now - new Date(latest.created_at).getTime() < 3 * 60_000 : false;
 
   return (
     <div className="space-y-6">
