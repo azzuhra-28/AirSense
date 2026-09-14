@@ -10,7 +10,7 @@ Firmware perangkat IoT Airlytics — Arduino sketch (folder `main`).
 | GP2Y1010AU0F | PM2.5, PM10 (µg/m³) | ADC GPIO 35 (+ LED GPIO 2) |
 | MiCS-6814 | CO, NO₂ (µg/m³) | CO=GPIO 39, NO₂=GPIO 34 |
 | MQ-131 | O₃ (µg/m³) | ADC GPIO 32 |
-| Relay kipas | pendingin otomatis (suhu ≥35°C) | GPIO 4 |
+| Relay kipas | pendingin otomatis (suhu ≥34°C) | GPIO 4 |
 
 ## Kredensial (secrets.h) ⚠️ PENTING
 

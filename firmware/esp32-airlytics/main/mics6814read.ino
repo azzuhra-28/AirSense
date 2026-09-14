@@ -1,5 +1,5 @@
 /**
- * AIRLYTIC - MICS6814 Sensor Read Module
+ * AIRSENSE - MICS6814 Sensor Read Module
  * Perbaikan: Deteksi saturasi NO2 (4095 -> 0) & Kalibrasi CO (R0=7100)
  */
 

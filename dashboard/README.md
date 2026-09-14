@@ -1,34 +1,61 @@
-# 🖥️ Dashboard (Anggota 3)
+# 🖥️ Dashboard AirSense (Anggota 3)
 
-Web dashboard publik: Air Quality Now, kartu polutan, ISPU gauge, trend
-historis, forecast 60 menit, anomaly/alert, device status.
+Dashboard web publik: Air Quality Now (real-time), tren 24 jam, dan prediksi
+60 menit. Bootstrapped dari struktur resmi — dikembangkan lebih lanjut oleh
+Anggota 3.
 
-## Struktur yang disarankan
+## Stack
+
+- **Next.js** (App Router) + TypeScript
+- **Tailwind CSS** v4
+- **Recharts** (grafik)
+- **@supabase/supabase-js** — query + **Realtime** (update live tanpa refresh)
+
+## Setup & run
+
+```bash
+cd dashboard
+npm install
+copy .env.local.example .env.local   # isi URL + publishable key Supabase
+npm run dev                          # buka http://localhost:3000
+```
+
+Requirements di Supabase:
+- Tabel `tb_konsentrasi_gas`, `tb_prediksi_kualitas_udara` (db_airlytics.sql)
+- Tabel `tb_forecast` (migrasi_forecast_alert.sql) — untuk halaman Forecast
+- RLS: read=true (policy_rls.sql) supaya publishable key bisa SELECT
+
+## Struktur
 
 ```
 dashboard/
-├── src/ atau app/      ← kode aplikasi (Next.js / React + Recharts)
-├── public/             ← aset statis
-└── package.json
+├── app/
+│   ├── layout.tsx          # navbar + tampilan dasar
+│   ├── page.tsx            # Overview (realtime + chart 24 jam)
+│   └── predict/page.tsx    # Forecast 60 menit
+├── lib/
+│   ├── supabase.ts         # client (env: NEXT_PUBLIC_*)
+│   ├── types.ts            # kontrak data + kategori ISPU
+│   ├── ispu.ts             # perhitungan ISPU (backend-independent)
+│   └── api.ts              # helper query + realtime subscription
 ```
 
-> Laporan Yusuf pakai React + Recharts + Supabase Realtime — boleh lanjut
-> stack itu atau Next.js, yang penting pola konsumsi datanya sama.
+## Kontrak data & referensi
 
-## Kontrak data (WAJIB baca dulu)
+- Format data lengkap: `../docs/DOKUMENTASI_FORMAT_DATA_AIRLYTICS.md`
+- Mock data utk test offline: `../dummy_data/output/*.json`
+- Palet kategori ISPU sudah di `lib/types.ts` (ISPU_CATEGORIES)
 
-- Bentuk response & TypeScript interfaces:
-  `../docs/DOKUMENTASI_FORMAT_DATA_AIRLYTICS.md` (bagian 3)
-- Mock data siap pakai (bentuk sama dgn backend asli):
-  - `../dummy_data/output/dummy_tb_konsentrasi_gas.json` — data real-time & historis
-  - `../dummy_data/output/dummy_tb_prediksi_kualitas_udara.json` — ISPU
-  - `../dummy_data/output/dummy_agregasi_per_jam.json` — chart pola harian
-  - `../dummy_data/output/dummy_forecast_60menit.json` — halaman Predict
-- Kategori ISPU (0-50 Baik, 51-100 Sedang, 101-200 Tidak Sehat,
-  201-300 Sangat Tidak Sehat, 301+ Berbahaya) — Laporan Yusuf pakai
-  breakpoint + Random Forest sebagai penstabil (robustness layer).
+## Cara ngembangin (yang bisa Anggota 3 lanjutkan)
 
-## Deployment
+1. **Halaman Alert** — ambil dari `tb_alert` (`lib/api.ts` tambah helper)
+2. **Filter periode** di chart Overview (1/7/14/30/90 jam)
+3. **Halaman pola harian / agregasi** — baca `dummy_agregasi_per_jam.json`
+   (data konsep per-jam, kalau kurasa cukup pakai query `tb_konsentrasi_gas`)
+4. **Deploy** ke Vercel: hubungkan repo → isi env `NEXT_PUBLIC_*` → deploy
+   (siap target M12/M14)
 
-Public URL (Vercel/netlify dst) di minggu M12 — responsive, functional
-testing, usability testing M13.
+## Catatan penting
+
+- JANGAN pakai service role key di frontend — cuma publishable/anon key.
+- Waktu disimpan UTC di DB; komponen pakai helper `toWIB()` (WIB = UTC+7).

@@ -1,0 +1,8 @@
+# Dependencies Python untuk pipeline analytics AirSense
+pandas
+numpy
+scikit-learn
+xgboost
+requests
+python-dotenv
+joblib

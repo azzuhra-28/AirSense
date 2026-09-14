@@ -139,7 +139,7 @@ void setup() {
   lcd.setCursor(1, 0);
   lcd.print("Selamat Datang");
   lcd.setCursor(2, 1);
-  lcd.print("di Airlytic!");
+  lcd.print("di AirSense!");
   delay(5000);
   lcd.clear();
   Serial.println("MENGHUBUNGKAN KE WIFI...");

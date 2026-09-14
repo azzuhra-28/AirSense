@@ -1,5 +1,11 @@
 # ===== RAHASIA - JANGAN PERNAH COMMIT =====
 firmware/esp32-airlytics/main/secrets.h
+.env
+.env.local
+.env*.local
+
+# ===== Model ML (artefak training, jangan commit = bisa besar) =====
+analytics/models/
 
 # ===== Build artifacts =====
 *.o
