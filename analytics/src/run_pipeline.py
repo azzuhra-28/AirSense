@@ -1,239 +1,1125 @@
 # ============================================================
-# AirSense - Pipeline Inferensi (hilang satunya, jalanin ini)
-# ============================================================
-# 1. Ambil data terbaru dari tb_konsentrasi_gas
-# 2. XGBoost -> forecast 60 menit (3 polutan) -> tb_forecast
-# 3. Random Forest -> klasifikasi kategori ISPU kondisi terkini
-# 4. Logika alert (ISPU tinggi / anomali / device offline) -> tb_alert
+# AirSense - Analytics Inference Pipeline
 #
-# Jalankan manual:  python -m src.run_pipeline
-# (atau otomatis tiap jam via GitHub Actions, lihat .github/workflows)
+# Pipeline:
+# 1. Load and validate sensor data
+# 2. Calculate current ISPU from 24-hour rolling concentration
+# 3. Detect anomalies
+# 4. Load trained forecasting models
+# 5. Direct forecast t+60 minutes
+# 6. Calculate experimental forecast indicator
+# 7. Apply alert logic
+#
+# Notes:
+# - Current ISPU uses 24-hour rolling concentration.
+# - Forecast indicator is experimental and is NOT an official
+#   future ISPU because the required future 24-hour measurement
+#   window is not yet available.
+# - No database writes are performed here yet.
 # ============================================================
 
 import json
 import os
-from datetime import datetime, timedelta, timezone
 
 import joblib
 import numpy as np
 import pandas as pd
 
-from .ispu import category_of, ispu_co, ispu_pm10, ispu_pm25
-from .preprocess import HORIZON_MINUTES, TARGETS, load_to_df
-from .supabase_client import (
-    SUPABASE_URL,
-    TABLE_ALERT,
-    TABLE_FORECAST,
-    TABLE_GAS,
-    fetch_rows,
-    insert_rows,
-    supabase_session,
-    check_connection,
+from .alert_logic import apply_alert_logic
+from .anomaly import detect_anomalies
+
+from .ispu import (
+    category_of,
+    dominant_pollutant_of,
+    ispu_total_of,
+    ispu_value,
 )
 
-MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models")
+from .preprocess import (
+    HORIZON_MINUTES,
+    POLLUTANTS,
+    build_features,
+    load_to_df,
+)
 
-# Ambang alert
-ALERT_ISPU_LEVEL = 100           # bunyi alert kalau ISPU total > "Sedang" (>= Tidak Sehat)
-DEVICE_OFFLINE_MINUTES = 3       # device dianggap offline kalau > 3 menit tidak kirim
-
-
-def load_models():
-    f_models, meta = {}, {}
-    f_meta = os.path.join(MODEL_DIR, "models_meta.json")
-    for t in TARGETS:
-        p = os.path.join(MODEL_DIR, f"xgboost_{t}.joblib")
-        f_models[t] = joblib.load(p)
-    cls_p = os.path.join(MODEL_DIR, "random_forest_ispu.joblib")
-    clf = joblib.load(cls_p)
-    if os.path.exists(f_meta):
-        meta = json.load(open(f_meta, encoding="utf-8"))
-    return f_models, clf, meta
+from .supabase_client import (
+    TABLE_GAS,
+    check_connection,
+    fetch_rows,
+    supabase_session,
+)
 
 
-def rolling_predict(f_models, last_row, n_steps=HORIZON_MINUTES):
-    """Forecast 60 menit ke depan secara rekursif (1 baris per menit).
-    Base waktu = SEKARANG (jan: device offline basi, prediksi tetap untuk
-    menit mendatang). Nilai state awal = data sensor terakhir yang terbaca."""
-    feat_cols = f_models[TARGETS[0]]["features"]
-    state = dict(last_row)
-    base_ts = datetime.now(timezone.utc)
-    out = []
+# ============================================================
+# Paths
+# ============================================================
 
-    for i in range(1, n_steps + 1):
-        ts = base_ts + timedelta(minutes=i)
-        # lag 1 = nilai state terakhir (yang baru diprediksi / terbaca)
-        feats = {
-            f"{p}_lag1": state[p] for p in ["pm25_ugm3", "pm10_ugm3", "co_ugm3", "no2_ugm3", "o3_ugm3"]
+ANALYTICS_DIR = os.path.dirname(
+    os.path.dirname(
+        os.path.abspath(__file__)
+    )
+)
+
+MODEL_DIR = os.path.join(
+    ANALYTICS_DIR,
+    "models",
+)
+
+FORECAST_METADATA_PATH = os.path.join(
+    MODEL_DIR,
+    "forecast_models_meta.json",
+)
+
+
+# ============================================================
+# Configuration
+# ============================================================
+
+ISPU_ROLLING_WINDOW = 1440
+
+
+# ============================================================
+# Current ISPU
+# ============================================================
+
+def add_current_ispu(
+    sensor_df,
+):
+    """
+    Calculate current ISPU using rolling 24-hour pollutant
+    concentrations.
+
+    The current prototype assumes 1-minute sensor intervals,
+    therefore 1440 observations represent 24 hours.
+
+    The ISPU value is rounded before category determination
+    so the implementation is consistent with Notebook 03.
+    """
+
+    result = sensor_df.copy()
+
+    # --------------------------------------------------------
+    # 24-hour rolling concentration
+    # --------------------------------------------------------
+
+    for pollutant in POLLUTANTS:
+
+        rolling_column = (
+            f"{pollutant}"
+            "_rolling_24h"
+        )
+
+        result[rolling_column] = (
+            result[pollutant]
+            .rolling(
+                window=ISPU_ROLLING_WINDOW,
+                min_periods=ISPU_ROLLING_WINDOW,
+            )
+            .mean()
+        )
+
+        ispu_column = (
+            pollutant.replace(
+                "_ugm3",
+                "_ispu",
+            )
+        )
+
+        result[ispu_column] = (
+            result[rolling_column]
+            .apply(
+                lambda value: (
+                    round(
+                        ispu_value(
+                            pollutant,
+                            value,
+                        )
+                    )
+                    if pd.notna(value)
+                    else np.nan
+                )
+            )
+        )
+
+    # --------------------------------------------------------
+    # Total ISPU
+    # --------------------------------------------------------
+
+    def calculate_total(
+        row,
+    ):
+
+        concentrations = {
+            pollutant: row[
+                f"{pollutant}_rolling_24h"
+            ]
+            for pollutant in POLLUTANTS
         }
-        feats.update(
-            {
-                "temperature": state.get("temperature") or last_row.get("temperature"),
-                "humidity": state.get("humidity") or last_row.get("humidity"),
-                "hour": ts.hour,
-                "weekday": ts.weekday(),
-            }
+
+        if any(
+            pd.isna(value)
+            for value
+            in concentrations.values()
+        ):
+            return np.nan
+
+        total, _ = ispu_total_of(
+            concentrations
         )
-        X = np.array([[feats[c] for c in feat_cols]])
 
-        pred = {}
-        for t in TARGETS:
-            pred[t] = float(f_models[t]["model"].predict(X)[0])
+        if total is None:
+            return np.nan
 
-        # update state jadi nilai prediksi (recursive multi-step forecast)
-        state["pm25_ugm3"], state["pm10_ugm3"], state["co_ugm3"] = pred["pm25_ugm3"], pred["pm10_ugm3"], pred["co_ugm3"]
-
-        out.append({"forecast_at": ts.isoformat(), **pred})
-    return out
-
-
-def to_ispu(pred_row: dict) -> dict:
-    pm25 = max(0.0, pred_row["pm25_ugm3"])
-    pm10 = max(0.0, pred_row["pm10_ugm3"])
-    co = max(0.0, pred_row["co_ugm3"])
-    return {
-        "pm25_ispu_pred": ispu_pm25(pm25),
-        "pm10_ispu_pred": ispu_pm10(pm10),
-        "co_ispu_pred": ispu_co(co),
-    }
-
-
-def check_device_offline(rows) -> dict | None:
-    if not rows:
-        return {"alert_type": "DEVICE_OFFLINE", "severity": "HIGH", "payload": None,
-                "message": "Tidak ada data sensor sama sekali."}
-    last = pd.to_datetime(rows[-1]["created_at"], utc=True)
-    if datetime.now(timezone.utc) - last > timedelta(minutes=DEVICE_OFFLINE_MINUTES):
-        mins = int((datetime.now(timezone.utc) - last).total_seconds() // 60)
-        return {"alert_type": "DEVICE_OFFLINE", "severity": "HIGH", "payload": None,
-                "message": f"Device tidak mengirim data selama ±{mins} menit (terakhir {last.isoformat()})."}
-    return None
-
-
-def build_alerts(rows, latest_forecast_info, clf_out) -> list[dict]:
-    alerts = []
-
-    # 1. ISPU tinggi (kondisi terkini)
-    latest = rows[-1]
-    ispu = max(ispu_pm25(latest["pm25_ugm3"]), ispu_pm10(latest["pm10_ugm3"]), ispu_co(latest["co_ugm3"]))
-    cat = category_of(ispu)
-    payload = {"ispu_total": round(ispu, 2), "category": cat}
-    if ispu > ALERT_ISPU_LEVEL:
-        alerts.append({
-            "alert_type": "ISPU_HIGH", "severity": "HIGH" if ispu > 200 else "MEDIUM",
-            "message": f"ISPU saat ini {ispu:.0f} ({cat}). Waspada bagi kelompok sensitif.",
-            "payload": payload,
-        })
-
-    # 2. Anomali: lonjakan PM2.5 vs baseline 24 jam (mean + 3*std)
-    hist24 = pd.Series([r["pm25_ugm3"] for r in rows[-1440:]]).dropna()
-    if len(hist24) > 30:
-        mean, std = hist24.mean(), hist24.std()
-        if std > 0 and latest["pm25_ugm3"] > mean + 3 * std:
-            alerts.append({
-                "alert_type": "ANOMALY", "severity": "MEDIUM",
-                "message": f"Lonjakan PM2.5 ({latest['pm25_ugm3']:.1f} µg/m³) di atas baseline 24 jam.",
-                "payload": {"value": latest["pm25_ugm3"], "mean": round(mean, 2), "std3": round(3 * std, 2)},
-            })
-
-    # 3. Kategori prediksi memburuk (dari akhir series forecast)
-    if latest_forecast_info["ispu_total"] > ALERT_ISPU_LEVEL:
-        alerts.append({
-            "alert_type": "ISPU_HIGH", "severity": "LOW",
-            "message": f"Prediksi 60 menit: ISPU {latest_forecast_info['ispu_total']:.0f} ({latest_forecast_info['category']}).",
-            "payload": {"forecast": True, **latest_forecast_info},
-        })
-
-    # log hasil klasifikasi RF (kondisi terkini)
-    alerts.append({
-        "alert_type": "CLASSIFICATION", "severity": "LOW",
-        "message": f"Kategori ISPU model: {clf_out['category']} (conf {clf_out['confidence']:.0%}).",
-        "payload": clf_out,
-    })
-    return alerts
-
-
-def validate_schema():
-    """Cek tabel tb_forecast & tb_alert ada (kalau 404, jalankan migrasi SQL)."""
-    s = supabase_session()
-    for t in [TABLE_FORECAST, TABLE_ALERT]:
-        r = s.get(
-            f"{SUPABASE_URL}/rest/v1/{t}",
-            params={"select": "id", "limit": 1},
-            timeout=30,
+        return round(
+            total
         )
-        if r.status_code == 404:
-            raise RuntimeError(
-                f"Tabel {t} tidak ada. Jalankan database/migrasi_forecast_alert.sql di Supabase SQL Editor."
+
+    result["ispu_total"] = (
+        result.apply(
+            calculate_total,
+            axis=1,
+        )
+    )
+
+    # --------------------------------------------------------
+    # Category
+    # --------------------------------------------------------
+
+    result["ispu_category"] = (
+        result["ispu_total"]
+        .apply(
+            lambda value: (
+                category_of(
+                    value
+                )
+                if pd.notna(value)
+                else "Belum tersedia"
+            )
+        )
+    )
+
+    # --------------------------------------------------------
+    # Dominant pollutant
+    # --------------------------------------------------------
+
+    def calculate_dominant(
+        row,
+    ):
+
+        concentrations = {
+            pollutant: row[
+                f"{pollutant}_rolling_24h"
+            ]
+            for pollutant in POLLUTANTS
+        }
+
+        if any(
+            pd.isna(value)
+            for value
+            in concentrations.values()
+        ):
+            return None
+
+        return dominant_pollutant_of(
+            concentrations
+        )
+
+    result["dominant_pollutant"] = (
+        result.apply(
+            calculate_dominant,
+            axis=1,
+        )
+    )
+
+    return result
+
+
+# ============================================================
+# Forecast Metadata
+# ============================================================
+
+def load_forecast_metadata():
+    """
+    Load forecasting metadata generated by train_forecast.py.
+    """
+
+    if not os.path.exists(
+        FORECAST_METADATA_PATH
+    ):
+        raise FileNotFoundError(
+            "Metadata forecast tidak ditemukan: "
+            f"{FORECAST_METADATA_PATH}. "
+            "Jalankan training terlebih dahulu."
+        )
+
+    with open(
+        FORECAST_METADATA_PATH,
+        "r",
+        encoding="utf-8",
+    ) as file:
+
+        metadata = json.load(
+            file
+        )
+
+    if "models" not in metadata:
+        raise KeyError(
+            "Metadata forecast tidak memiliki "
+            "bagian 'models'."
+        )
+
+    if "features" not in metadata:
+        raise KeyError(
+            "Metadata forecast tidak memiliki "
+            "bagian 'features'."
+        )
+
+    return metadata
+
+
+# ============================================================
+# Forecast Model Loader
+# ============================================================
+
+def load_forecast_models(
+    metadata,
+):
+    """
+    Load fitted forecast models according to training metadata.
+
+    Serialized .joblib files contain:
+    - model
+    - features
+    - target
+    - horizon_minutes
+    - model_family
+
+    Persistence requires no serialized estimator.
+    """
+
+    if "models" not in metadata:
+        raise KeyError(
+            "Metadata forecast tidak memiliki "
+            "bagian 'models'."
+        )
+
+    metadata_models = metadata[
+        "models"
+    ]
+
+    metadata_features = metadata.get(
+        "features",
+        [],
+    )
+
+    models = {}
+
+    for pollutant in POLLUTANTS:
+
+        if pollutant not in metadata_models:
+            raise KeyError(
+                "Metadata forecast tidak memiliki "
+                f"target {pollutant}."
             )
 
+        info = metadata_models[
+            pollutant
+        ]
 
-def run(verbose=True):
-    check_connection()
-    validate_schema()
-    sess = supabase_session()
+        model_family = info[
+            "selected_family"
+        ]
 
-    rows = fetch_rows(sess, TABLE_GAS)
-    if len(rows) < 60:
-        raise RuntimeError(f"Data terlalu sedikit ({len(rows)} baris). Import dummy dulu / tunggu ESP32 mengirim.")
+        # ----------------------------------------------------
+        # Persistence
+        # ----------------------------------------------------
 
-    df = load_to_df(rows)
-    latest_row = df.iloc[-1].to_dict()
+        if model_family == "Persistence":
 
-    # --- forecast ---
-    f_models, clf, meta = load_models()
-    forecast = rolling_predict(f_models, latest_row)
-    forecast_rows = []
-    for f in forecast:
-        ispu = to_ispu(f)
-        total = max(ispu["pm25_ispu_pred"], ispu["pm10_ispu_pred"], ispu["co_ispu_pred"])
-        forecast_rows.append(
-            {
-                "forecast_at": f["forecast_at"],
-                "pm25_ugm3_pred": round(f["pm25_ugm3"], 3),
-                "pm10_ugm3_pred": round(f["pm10_ugm3"], 3),
-                "co_ugm3_pred": round(f["co_ugm3"], 3),
-                **{k: round(v, 3) for k, v in ispu.items()},
-                "category": category_of(total),
+            models[pollutant] = {
+                "family": "Persistence",
+                "model": None,
+                "features": metadata_features,
+            }
+
+            continue
+
+        # ----------------------------------------------------
+        # Ridge / XGBoost
+        # ----------------------------------------------------
+
+        model_file = info.get(
+            "model_file"
+        )
+
+        if not model_file:
+            raise ValueError(
+                f"model_file untuk {pollutant} "
+                "tidak tersedia."
+            )
+
+        if os.path.isabs(
+            model_file
+        ):
+
+            model_path = (
+                model_file
+            )
+
+        else:
+
+            model_path = os.path.join(
+                MODEL_DIR,
+                model_file,
+            )
+
+        if not os.path.exists(
+            model_path
+        ):
+            raise FileNotFoundError(
+                f"Model {pollutant} "
+                f"tidak ditemukan: "
+                f"{model_path}"
+            )
+
+        artifact = joblib.load(
+            model_path
+        )
+
+        if not isinstance(
+            artifact,
+            dict,
+        ):
+            raise TypeError(
+                f"Artifact {pollutant} "
+                "harus berupa dictionary."
+            )
+
+        required_keys = {
+            "model",
+            "features",
+            "target",
+            "horizon_minutes",
+            "model_family",
+        }
+
+        missing_keys = (
+            required_keys
+            - set(
+                artifact.keys()
+            )
+        )
+
+        if missing_keys:
+            raise KeyError(
+                f"Artifact {pollutant} "
+                "tidak lengkap: "
+                + ", ".join(
+                    sorted(
+                        missing_keys
+                    )
+                )
+            )
+
+        if artifact[
+            "target"
+        ] != pollutant:
+
+            raise ValueError(
+                "Target artifact tidak cocok "
+                f"untuk {pollutant}."
+            )
+
+        if artifact[
+            "model_family"
+        ] != model_family:
+
+            raise ValueError(
+                "Model family artifact "
+                f"{pollutant} tidak cocok "
+                "dengan metadata."
+            )
+
+        if artifact[
+            "horizon_minutes"
+        ] != HORIZON_MINUTES:
+
+            raise ValueError(
+                f"Horizon model {pollutant} "
+                "tidak cocok dengan pipeline."
+            )
+
+        if (
+            metadata_features
+            and artifact["features"]
+            != metadata_features
+        ):
+            raise ValueError(
+                f"Feature artifact {pollutant} "
+                "tidak cocok dengan metadata."
+            )
+
+        models[pollutant] = {
+            "family": (
+                model_family
+            ),
+            "model": artifact[
+                "model"
+            ],
+            "features": artifact[
+                "features"
+            ],
+        }
+
+    return models
+
+
+# ============================================================
+# Direct Forecast t+60
+# ============================================================
+
+def forecast_t60(
+    sensor_df,
+    metadata,
+    models,
+):
+    """
+    Generate one direct forecast exactly 60 minutes after
+    the latest available sensor observation.
+
+    Each pollutant uses the model family selected during
+    validation:
+    - Persistence
+    - Ridge
+    - XGBoost
+    """
+
+    feature_df, feature_columns = (
+        build_features(
+            sensor_df,
+            horizon_minutes=HORIZON_MINUTES,
+            include_targets=False,
+        )
+    )
+
+    if feature_df.empty:
+        raise RuntimeError(
+            "Feature forecast kosong. "
+            "Riwayat sensor belum cukup."
+        )
+
+    # --------------------------------------------------------
+    # Validate training/inference feature contract
+    # --------------------------------------------------------
+
+    expected_features = metadata.get(
+        "features",
+        [],
+    )
+
+    if expected_features:
+
+        if (
+            feature_columns
+            != expected_features
+        ):
+
+            raise ValueError(
+                "Feature inference tidak cocok "
+                "dengan feature saat training."
+            )
+
+    # --------------------------------------------------------
+    # Latest inference row
+    # --------------------------------------------------------
+
+    latest = feature_df.iloc[
+        -1
+    ]
+
+    observed_at = pd.to_datetime(
+        latest[
+            "created_at"
+        ],
+        utc=True,
+    )
+
+    forecast_at = (
+        observed_at
+        + pd.Timedelta(
+            minutes=HORIZON_MINUTES
+        )
+    )
+
+    X_latest = (
+        feature_df.iloc[
+            [-1]
+        ][
+            feature_columns
+        ]
+    )
+
+    result = {
+        "created_at": (
+            observed_at
+        ),
+        "forecast_at": (
+            forecast_at
+        ),
+        "horizon_minutes": (
+            HORIZON_MINUTES
+        ),
+    }
+
+    # --------------------------------------------------------
+    # Forecast every pollutant
+    # --------------------------------------------------------
+
+    for pollutant in POLLUTANTS:
+
+        if pollutant not in models:
+            raise KeyError(
+                f"Model {pollutant} "
+                "tidak tersedia."
+            )
+
+        model_info = models[
+            pollutant
+        ]
+
+        model_family = model_info[
+            "family"
+        ]
+
+        # ----------------------------------------------------
+        # Persistence
+        # ----------------------------------------------------
+
+        if model_family == "Persistence":
+
+            prediction = float(
+                latest[
+                    pollutant
+                ]
+            )
+
+        # ----------------------------------------------------
+        # Ridge / XGBoost
+        # ----------------------------------------------------
+
+        else:
+
+            model = model_info[
+                "model"
+            ]
+
+            if model is None:
+                raise RuntimeError(
+                    f"Estimator {pollutant} "
+                    "tidak tersedia."
+                )
+
+            model_features = (
+                model_info.get(
+                    "features",
+                    feature_columns,
+                )
+            )
+
+            if (
+                model_features
+                != feature_columns
+            ):
+                raise ValueError(
+                    f"Feature model {pollutant} "
+                    "tidak cocok dengan "
+                    "feature inference."
+                )
+
+            prediction = float(
+                model.predict(
+                    X_latest[
+                        model_features
+                    ]
+                )[0]
+            )
+
+        # Concentration cannot be negative.
+        prediction = max(
+            0.0,
+            prediction,
+        )
+
+        result[
+            f"{pollutant}"
+            "_forecast_t60"
+        ] = prediction
+
+        result[
+            f"{pollutant}"
+            "_model"
+        ] = model_family
+
+    return result
+
+
+# ============================================================
+# Experimental Forecast Indicator
+# ============================================================
+
+def add_forecast_indicator(
+    forecast,
+):
+    """
+    Calculate an experimental indicator from forecast pollutant
+    concentrations.
+
+    IMPORTANT:
+    This is NOT an official future ISPU.
+
+    Official current ISPU is based on the required measurement
+    / aggregation window. A direct concentration forecast at
+    t+60 cannot replace that complete future window.
+    """
+
+    concentrations = {}
+
+    for pollutant in POLLUTANTS:
+
+        forecast_column = (
+            f"{pollutant}"
+            "_forecast_t60"
+        )
+
+        if forecast_column not in forecast:
+            raise KeyError(
+                "Forecast tidak memiliki "
+                f"{forecast_column}."
+            )
+
+        concentrations[
+            pollutant
+        ] = forecast[
+            forecast_column
+        ]
+
+    total, category = (
+        ispu_total_of(
+            concentrations
+        )
+    )
+
+    dominant = (
+        dominant_pollutant_of(
+            concentrations
+        )
+    )
+
+    if total is not None:
+        total = round(
+            total
+        )
+
+        category = category_of(
+            total
+        )
+
+    result = forecast.copy()
+
+    result[
+        "forecast_indicator_total"
+    ] = total
+
+    result[
+        "forecast_indicator_category"
+    ] = category
+
+    result[
+        "forecast_indicator_dominant"
+    ] = dominant
+
+    return result
+
+
+# ============================================================
+# Attach Forecast to Latest Sensor Row
+# ============================================================
+
+def attach_forecast_to_latest_row(
+    sensor_df,
+    forecast,
+):
+    """
+    Attach the t+60 forecast fields to the latest sensor row.
+
+    Historical rows intentionally remain unavailable because
+    this pipeline produces one forecast from the latest
+    observation.
+    """
+
+    result = sensor_df.copy()
+
+    forecast_columns = [
+        key
+        for key in forecast.keys()
+        if (
+            key.endswith(
+                "_forecast_t60"
+            )
+            or key.endswith(
+                "_model"
+            )
+            or key.startswith(
+                "forecast_indicator_"
+            )
+        )
+    ]
+
+    text_columns = {
+        "forecast_indicator_category",
+        "forecast_indicator_dominant",
+    }
+
+    latest_index = (
+        result.index[-1]
+    )
+
+    for column in forecast_columns:
+
+        # Text/object columns
+        if (
+            column.endswith("_model")
+            or column in text_columns
+        ):
+            result[column] = pd.Series(
+                [None] * len(result),
+                index=result.index,
+                dtype="object",
+            )
+
+        # Numeric columns
+        else:
+            result[column] = np.nan
+
+        result.loc[
+            latest_index,
+            column,
+        ] = forecast[
+            column
+        ]
+
+    return result
+
+
+# ============================================================
+# Local / Shared Core Pipeline
+# ============================================================
+
+def run_from_dataframe(
+    raw_df,
+    metadata=None,
+    models=None,
+):
+    """
+    Execute the complete analytics pipeline from an in-memory
+    DataFrame.
+
+    This function is used for local/dummy testing and can also
+    be reused after production data has been retrieved.
+
+    Returns:
+    - sensor: complete processed timeline
+    - forecast: latest t+60 forecast
+    - latest: latest processed sensor row
+    - alerts: rows with active unified alerts
+    """
+
+    if raw_df is None:
+        raise ValueError(
+            "raw_df tidak boleh None."
+        )
+
+    if not isinstance(
+        raw_df,
+        pd.DataFrame,
+    ):
+        raw_df = pd.DataFrame(
+            raw_df
+        )
+
+    if raw_df.empty:
+        raise RuntimeError(
+            "Data sensor kosong."
+        )
+
+    # --------------------------------------------------------
+    # Preprocessing
+    # --------------------------------------------------------
+
+    sensor_df = load_to_df(
+        raw_df.to_dict(
+            orient="records"
+        )
+    )
+
+    if (
+        len(sensor_df)
+        < ISPU_ROLLING_WINDOW
+    ):
+        raise RuntimeError(
+            "Riwayat sensor belum cukup "
+            "untuk perhitungan ISPU 24 jam. "
+            f"Minimal {ISPU_ROLLING_WINDOW} "
+            "observasi diperlukan."
+        )
+
+    # --------------------------------------------------------
+    # Current ISPU
+    # --------------------------------------------------------
+
+    sensor_df = (
+        add_current_ispu(
+            sensor_df
+        )
+    )
+
+    # --------------------------------------------------------
+    # Anomaly Detection
+    # --------------------------------------------------------
+
+    anomaly_df, anomaly_artifacts = (
+        detect_anomalies(
+            sensor_df
+        )
+    )
+
+    anomaly_columns = [
+        column
+        for column
+        in anomaly_df.columns
+        if (
+            column.startswith(
+                "anomaly_"
+            )
+            or column.startswith(
+                "z_"
+            )
+            or column
+            in {
+                "has_z_anomaly",
+                "isolation_score",
+                "isolation_anomaly",
+                "has_anomaly_evidence",
             }
         )
-    if verbose:
-        print(f"[forecast] {len(forecast_rows)} titik (t+1..t+60) -> {TABLE_FORECAST}")
-    insert_rows(sess, TABLE_FORECAST, forecast_rows)
+    ]
 
-    # --- klasifikasi kondisi terkini ---
-    feats = [[
-        latest_row["pm25_ugm3"], latest_row["pm10_ugm3"],
-        latest_row["co_ugm3"], latest_row["no2_ugm3"], latest_row["o3_ugm3"],
-    ]]
-    proba = clf["model"].predict_proba(np.array(feats))[0]
-    idx = int(np.argmax(proba))
-    clf_out = {
-        "category": clf["classes"][idx],
-        "confidence": round(float(proba[idx]), 4),
-        "probabilities": {c: round(float(p), 4) for c, p in zip(clf["classes"], proba)},
-    }
-    if verbose:
-        print(f"[klasifikasi] {clf_out['category']} (conf {clf_out['confidence']:.0%})")
+    for column in anomaly_columns:
 
-    # --- alert ---
-    offline = check_device_offline(rows)
-    last_total = max(
-        ispu_pm25(latest_row["pm25_ugm3"]),
-        ispu_pm10(latest_row["pm10_ugm3"]),
-        ispu_co(latest_row["co_ugm3"]),
+        sensor_df[
+            column
+        ] = anomaly_df[
+            column
+        ].values
+
+    # --------------------------------------------------------
+    # Forecast models
+    # --------------------------------------------------------
+
+    if metadata is None:
+
+        metadata = (
+            load_forecast_metadata()
+        )
+
+    if models is None:
+
+        models = (
+            load_forecast_models(
+                metadata
+            )
+        )
+
+    # --------------------------------------------------------
+    # Direct forecast t+60
+    # --------------------------------------------------------
+
+    forecast = forecast_t60(
+        sensor_df,
+        metadata,
+        models,
     )
-    latest_forecast_info = {"ispu_total": last_total, "category": category_of(last_total)}
-    alerts = build_alerts(rows, latest_forecast_info, clf_out)
-    if offline:
-        alerts.insert(0, offline)
-    if alerts:
-        insert_rows(sess, TABLE_ALERT, alerts)
-    if verbose:
-        print(f"[alert] {len(alerts)} entry -> {TABLE_ALERT}")
 
-    print("\nPipeline selesai [OK]")
+    # --------------------------------------------------------
+    # Experimental forecast indicator
+    # --------------------------------------------------------
 
+    forecast = (
+        add_forecast_indicator(
+            forecast
+        )
+    )
+
+    # --------------------------------------------------------
+    # Attach latest forecast
+    # --------------------------------------------------------
+
+    sensor_df = (
+        attach_forecast_to_latest_row(
+            sensor_df,
+            forecast,
+        )
+    )
+
+    # --------------------------------------------------------
+    # Unified alert logic
+    # --------------------------------------------------------
+
+    sensor_df = (
+        apply_alert_logic(
+            sensor_df
+        )
+    )
+
+    # --------------------------------------------------------
+    # Results
+    # --------------------------------------------------------
+
+    latest = (
+        sensor_df.iloc[-1]
+        .copy()
+    )
+
+    alerts = (
+        sensor_df[
+            sensor_df[
+                "has_alert"
+            ]
+            .fillna(False)
+            .astype(bool)
+        ]
+        .copy()
+    )
+
+    return {
+        "sensor": sensor_df,
+        "forecast": forecast,
+        "latest": latest,
+        "alerts": alerts,
+    }
+
+
+# ============================================================
+# Production Entry Point
+# ============================================================
+
+def run():
+    """
+    Fetch sensor data from Supabase and execute the analytics
+    pipeline.
+
+    Database writes are intentionally not performed yet.
+    The database schema and write contract must first be
+    coordinated with the database/cloud team member.
+    """
+
+    check_connection()
+
+    session = (
+        supabase_session()
+    )
+
+    rows = fetch_rows(
+        session,
+        TABLE_GAS,
+    )
+
+    if not rows:
+        raise RuntimeError(
+            "Tidak ada data sensor "
+            "yang tersedia."
+        )
+
+    raw_df = pd.DataFrame(
+        rows
+    )
+
+    result = run_from_dataframe(
+        raw_df
+    )
+
+    forecast = result[
+        "forecast"
+    ]
+
+    latest = result[
+        "latest"
+    ]
+
+    alerts = result[
+        "alerts"
+    ]
+
+    print(
+        "\nAirSense analytics pipeline selesai."
+    )
+
+    print(
+        "Latest sensor timestamp:",
+        latest[
+            "created_at"
+        ],
+    )
+
+    print(
+        "Current ISPU:",
+        latest[
+            "ispu_total"
+        ],
+        "|",
+        latest[
+            "ispu_category"
+        ],
+    )
+
+    print(
+        "Dominant pollutant:",
+        latest[
+            "dominant_pollutant"
+        ],
+    )
+
+    print(
+        "Forecast timestamp:",
+        forecast[
+            "forecast_at"
+        ],
+    )
+
+    print(
+        "Forecast indicator:",
+        forecast[
+            "forecast_indicator_total"
+        ],
+        "|",
+        forecast[
+            "forecast_indicator_category"
+        ],
+    )
+
+    print(
+        "Active alert rows:",
+        len(
+            alerts
+        ),
+    )
+
+    return result
+
+
+# ============================================================
+# CLI
+# ============================================================
 
 if __name__ == "__main__":
     run()

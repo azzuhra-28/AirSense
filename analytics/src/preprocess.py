@@ -1,78 +1,489 @@
 # ============================================================
 # AirSense - Preprocessing & Feature Engineering
-# Spesifikasi mengikuti laporan PA Yusuf bab 3.2.5/4.7.6:
-#   - fetch pagination 1000 baris/batch, 30 hari
-#   - dropna(), outlier IQR
-#   - fitur: 5 polutan + suhu + RH + waktu + lag 1 menit
-#   - target forecast: t+60 (horizon 60 menit)
+#
+# Digunakan untuk forecasting kualitas udara:
+# - validasi dan normalisasi data sensor
+# - menjaga spike/outlier sebagai informasi
+# - membuat lag features
+# - membuat rolling statistics
+# - membuat cyclical time features
+# - membuat direct target t+60 untuk training
+# - mendukung feature engineering tanpa target untuk inference
 # ============================================================
-
-from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import pandas as pd
 
-from .ispu import ispu_pm25, ispu_pm10, ispu_co
 
-# Fitur untuk model forecast & klasifikasi
-FEATURES = [
-    "pm25_ugm3", "pm10_ugm3", "co_ugm3", "no2_ugm3", "o3_ugm3",
-    "temperature", "humidity",
+# ============================================================
+# Configuration
+# ============================================================
+
+POLLUTANTS = [
+    "pm25_ugm3",
+    "pm10_ugm3",
+    "co_ugm3",
+    "no2_ugm3",
+    "o3_ugm3",
 ]
-PREFIX = ["pm25_ugm3", "pm10_ugm3", "co_ugm3", "no2_ugm3", "o3_ugm3"]
-TARGETS = ["pm25_ugm3", "pm10_ugm3", "co_ugm3"]
+
+ENVIRONMENTAL_FEATURES = [
+    "temperature",
+    "humidity",
+]
+
+BASE_FEATURES = (
+    POLLUTANTS
+    + ENVIRONMENTAL_FEATURES
+)
+
+TARGETS = POLLUTANTS.copy()
+
+LAGS = [
+    1,
+    10,
+    30,
+    60,
+]
+
+ROLLING_WINDOWS = [
+    10,
+    30,
+    60,
+]
+
 HORIZON_MINUTES = 60
 
-MIN_ROWS_FOR_TRAIN = 60 * 24 * 2  # minimal 2 hari data per-menit
+MIN_ROWS_FOR_TRAIN = (
+    60 * 24 * 2
+)
 
 
-def load_to_df(rows: list[dict]) -> pd.DataFrame:
-    """Konversi list dict dari Supabase jadi DataFrame, urut waktu naik."""
-    df = pd.DataFrame(rows)
-    df["created_at"] = pd.to_datetime(df["created_at"], utc=True, format="ISO8601")
-    for c in FEATURES:
-        df[c] = pd.to_numeric(df[c], errors="coerce")
-    df = df.dropna(subset=FEATURES).sort_values("created_at").reset_index(drop=True)
-    df = df.drop_duplicates(subset="created_at")
+# ============================================================
+# Data Loading & Validation
+# ============================================================
+
+def load_to_df(
+    rows: list[dict],
+) -> pd.DataFrame:
+    """
+    Convert sensor records into a clean chronological DataFrame.
+
+    Processing:
+    - validate required columns
+    - parse timestamp as UTC
+    - convert sensor measurements to numeric
+    - remove invalid timestamps
+    - remove duplicate timestamps
+    - mark negative pollutant concentrations as invalid
+    - remove rows with incomplete base measurements
+
+    Statistical outliers are NOT automatically removed because
+    extreme values may contain meaningful air-quality information.
+    """
+
+    if not rows:
+        return pd.DataFrame(
+            columns=[
+                "created_at",
+                *BASE_FEATURES,
+            ]
+        )
+
+    df = pd.DataFrame(
+        rows
+    )
+
+    required_columns = [
+        "created_at",
+        *BASE_FEATURES,
+    ]
+
+    missing_columns = [
+        column
+        for column in required_columns
+        if column not in df.columns
+    ]
+
+    if missing_columns:
+        raise ValueError(
+            "Kolom wajib tidak ditemukan: "
+            + ", ".join(
+                missing_columns
+            )
+        )
+
+    # --------------------------------------------------------
+    # Timestamp
+    # --------------------------------------------------------
+
+    df["created_at"] = (
+        pd.to_datetime(
+            df["created_at"],
+            utc=True,
+            errors="coerce",
+        )
+    )
+
+    # --------------------------------------------------------
+    # Numeric sensor values
+    # --------------------------------------------------------
+
+    for column in BASE_FEATURES:
+
+        df[column] = (
+            pd.to_numeric(
+                df[column],
+                errors="coerce",
+            )
+        )
+
+    # --------------------------------------------------------
+    # Invalid timestamp
+    # --------------------------------------------------------
+
+    df = df.dropna(
+        subset=[
+            "created_at",
+        ]
+    )
+
+    # --------------------------------------------------------
+    # Sort and remove duplicate timestamp
+    # --------------------------------------------------------
+
+    df = (
+        df
+        .sort_values(
+            "created_at"
+        )
+        .drop_duplicates(
+            subset="created_at",
+            keep="last",
+        )
+        .reset_index(
+            drop=True
+        )
+    )
+
+    # --------------------------------------------------------
+    # Invalid pollutant concentrations
+    # --------------------------------------------------------
+
+    for column in POLLUTANTS:
+
+        df.loc[
+            df[column] < 0,
+            column,
+        ] = np.nan
+
+    # --------------------------------------------------------
+    # Complete base measurements
+    # --------------------------------------------------------
+
+    df = (
+        df
+        .dropna(
+            subset=BASE_FEATURES
+        )
+        .reset_index(
+            drop=True
+        )
+    )
+
     return df
 
 
-def remove_outliers_iqr(df: pd.DataFrame, cols=PREFIX) -> pd.DataFrame:
-    """Metode IQR untuk penanganan outlier (per laporan)."""
-    clean = df.copy()
-    for c in cols:
-        q1 = clean[c].quantile(0.25)
-        q3 = clean[c].quantile(0.75)
-        iqr = q3 - q1
-        lo, hi = q1 - 1.5 * iqr, q3 + 1.5 * iqr
-        # outlier diganti NaN lalu di-interpolasi (bukan dibuang, biar ts tetap kontinu)
-        clean.loc[(clean[c] < lo) | (clean[c] > hi), c] = np.nan
-    clean = clean.interpolate(method="linear", limit_direction="both")
-    return clean
+# ============================================================
+# Forecast Feature Engineering
+# ============================================================
+
+def build_features(
+    df: pd.DataFrame,
+    horizon_minutes: int = HORIZON_MINUTES,
+    include_targets: bool = True,
+) -> tuple[pd.DataFrame, list[str]]:
+    """
+    Build forecasting features.
+
+    Training mode:
+        include_targets=True
+
+        Creates direct forecasting targets at t+horizon.
+        Rows without future targets are removed.
+
+    Inference mode:
+        include_targets=False
+
+        Does not create future targets.
+        The newest valid feature row remains available for
+        direct t+horizon prediction.
+
+    The model predicts pollutant concentrations directly at
+    t+60. This function does NOT construct recursive
+    t+1 ... t+60 predictions.
+    """
+
+    if df.empty:
+        return (
+            df.copy(),
+            [],
+        )
+
+    if horizon_minutes <= 0:
+        raise ValueError(
+            "horizon_minutes harus lebih dari 0."
+        )
+
+    df = (
+        df
+        .sort_values(
+            "created_at"
+        )
+        .reset_index(
+            drop=True
+        )
+        .copy()
+    )
+
+    feature_columns = []
+
+    # ========================================================
+    # Current measurements
+    # ========================================================
+
+    feature_columns.extend(
+        BASE_FEATURES
+    )
+
+    # ========================================================
+    # Lag features
+    # ========================================================
+
+    for column in POLLUTANTS:
+
+        for lag in LAGS:
+
+            feature_name = (
+                f"{column}_lag_{lag}"
+            )
+
+            df[feature_name] = (
+                df[column]
+                .shift(lag)
+            )
+
+            feature_columns.append(
+                feature_name
+            )
+
+    # ========================================================
+    # Rolling statistics
+    #
+    # shift(1) ensures that rolling statistics only contain
+    # observations available before the current timestamp.
+    # ========================================================
+
+    for column in POLLUTANTS:
+
+        historical = (
+            df[column]
+            .shift(1)
+        )
+
+        for window in ROLLING_WINDOWS:
+
+            mean_name = (
+                f"{column}_roll_mean_{window}"
+            )
+
+            std_name = (
+                f"{column}_roll_std_{window}"
+            )
+
+            df[mean_name] = (
+                historical
+                .rolling(
+                    window=window,
+                    min_periods=window,
+                )
+                .mean()
+            )
+
+            df[std_name] = (
+                historical
+                .rolling(
+                    window=window,
+                    min_periods=window,
+                )
+                .std()
+            )
+
+            feature_columns.extend(
+                [
+                    mean_name,
+                    std_name,
+                ]
+            )
+
+    # ========================================================
+    # Local cyclical time features
+    # ========================================================
+
+    local_time = (
+        df["created_at"]
+        .dt.tz_convert(
+            "Asia/Jakarta"
+        )
+    )
+
+    hour = (
+        local_time.dt.hour
+        + (
+            local_time.dt.minute
+            / 60
+        )
+    )
+
+    weekday = (
+        local_time.dt.weekday
+    )
+
+    df["hour_sin"] = np.sin(
+        2
+        * np.pi
+        * hour
+        / 24
+    )
+
+    df["hour_cos"] = np.cos(
+        2
+        * np.pi
+        * hour
+        / 24
+    )
+
+    df["dow_sin"] = np.sin(
+        2
+        * np.pi
+        * weekday
+        / 7
+    )
+
+    df["dow_cos"] = np.cos(
+        2
+        * np.pi
+        * weekday
+        / 7
+    )
+
+    feature_columns.extend(
+        [
+            "hour_sin",
+            "hour_cos",
+            "dow_sin",
+            "dow_cos",
+        ]
+    )
+
+    # ========================================================
+    # Direct targets t+horizon
+    # ========================================================
+
+    target_columns = []
+
+    if include_targets:
+
+        for target in TARGETS:
+
+            target_name = (
+                f"{target}"
+                f"_target_t"
+                f"{horizon_minutes}"
+            )
+
+            df[target_name] = (
+                df[target]
+                .shift(
+                    -horizon_minutes
+                )
+            )
+
+            target_columns.append(
+                target_name
+            )
+
+    # ========================================================
+    # Keep complete rows
+    # ========================================================
+
+    required_complete_columns = (
+        feature_columns.copy()
+    )
+
+    if include_targets:
+
+        required_complete_columns.extend(
+            target_columns
+        )
+
+    df = (
+        df
+        .dropna(
+            subset=required_complete_columns
+        )
+        .reset_index(
+            drop=True
+        )
+    )
+
+    return (
+        df,
+        feature_columns,
+    )
 
 
-def build_features(df: pd.DataFrame) -> pd.DataFrame:
-    """DataFrame -> matriks fitur + target t+60."""
-    df = df.sort_values("created_at").reset_index(drop=True)
+# ============================================================
+# Historical Window
+# ============================================================
 
-    # lag 1 menit (fitur paling dominan dari analisis ACF/PACF laporan)
-    for c in PREFIX:
-        df[f"{c}_lag1"] = df[c].shift(1)
+def filter_last_days(
+    df: pd.DataFrame,
+    days: int = 30,
+) -> pd.DataFrame:
+    """
+    Keep records from the most recent requested time window.
 
-    # fitur waktu
-    df["hour"] = df["created_at"].dt.hour
-    df["weekday"] = df["created_at"].dt.weekday
+    The cutoff is based on the latest timestamp available in
+    the dataset rather than the computer's current clock.
+    """
 
-    # target horizon 60 menit (nilai asli, bukan pergeseran langsung)
-    for t in TARGETS:
-        df[f"y_{t}"] = df[t].shift(-HORIZON_MINUTES)
+    if df.empty:
+        return df.copy()
 
-    # drop baris tanpa lag/target (tidak lengkap)
-    feat_cols = [f"{c}_lag1" for c in PREFIX] + ["temperature", "humidity", "hour", "weekday"]
-    df = df.dropna(subset=feat_cols + [f"y_{t}" for t in TARGETS]).reset_index(drop=True)
-    return df, feat_cols
+    if days <= 0:
+        raise ValueError(
+            "days harus lebih dari 0."
+        )
 
+    latest_timestamp = (
+        df["created_at"]
+        .max()
+    )
 
-def filter_last_days(df: pd.DataFrame, days: int = 30) -> pd.DataFrame:
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-    return df[df["created_at"] >= cutoff].reset_index(drop=True)
+    cutoff = (
+        latest_timestamp
+        - pd.Timedelta(
+            days=days
+        )
+    )
+
+    return (
+        df.loc[
+            df["created_at"]
+            >= cutoff
+        ]
+        .reset_index(
+            drop=True
+        )
+    )
