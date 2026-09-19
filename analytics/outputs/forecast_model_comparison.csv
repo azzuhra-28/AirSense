@@ -1,0 +1,6 @@
+Parameter,MAE_Persistence,RMSE_Persistence,MAE_Ridge,RMSE_Ridge,MAE_XGBoost,RMSE_XGBoost,Lowest_Test_MAE,Lowest_MAE,Lowest_RMSE
+pm25_ugm3,5.398,10.306,3.68,7.565,4.201,8.285,Ridge,Ridge,Ridge
+pm10_ugm3,6.866,11.697,4.736,8.573,5.232,9.22,Ridge,Ridge,Ridge
+co_ugm3,265.31,515.309,175.067,367.502,172.61,373.13,XGBoost,XGBoost,Ridge
+no2_ugm3,0.248,0.439,1.52,1.913,1.72,3.533,Persistence,Persistence,Persistence
+o3_ugm3,8.517,17.623,8.116,12.814,7.846,13.009,XGBoost,XGBoost,Ridge

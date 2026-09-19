@@ -1,0 +1,6 @@
+Parameter,Anomaly_Count,Percentage_of_Data
+pm25_ugm3,64,0.635
+pm10_ugm3,63,0.625
+co_ugm3,85,0.843
+no2_ugm3,337,3.343
+o3_ugm3,103,1.022
