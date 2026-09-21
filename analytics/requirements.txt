@@ -6,3 +6,8 @@ xgboost
 requests
 python-dotenv
 joblib
+
+# Deep learning (model LSTM / pembanding XGBoost)
+# Catatan Windows: import torch HARUS sebelum xgboost
+# (lihat src/compare_models.py) agar DLL OpenMP tidak bentrok.
+torch

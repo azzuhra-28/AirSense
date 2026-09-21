@@ -1,0 +1,1670 @@
+{
+  "generated_at": "2026-09-21T06:25:22.631794+00:00",
+  "horizon_minutes": 60,
+  "n_rows_features": 9961,
+  "grid_size": 54,
+  "tuning": {
+    "pm25_ugm3": {
+      "best": {
+        "arch": "lstm",
+        "window": 30,
+        "hidden_size": 128,
+        "num_layers": 2,
+        "dropout": 0.2,
+        "validation_mae": 3.5077964606952343,
+        "validation_rmse": 7.977524641635045,
+        "validation_mape": 18.52971148882502
+      },
+      "all": [
+        {
+          "arch": "lstm",
+          "window": 30,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.5220541403968992,
+          "validation_rmse": 8.018449272137712,
+          "validation_mape": 18.535047320779157
+        },
+        {
+          "arch": "lstm",
+          "window": 30,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.5167664635303484,
+          "validation_rmse": 7.991204212096236,
+          "validation_mape": 18.47075888733773
+        },
+        {
+          "arch": "lstm",
+          "window": 30,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.514442630025714,
+          "validation_rmse": 7.990047138029169,
+          "validation_mape": 18.475557443204444
+        },
+        {
+          "arch": "lstm",
+          "window": 30,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.510482049232457,
+          "validation_rmse": 7.986769292283434,
+          "validation_mape": 18.517957049925954
+        },
+        {
+          "arch": "lstm",
+          "window": 30,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.5185294297774905,
+          "validation_rmse": 7.9778408277649,
+          "validation_mape": 18.583051476101673
+        },
+        {
+          "arch": "lstm",
+          "window": 30,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.5077964606952343,
+          "validation_rmse": 7.977524641635045,
+          "validation_mape": 18.52971148882502
+        },
+        {
+          "arch": "lstm",
+          "window": 60,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.5474943360385165,
+          "validation_rmse": 8.088942870741239,
+          "validation_mape": 18.452650107526733
+        },
+        {
+          "arch": "lstm",
+          "window": 60,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.5413908144322837,
+          "validation_rmse": 8.067707955435283,
+          "validation_mape": 18.600557196540464
+        },
+        {
+          "arch": "lstm",
+          "window": 60,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.5354800274147804,
+          "validation_rmse": 8.050671995148667,
+          "validation_mape": 18.64299363262464
+        },
+        {
+          "arch": "lstm",
+          "window": 60,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.533658280854441,
+          "validation_rmse": 8.063358249623116,
+          "validation_mape": 18.50461761425337
+        },
+        {
+          "arch": "lstm",
+          "window": 60,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.5426394545658124,
+          "validation_rmse": 8.061465809579076,
+          "validation_mape": 18.846557211533103
+        },
+        {
+          "arch": "lstm",
+          "window": 60,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.536151131686433,
+          "validation_rmse": 8.0603359023833,
+          "validation_mape": 18.697834699217236
+        },
+        {
+          "arch": "lstm",
+          "window": 120,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.641541058627042,
+          "validation_rmse": 8.272111571261485,
+          "validation_mape": 18.829067816064477
+        },
+        {
+          "arch": "lstm",
+          "window": 120,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.6146526447642935,
+          "validation_rmse": 8.204848753778071,
+          "validation_mape": 19.0372671153992
+        },
+        {
+          "arch": "lstm",
+          "window": 120,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.6193795478127218,
+          "validation_rmse": 8.230859619840222,
+          "validation_mape": 18.863075963892097
+        },
+        {
+          "arch": "lstm",
+          "window": 120,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.6193072939786046,
+          "validation_rmse": 8.21888906319775,
+          "validation_mape": 18.844784603602417
+        },
+        {
+          "arch": "lstm",
+          "window": 120,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.620504934831099,
+          "validation_rmse": 8.226505234627272,
+          "validation_mape": 18.77966275617382
+        },
+        {
+          "arch": "lstm",
+          "window": 120,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.6170147469260474,
+          "validation_rmse": 8.20913049388732,
+          "validation_mape": 19.034757988888447
+        },
+        {
+          "arch": "bilstm",
+          "window": 30,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.5276010864830667,
+          "validation_rmse": 8.007184960603904,
+          "validation_mape": 18.424676813667464
+        },
+        {
+          "arch": "bilstm",
+          "window": 30,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.5145416123061457,
+          "validation_rmse": 7.997992300078043,
+          "validation_mape": 18.4488041987506
+        },
+        {
+          "arch": "bilstm",
+          "window": 30,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.51107482845059,
+          "validation_rmse": 7.984651069542334,
+          "validation_mape": 18.49034120269903
+        },
+        {
+          "arch": "bilstm",
+          "window": 30,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.5132549097106724,
+          "validation_rmse": 7.986988710388765,
+          "validation_mape": 18.58125095879332
+        },
+        {
+          "arch": "bilstm",
+          "window": 30,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.5111711755954365,
+          "validation_rmse": 7.978224549371766,
+          "validation_mape": 18.468661855570296
+        },
+        {
+          "arch": "bilstm",
+          "window": 30,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.507945399886512,
+          "validation_rmse": 7.981478388341058,
+          "validation_mape": 18.632357003197722
+        },
+        {
+          "arch": "bilstm",
+          "window": 60,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.5446051973083708,
+          "validation_rmse": 8.07027861046908,
+          "validation_mape": 18.694484151475386
+        },
+        {
+          "arch": "bilstm",
+          "window": 60,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.539643312912785,
+          "validation_rmse": 8.060579626209535,
+          "validation_mape": 18.60845187772818
+        },
+        {
+          "arch": "bilstm",
+          "window": 60,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.5315811489517266,
+          "validation_rmse": 8.03908132357938,
+          "validation_mape": 18.73650365842009
+        },
+        {
+          "arch": "bilstm",
+          "window": 60,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.5399625140200093,
+          "validation_rmse": 8.0657482934362,
+          "validation_mape": 18.657428350260844
+        },
+        {
+          "arch": "bilstm",
+          "window": 60,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.539706888099165,
+          "validation_rmse": 8.04893204769712,
+          "validation_mape": 18.647795886707108
+        },
+        {
+          "arch": "bilstm",
+          "window": 60,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.535165710980884,
+          "validation_rmse": 8.050205017868025,
+          "validation_mape": 18.76516315115172
+        },
+        {
+          "arch": "bilstm",
+          "window": 120,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.623215214816007,
+          "validation_rmse": 8.213004800125896,
+          "validation_mape": 19.06951731952794
+        },
+        {
+          "arch": "bilstm",
+          "window": 120,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.6166853533658117,
+          "validation_rmse": 8.208477378489007,
+          "validation_mape": 19.024537652416342
+        },
+        {
+          "arch": "bilstm",
+          "window": 120,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.628317518754439,
+          "validation_rmse": 8.249213592638041,
+          "validation_mape": 18.91341557442575
+        },
+        {
+          "arch": "bilstm",
+          "window": 120,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.6122320515025748,
+          "validation_rmse": 8.224456712475288,
+          "validation_mape": 19.011412493412745
+        },
+        {
+          "arch": "bilstm",
+          "window": 120,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.631962735262784,
+          "validation_rmse": 8.248911884561089,
+          "validation_mape": 19.06329415707296
+        },
+        {
+          "arch": "bilstm",
+          "window": 120,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.6188959967873315,
+          "validation_rmse": 8.228164127249693,
+          "validation_mape": 18.83123069084613
+        },
+        {
+          "arch": "gru",
+          "window": 30,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.5160212982229813,
+          "validation_rmse": 7.99317637422456,
+          "validation_mape": 18.49619294234042
+        },
+        {
+          "arch": "gru",
+          "window": 30,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.5247529573408003,
+          "validation_rmse": 7.9921457879309035,
+          "validation_mape": 18.54452717440609
+        },
+        {
+          "arch": "gru",
+          "window": 30,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.5141987152880776,
+          "validation_rmse": 7.970970910318247,
+          "validation_mape": 18.75640912844481
+        },
+        {
+          "arch": "gru",
+          "window": 30,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.515941932339717,
+          "validation_rmse": 7.976057835776398,
+          "validation_mape": 18.681506445495415
+        },
+        {
+          "arch": "gru",
+          "window": 30,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.523732025875573,
+          "validation_rmse": 7.975638175348977,
+          "validation_mape": 18.72050541057188
+        },
+        {
+          "arch": "gru",
+          "window": 30,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.518621727224096,
+          "validation_rmse": 7.928924685113781,
+          "validation_mape": 18.860603547623477
+        },
+        {
+          "arch": "gru",
+          "window": 60,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.5435556418388976,
+          "validation_rmse": 8.063871883244946,
+          "validation_mape": 18.571832121010054
+        },
+        {
+          "arch": "gru",
+          "window": 60,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.545981250988897,
+          "validation_rmse": 8.069412569183305,
+          "validation_mape": 18.592226389505495
+        },
+        {
+          "arch": "gru",
+          "window": 60,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.54932338236101,
+          "validation_rmse": 8.069820050884694,
+          "validation_mape": 18.712510811363476
+        },
+        {
+          "arch": "gru",
+          "window": 60,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.5390017532720797,
+          "validation_rmse": 8.06236668372651,
+          "validation_mape": 18.57305379752788
+        },
+        {
+          "arch": "gru",
+          "window": 60,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.548751290085424,
+          "validation_rmse": 8.033554217253021,
+          "validation_mape": 18.768127651931103
+        },
+        {
+          "arch": "gru",
+          "window": 60,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.5473634068558857,
+          "validation_rmse": 8.044457689079135,
+          "validation_mape": 18.79387390716068
+        },
+        {
+          "arch": "gru",
+          "window": 120,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.623638103831898,
+          "validation_rmse": 8.240993351143798,
+          "validation_mape": 18.826060187598582
+        },
+        {
+          "arch": "gru",
+          "window": 120,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.6179975794011896,
+          "validation_rmse": 8.219065835503935,
+          "validation_mape": 18.90029559740767
+        },
+        {
+          "arch": "gru",
+          "window": 120,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.6356595237038354,
+          "validation_rmse": 8.227578940047781,
+          "validation_mape": 19.287559012976015
+        },
+        {
+          "arch": "gru",
+          "window": 120,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.6150136448253285,
+          "validation_rmse": 8.227763788927374,
+          "validation_mape": 18.982039143191137
+        },
+        {
+          "arch": "gru",
+          "window": 120,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 3.6299110773259944,
+          "validation_rmse": 8.242911659420104,
+          "validation_mape": 18.981274540961756
+        },
+        {
+          "arch": "gru",
+          "window": 120,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 3.628620184464888,
+          "validation_rmse": 8.231353110896823,
+          "validation_mape": 19.01287363906851
+        }
+      ]
+    },
+    "pm10_ugm3": {
+      "best": {
+        "arch": "gru",
+        "window": 30,
+        "hidden_size": 128,
+        "num_layers": 2,
+        "dropout": 0.2,
+        "validation_mae": 4.616866137143288,
+        "validation_rmse": 9.06260219085668,
+        "validation_mape": 23.096119611361846
+      },
+      "all": [
+        {
+          "arch": "lstm",
+          "window": 30,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.670159061939643,
+          "validation_rmse": 9.149044574194797,
+          "validation_mape": 22.917027982377963
+        },
+        {
+          "arch": "lstm",
+          "window": 30,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.621540624208418,
+          "validation_rmse": 9.07337278655912,
+          "validation_mape": 22.98924437685996
+        },
+        {
+          "arch": "lstm",
+          "window": 30,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.639134804787489,
+          "validation_rmse": 9.06873291102323,
+          "validation_mape": 23.14162511969543
+        },
+        {
+          "arch": "lstm",
+          "window": 30,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.628748717324319,
+          "validation_rmse": 9.096509732240213,
+          "validation_mape": 22.958875970284527
+        },
+        {
+          "arch": "lstm",
+          "window": 30,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.640408099958921,
+          "validation_rmse": 9.09841098937048,
+          "validation_mape": 22.966885109193107
+        },
+        {
+          "arch": "lstm",
+          "window": 30,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.624104098167029,
+          "validation_rmse": 9.062191904364271,
+          "validation_mape": 23.051006608551138
+        },
+        {
+          "arch": "lstm",
+          "window": 60,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.669002430613448,
+          "validation_rmse": 9.188708082792676,
+          "validation_mape": 23.075361814699004
+        },
+        {
+          "arch": "lstm",
+          "window": 60,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.6576433759948515,
+          "validation_rmse": 9.194382407799319,
+          "validation_mape": 22.903479163723393
+        },
+        {
+          "arch": "lstm",
+          "window": 60,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.650701395227519,
+          "validation_rmse": 9.13904436078648,
+          "validation_mape": 23.182680289429026
+        },
+        {
+          "arch": "lstm",
+          "window": 60,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.6439062258092365,
+          "validation_rmse": 9.156835252867026,
+          "validation_mape": 23.00538525057992
+        },
+        {
+          "arch": "lstm",
+          "window": 60,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.645728412322466,
+          "validation_rmse": 9.15137642745921,
+          "validation_mape": 23.33183044292575
+        },
+        {
+          "arch": "lstm",
+          "window": 60,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.658553679728757,
+          "validation_rmse": 9.185443774821469,
+          "validation_mape": 22.841502045597142
+        },
+        {
+          "arch": "lstm",
+          "window": 120,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.739514382795854,
+          "validation_rmse": 9.371935627452949,
+          "validation_mape": 23.172151004146013
+        },
+        {
+          "arch": "lstm",
+          "window": 120,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.690721733786843,
+          "validation_rmse": 9.280639183699094,
+          "validation_mape": 23.417106241090384
+        },
+        {
+          "arch": "lstm",
+          "window": 120,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.720952194213867,
+          "validation_rmse": 9.323646963547969,
+          "validation_mape": 23.28782522436425
+        },
+        {
+          "arch": "lstm",
+          "window": 120,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.707588929609819,
+          "validation_rmse": 9.306313571322693,
+          "validation_mape": 23.302523964295638
+        },
+        {
+          "arch": "lstm",
+          "window": 120,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.728161616238681,
+          "validation_rmse": 9.345376907003885,
+          "validation_mape": 23.214157872580028
+        },
+        {
+          "arch": "lstm",
+          "window": 120,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.704751066728072,
+          "validation_rmse": 9.308540999586187,
+          "validation_mape": 23.33451126382622
+        },
+        {
+          "arch": "bilstm",
+          "window": 30,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.634956113795779,
+          "validation_rmse": 9.05499346508315,
+          "validation_mape": 23.281858511340385
+        },
+        {
+          "arch": "bilstm",
+          "window": 30,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.6338041429226715,
+          "validation_rmse": 9.105993051521288,
+          "validation_mape": 22.951838961241048
+        },
+        {
+          "arch": "bilstm",
+          "window": 30,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.636551088196426,
+          "validation_rmse": 9.073669524064396,
+          "validation_mape": 23.232340840297635
+        },
+        {
+          "arch": "bilstm",
+          "window": 30,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.628983230070043,
+          "validation_rmse": 9.064719702180835,
+          "validation_mape": 23.334733846666367
+        },
+        {
+          "arch": "bilstm",
+          "window": 30,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.657482053476796,
+          "validation_rmse": 9.121439476546083,
+          "validation_mape": 22.848159284012823
+        },
+        {
+          "arch": "bilstm",
+          "window": 30,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.644574701745356,
+          "validation_rmse": 9.077287235373186,
+          "validation_mape": 23.300065567807017
+        },
+        {
+          "arch": "bilstm",
+          "window": 60,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.648906800805069,
+          "validation_rmse": 9.11092430183065,
+          "validation_mape": 23.17862974309934
+        },
+        {
+          "arch": "bilstm",
+          "window": 60,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.6429114949827825,
+          "validation_rmse": 9.148565907185391,
+          "validation_mape": 23.09443457225302
+        },
+        {
+          "arch": "bilstm",
+          "window": 60,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.644761085510254,
+          "validation_rmse": 9.143827188604094,
+          "validation_mape": 23.15878770525667
+        },
+        {
+          "arch": "bilstm",
+          "window": 60,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.651277118111321,
+          "validation_rmse": 9.149764121973114,
+          "validation_mape": 23.21412976510597
+        },
+        {
+          "arch": "bilstm",
+          "window": 60,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.658973918476171,
+          "validation_rmse": 9.147091417906129,
+          "validation_mape": 22.997845540824297
+        },
+        {
+          "arch": "bilstm",
+          "window": 60,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.644755021204932,
+          "validation_rmse": 9.15990325206272,
+          "validation_mape": 23.16506277771445
+        },
+        {
+          "arch": "bilstm",
+          "window": 120,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.710766170154918,
+          "validation_rmse": 9.285446335571509,
+          "validation_mape": 23.33088221435901
+        },
+        {
+          "arch": "bilstm",
+          "window": 120,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.705313115900213,
+          "validation_rmse": 9.309691157174305,
+          "validation_mape": 23.278801946581172
+        },
+        {
+          "arch": "bilstm",
+          "window": 120,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.721340480457653,
+          "validation_rmse": 9.313858271443136,
+          "validation_mape": 23.261207399200583
+        },
+        {
+          "arch": "bilstm",
+          "window": 120,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.717730262062767,
+          "validation_rmse": 9.333806370502,
+          "validation_mape": 23.31759386897658
+        },
+        {
+          "arch": "bilstm",
+          "window": 120,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.7303668053366925,
+          "validation_rmse": 9.353121648592346,
+          "validation_mape": 23.164081362671894
+        },
+        {
+          "arch": "bilstm",
+          "window": 120,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.710454100175338,
+          "validation_rmse": 9.294119220922617,
+          "validation_mape": 23.366444046834285
+        },
+        {
+          "arch": "gru",
+          "window": 30,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.648138193384372,
+          "validation_rmse": 9.106637548711888,
+          "validation_mape": 22.976186017743935
+        },
+        {
+          "arch": "gru",
+          "window": 30,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.639253387190783,
+          "validation_rmse": 9.107124892446953,
+          "validation_mape": 22.96569527218983
+        },
+        {
+          "arch": "gru",
+          "window": 30,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.644818593047992,
+          "validation_rmse": 9.07144188174296,
+          "validation_mape": 23.303625561335924
+        },
+        {
+          "arch": "gru",
+          "window": 30,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.643807911791492,
+          "validation_rmse": 9.096416556957179,
+          "validation_mape": 23.109300208639652
+        },
+        {
+          "arch": "gru",
+          "window": 30,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.646178759161523,
+          "validation_rmse": 9.074421871412085,
+          "validation_mape": 23.12038343770591
+        },
+        {
+          "arch": "gru",
+          "window": 30,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.616866137143288,
+          "validation_rmse": 9.06260219085668,
+          "validation_mape": 23.096119611361846
+        },
+        {
+          "arch": "gru",
+          "window": 60,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.659378199294885,
+          "validation_rmse": 9.186397368824776,
+          "validation_mape": 22.938805171150534
+        },
+        {
+          "arch": "gru",
+          "window": 60,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.6520608908623355,
+          "validation_rmse": 9.148245244538874,
+          "validation_mape": 23.25546346400475
+        },
+        {
+          "arch": "gru",
+          "window": 60,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.664164466060413,
+          "validation_rmse": 9.147752830593461,
+          "validation_mape": 23.021269061328418
+        },
+        {
+          "arch": "gru",
+          "window": 60,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.637729231405757,
+          "validation_rmse": 9.140866252150177,
+          "validation_mape": 23.076532829602677
+        },
+        {
+          "arch": "gru",
+          "window": 60,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.668138860908535,
+          "validation_rmse": 9.158351159055147,
+          "validation_mape": 23.012714666531494
+        },
+        {
+          "arch": "gru",
+          "window": 60,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.652505875962952,
+          "validation_rmse": 9.082321970445,
+          "validation_mape": 23.487244661206415
+        },
+        {
+          "arch": "gru",
+          "window": 120,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.727564359491522,
+          "validation_rmse": 9.32824741866435,
+          "validation_mape": 23.195284679083652
+        },
+        {
+          "arch": "gru",
+          "window": 120,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.726237408724698,
+          "validation_rmse": 9.348397478267483,
+          "validation_mape": 23.109887683026063
+        },
+        {
+          "arch": "gru",
+          "window": 120,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.736613141840155,
+          "validation_rmse": 9.351749829951236,
+          "validation_mape": 23.220349141063064
+        },
+        {
+          "arch": "gru",
+          "window": 120,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.721945964466442,
+          "validation_rmse": 9.353483553972412,
+          "validation_mape": 23.176411493322956
+        },
+        {
+          "arch": "gru",
+          "window": 120,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 4.7220028679587625,
+          "validation_rmse": 9.32212887220538,
+          "validation_mape": 23.366023637779993
+        },
+        {
+          "arch": "gru",
+          "window": 120,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 4.720191528320313,
+          "validation_rmse": 9.354949843875675,
+          "validation_mape": 23.234100872530032
+        }
+      ]
+    },
+    "co_ugm3": {
+      "best": {
+        "arch": "gru",
+        "window": 60,
+        "hidden_size": 128,
+        "num_layers": 1,
+        "dropout": 0.2,
+        "validation_mae": 130.86621910387632,
+        "validation_rmse": 170.24071002959096,
+        "validation_mape": 4.467741786000767
+      },
+      "all": [
+        {
+          "arch": "lstm",
+          "window": 30,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 137.6521842670115,
+          "validation_rmse": 183.7863571400795,
+          "validation_mape": 4.694426763022466
+        },
+        {
+          "arch": "lstm",
+          "window": 30,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 139.62671165075724,
+          "validation_rmse": 192.1822646711656,
+          "validation_mape": 4.763527865726472
+        },
+        {
+          "arch": "lstm",
+          "window": 30,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 137.97691562899956,
+          "validation_rmse": 189.98090882144632,
+          "validation_mape": 4.676716235812886
+        },
+        {
+          "arch": "lstm",
+          "window": 30,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 140.24799388065273,
+          "validation_rmse": 194.36993515219217,
+          "validation_mape": 4.7468287273309615
+        },
+        {
+          "arch": "lstm",
+          "window": 30,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 136.17326901797142,
+          "validation_rmse": 182.6057741619083,
+          "validation_mape": 4.642764575749191
+        },
+        {
+          "arch": "lstm",
+          "window": 30,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 140.49484288342578,
+          "validation_rmse": 192.50169543152936,
+          "validation_mape": 4.774949035299555
+        },
+        {
+          "arch": "lstm",
+          "window": 60,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 137.07746488458187,
+          "validation_rmse": 182.1481720754995,
+          "validation_mape": 4.650659606654801
+        },
+        {
+          "arch": "lstm",
+          "window": 60,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 140.36477807872387,
+          "validation_rmse": 193.65519676647367,
+          "validation_mape": 4.7514771175569965
+        },
+        {
+          "arch": "lstm",
+          "window": 60,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 138.04846165886323,
+          "validation_rmse": 190.55732474852988,
+          "validation_mape": 4.6916533786606704
+        },
+        {
+          "arch": "lstm",
+          "window": 60,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 138.24446676965374,
+          "validation_rmse": 189.8601676371627,
+          "validation_mape": 4.6772379078698165
+        },
+        {
+          "arch": "lstm",
+          "window": 60,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 140.16484817345383,
+          "validation_rmse": 188.90529456971979,
+          "validation_mape": 4.769863382086756
+        },
+        {
+          "arch": "lstm",
+          "window": 60,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 142.22654582698172,
+          "validation_rmse": 196.50571440691866,
+          "validation_mape": 4.8239489339364505
+        },
+        {
+          "arch": "lstm",
+          "window": 120,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 138.23308433948864,
+          "validation_rmse": 184.98513831572185,
+          "validation_mape": 4.665164665926504
+        },
+        {
+          "arch": "lstm",
+          "window": 120,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 141.87772975852272,
+          "validation_rmse": 192.64246772180223,
+          "validation_mape": 4.829368650701834
+        },
+        {
+          "arch": "lstm",
+          "window": 120,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 139.13347301136363,
+          "validation_rmse": 191.12061969361838,
+          "validation_mape": 4.70474255656603
+        },
+        {
+          "arch": "lstm",
+          "window": 120,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 140.7920536221591,
+          "validation_rmse": 192.63574053740408,
+          "validation_mape": 4.758955607350133
+        },
+        {
+          "arch": "lstm",
+          "window": 120,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 138.97859428267046,
+          "validation_rmse": 190.46945571621026,
+          "validation_mape": 4.733809486750855
+        },
+        {
+          "arch": "lstm",
+          "window": 120,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 141.096154296875,
+          "validation_rmse": 194.90193544992283,
+          "validation_mape": 4.779293782987692
+        },
+        {
+          "arch": "bilstm",
+          "window": 30,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 135.97590540342364,
+          "validation_rmse": 181.01840423004666,
+          "validation_mape": 4.626090648361969
+        },
+        {
+          "arch": "bilstm",
+          "window": 30,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 137.80425971229735,
+          "validation_rmse": 188.39998001251712,
+          "validation_mape": 4.688907079783824
+        },
+        {
+          "arch": "bilstm",
+          "window": 30,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 136.48618280716724,
+          "validation_rmse": 184.48966231675624,
+          "validation_mape": 4.624221832882873
+        },
+        {
+          "arch": "bilstm",
+          "window": 30,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 140.05727039115828,
+          "validation_rmse": 190.9574780355499,
+          "validation_mape": 4.744749665201291
+        },
+        {
+          "arch": "bilstm",
+          "window": 30,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 136.5802659382999,
+          "validation_rmse": 185.5413797056401,
+          "validation_mape": 4.628859735325105
+        },
+        {
+          "arch": "bilstm",
+          "window": 30,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 140.05127386412116,
+          "validation_rmse": 189.37794417106053,
+          "validation_mape": 4.781518426840151
+        },
+        {
+          "arch": "bilstm",
+          "window": 60,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 136.26240778800087,
+          "validation_rmse": 180.3489278696855,
+          "validation_mape": 4.6200951341074585
+        },
+        {
+          "arch": "bilstm",
+          "window": 60,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 138.15098745100175,
+          "validation_rmse": 187.52594726561966,
+          "validation_mape": 4.68400152912891
+        },
+        {
+          "arch": "bilstm",
+          "window": 60,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 139.21947017231054,
+          "validation_rmse": 189.5727048881291,
+          "validation_mape": 4.729651674089241
+        },
+        {
+          "arch": "bilstm",
+          "window": 60,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 139.50955840320123,
+          "validation_rmse": 190.53864161633567,
+          "validation_mape": 4.7138746513276235
+        },
+        {
+          "arch": "bilstm",
+          "window": 60,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 139.35684359347778,
+          "validation_rmse": 187.86212529272998,
+          "validation_mape": 4.707126751532952
+        },
+        {
+          "arch": "bilstm",
+          "window": 60,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 139.3155744705466,
+          "validation_rmse": 189.25127850590192,
+          "validation_mape": 4.750753841134892
+        },
+        {
+          "arch": "bilstm",
+          "window": 120,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 137.3503485440341,
+          "validation_rmse": 184.9789387897178,
+          "validation_mape": 4.646496098107202
+        },
+        {
+          "arch": "bilstm",
+          "window": 120,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 138.492955078125,
+          "validation_rmse": 188.58000422288106,
+          "validation_mape": 4.685854500032762
+        },
+        {
+          "arch": "bilstm",
+          "window": 120,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 141.53120649857954,
+          "validation_rmse": 191.62737768504024,
+          "validation_mape": 4.806120788109545
+        },
+        {
+          "arch": "bilstm",
+          "window": 120,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 139.71929030539772,
+          "validation_rmse": 194.12750221844394,
+          "validation_mape": 4.726448531750458
+        },
+        {
+          "arch": "bilstm",
+          "window": 120,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 140.72550035511364,
+          "validation_rmse": 193.65199605616235,
+          "validation_mape": 4.7615586783640484
+        },
+        {
+          "arch": "bilstm",
+          "window": 120,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 140.72751917613635,
+          "validation_rmse": 194.87640743475345,
+          "validation_mape": 4.760413024308879
+        },
+        {
+          "arch": "gru",
+          "window": 30,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 132.76449995333832,
+          "validation_rmse": 178.45534720467117,
+          "validation_mape": 4.530051278719532
+        },
+        {
+          "arch": "gru",
+          "window": 30,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 134.10080908036477,
+          "validation_rmse": 179.55090181432305,
+          "validation_mape": 4.572601370027294
+        },
+        {
+          "arch": "gru",
+          "window": 30,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 134.90174981335323,
+          "validation_rmse": 177.2565783858541,
+          "validation_mape": 4.611574082739567
+        },
+        {
+          "arch": "gru",
+          "window": 30,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 132.7552892691446,
+          "validation_rmse": 176.18864708195096,
+          "validation_mape": 4.492654617598099
+        },
+        {
+          "arch": "gru",
+          "window": 30,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 132.9940934633639,
+          "validation_rmse": 175.87424635975353,
+          "validation_mape": 4.530998404103411
+        },
+        {
+          "arch": "gru",
+          "window": 30,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 134.65527777037116,
+          "validation_rmse": 179.61192182303284,
+          "validation_mape": 4.582574043150451
+        },
+        {
+          "arch": "gru",
+          "window": 60,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 132.1268165083297,
+          "validation_rmse": 176.06061752777444,
+          "validation_mape": 4.48949645156877
+        },
+        {
+          "arch": "gru",
+          "window": 60,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 135.651753559179,
+          "validation_rmse": 180.714471050953,
+          "validation_mape": 4.59760819592945
+        },
+        {
+          "arch": "gru",
+          "window": 60,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 133.34347676665942,
+          "validation_rmse": 177.29818351837113,
+          "validation_mape": 4.561797064864537
+        },
+        {
+          "arch": "gru",
+          "window": 60,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 134.6950328016115,
+          "validation_rmse": 181.60471590558032,
+          "validation_mape": 4.597864869550894
+        },
+        {
+          "arch": "gru",
+          "window": 60,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 130.86621910387632,
+          "validation_rmse": 170.24071002959096,
+          "validation_mape": 4.467741786000767
+        },
+        {
+          "arch": "gru",
+          "window": 60,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 133.4755884894926,
+          "validation_rmse": 174.52533320105587,
+          "validation_mape": 4.567077440548858
+        },
+        {
+          "arch": "gru",
+          "window": 120,
+          "hidden_size": 32,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 131.90271502130682,
+          "validation_rmse": 175.36800670591185,
+          "validation_mape": 4.479148066139903
+        },
+        {
+          "arch": "gru",
+          "window": 120,
+          "hidden_size": 32,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 136.35030912642046,
+          "validation_rmse": 184.34909817771307,
+          "validation_mape": 4.630089142762659
+        },
+        {
+          "arch": "gru",
+          "window": 120,
+          "hidden_size": 64,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 134.69116175426137,
+          "validation_rmse": 180.71112461102993,
+          "validation_mape": 4.583493331823674
+        },
+        {
+          "arch": "gru",
+          "window": 120,
+          "hidden_size": 64,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 135.01358362926138,
+          "validation_rmse": 180.56461760982896,
+          "validation_mape": 4.55910200274593
+        },
+        {
+          "arch": "gru",
+          "window": 120,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "dropout": 0.2,
+          "validation_mae": 132.11395791903408,
+          "validation_rmse": 172.1323918237982,
+          "validation_mape": 4.5272847149298165
+        },
+        {
+          "arch": "gru",
+          "window": 120,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "dropout": 0.2,
+          "validation_mae": 132.8414802911932,
+          "validation_rmse": 175.7746958333772,
+          "validation_mape": 4.542202575993736
+        }
+      ]
+    }
+  }
+}

@@ -272,3 +272,81 @@ Setelah data sensor aktual tersedia, beberapa bagian perlu dievaluasi kembali, t
 - kebutuhan retraining model
 
 Hasil eksperimen menggunakan dummy data tidak dianggap sebagai performa final AirSense pada kondisi lingkungan sebenarnya.
+
+## 7. Perbandingan Model: XGBoost vs RNN (LSTM / BiLSTM / GRU)
+
+Untuk membedakan pendekatan pemodelan dari penelitian sebelumnya (yang memakai XGBoost sebagai model utama), AirSense menyediakan modul perbandingan yang melatih **XGBoost (tree-based)** dan **model recurrent (deep learning, PyTorch)** pada **data dan test set yang sama**, sehingga hasilnya apple-to-apple.
+
+Modul:
+
+```text
+src/model_lstm.py      # arsitektur LSTM/BiLSTM/GRU + training + inference
+src/compare_models.py  # script perbandingan XGBoost vs RNN
+src/tune_lstm.py       # grid search hyperparameter RNN
+```
+
+### 7.1 Hyperparameter Tuning
+
+Mencari konfigurasi terbaik per polutan berdasarkan validation MAE:
+
+```bash
+python -m src.tune_lstm
+python -m src.tune_lstm --targets pm25_ugm3 --windows 30 60 --device cuda
+```
+
+Ruang pencarian default: `arch` (lstm/bilstm/gru) x `window` (30/60/120) x `hidden` (32/64/128) x `layers` (1/2) = 54 konfigurasi per polutan.
+
+Hasil tuning disimpan ke `outputs/lstm_tuning.json` dan `outputs/lstm_tuning_best.csv`.
+
+### 7.2 Perbandingan Head-to-Head
+
+```bash
+python -m src.compare_models
+# pakai konfigurasi terbaik hasil tuning:
+python -m src.compare_models --best-config --device cuda
+```
+
+Karakteristik pendekatan:
+
+| Aspek | XGBoost (baseline) | RNN (AirSense) |
+|---|---|---|
+| Paradigma | Tree-based (gradient boosting) | Deep learning (recurrent) |
+| Input | Vektor fitur lag + rolling | Sekuens waktu (window 30-120 menit) |
+| Target | direct t+60 | direct t+60 |
+| Scaling | tidak perlu (tree) | fitur + target di-standardisasi |
+
+Output:
+
+```text
+outputs/model_comparison.json
+outputs/model_comparison.csv
+outputs/lstm_tuning_best.csv
+```
+
+### 7.3 Hasil (data Supabase, 30 hari terakhir)
+
+Konfigurasi terbaik hasil tuning:
+
+| Polutan | Arsitektur | window | hidden | layers | Val MAPE |
+|---|---|---|---|---|---|
+| PM2.5 | LSTM | 30 | 128 | 2 | 18.53% |
+| PM10 | GRU | 30 | 128 | 2 | 23.10% |
+| CO | GRU | 60 | 128 | 1 | 4.47% |
+
+Perbandingan pada test set (XGBoost vs RNN terbaik):
+
+| Polutan | XGBoost | RNN terbaik | Pemenang |
+|---|---|---|---|
+| PM2.5 | 22.77% | **18.84%** (LSTM) | RNN |
+| PM10 | 26.31% | **23.48%** (GRU) | RNN |
+| CO | 7.23% | **5.34%** (GRU) | RNN |
+
+> Catatan: angka absolut berbeda dari penelitian sebelumnya karena dataset, rentang waktu, dan horizon peramalan dapat berbeda. Perbandingan di sini dilakukan pada **data dan test set yang sama** untuk kedua model.
+
+Catatan implementasi:
+
+- RNN dilatih dengan **standarisasi fitur DAN target** agar stabil pada polutan bermagnitudo besar (CO).
+- Hasil bergantung pada kualitas/panjang data. Dengan data pendek, selisih antar model dapat bervariasi; reliabilitas meningkat seiring bertambahnya data sensor.
+- **Windows:** `torch` harus di-import sebelum `xgboost` (sudah diatur di `src/compare_models.py`) untuk menghindari konflik DLL OpenMP.
+- **Device:** gunakan `--device cuda` untuk pelatihan cepat (RTX GPU). Pada sebagian setup Windows, shutdown CUDA dapat memicu crash `0xC0000409` (hasil & file tetap tersimpan benar, hanya proses exit yang tidak bersih). Default `cpu` dipakai untuk eksekusi yang bersih.
+

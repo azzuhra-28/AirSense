@@ -121,6 +121,7 @@ def load_to_df(
         pd.to_datetime(
             df["created_at"],
             utc=True,
+            format="mixed",
             errors="coerce",
         )
     )

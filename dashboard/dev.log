@@ -630,3 +630,4 @@
  GET / 200 in 142ms (next.js: 97ms, application-code: 44ms)
 ✓ Compiled in 40ms
  GET / 200 in 145ms (next.js: 106ms, application-code: 39ms)
+^C^C

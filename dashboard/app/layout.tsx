@@ -1,32 +1,32 @@
 import type { Metadata } from "next";
+
+import { SensorProvider } from "@/components/SensorProvider";
+import { Sidebar } from "@/components/Sidebar";
+
 import "./globals.css";
-import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "AirSense — Monitoring Kualitas Udara",
-  description: "Dashboard real-time monitoring & prediksi kualitas udara (PM2.5, PM10, CO, NO2, O3)",
+  title: "AirSense — Kualitas Udara",
+  description:
+    "Monitoring dan prediksi kualitas udara: PM2.5, PM10, CO, NO₂, dan O₃.",
 };
 
-const navLink =
-  "text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors";
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="id">
-      <body className="min-h-screen">
-        <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-            <div className="flex items-center gap-2">
-              <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              <span className="text-lg font-bold tracking-tight">AirSense</span>
-            </div>
-            <nav className="flex items-center gap-5">
-              <Link href="/" className={navLink}>Overview</Link>
-              <Link href="/predict" className={navLink}>Forecast</Link>
-            </nav>
+      <body className="min-h-screen antialiased">
+        <SensorProvider>
+          <Sidebar />
+          <div className="lg:pl-60">
+            <main className="mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-6 sm:pt-8 lg:pb-10">
+              {children}
+            </main>
           </div>
-        </header>
-        <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
+        </SensorProvider>
       </body>
     </html>
   );

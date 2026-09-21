@@ -1,0 +1,126 @@
+{
+  "generated_at": "2026-09-21T12:29:05.231844+00:00",
+  "horizon_minutes": 60,
+  "n_rows_features": 9961,
+  "architectures": [
+    "lstm",
+    "bilstm",
+    "gru"
+  ],
+  "split": {
+    "train": 6972,
+    "validation": 1494,
+    "test": 1495
+  },
+  "results": [
+    {
+      "target": "pm25_ugm3",
+      "n_test": 1495,
+      "xgboost": {
+        "config": {
+          "name": "XGB1",
+          "n_estimators": 200,
+          "max_depth": 3,
+          "learning_rate": 0.05
+        },
+        "mae": 3.9254979095458986,
+        "rmse": 8.403966924102994,
+        "mape": 22.766913295816202
+      },
+      "rnn": {
+        "lstm": {
+          "arch": "lstm",
+          "window": 30,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "mae": 3.436568066205367,
+          "rmse": 7.347964838663433,
+          "mape": 18.842347429606033,
+          "validation": {
+            "mae": 3.5077964606952343,
+            "rmse": 7.977524641635045,
+            "mape": 18.52971148882502
+          }
+        }
+      },
+      "lstm": {
+        "arch": "lstm",
+        "window": 30,
+        "hidden_size": 128,
+        "num_layers": 2,
+        "mae": 3.436568066205367,
+        "rmse": 7.347964838663433,
+        "mape": 18.842347429606033,
+        "validation": {
+          "mae": 3.5077964606952343,
+          "rmse": 7.977524641635045,
+          "mape": 18.52971148882502
+        }
+      }
+    },
+    {
+      "target": "pm10_ugm3",
+      "n_test": 1495,
+      "xgboost": {
+        "config": {
+          "name": "XGB1",
+          "n_estimators": 200,
+          "max_depth": 3,
+          "learning_rate": 0.05
+        },
+        "mae": 4.896916097915293,
+        "rmse": 9.071890776325668,
+        "mape": 26.31393097443927
+      },
+      "rnn": {
+        "gru": {
+          "arch": "gru",
+          "window": 30,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "mae": 4.541931673911226,
+          "rmse": 8.436729330838286,
+          "mape": 23.47949101731641,
+          "validation": {
+            "mae": 4.616866137143288,
+            "rmse": 9.06260219085668,
+            "mape": 23.096119611361846
+          }
+        }
+      },
+      "lstm": {}
+    },
+    {
+      "target": "co_ugm3",
+      "n_test": 1495,
+      "xgboost": {
+        "config": {
+          "name": "XGB3",
+          "n_estimators": 300,
+          "max_depth": 6,
+          "learning_rate": 0.05
+        },
+        "mae": 218.10229336721363,
+        "rmse": 525.7643867865527,
+        "mape": 7.231446664521108
+      },
+      "rnn": {
+        "gru": {
+          "arch": "gru",
+          "window": 60,
+          "hidden_size": 128,
+          "num_layers": 1,
+          "mae": 173.3363208959893,
+          "rmse": 375.3568609104556,
+          "mape": 5.339464228731491,
+          "validation": {
+            "mae": 130.86621910387632,
+            "rmse": 170.24071002959096,
+            "mape": 4.467741786000767
+          }
+        }
+      },
+      "lstm": {}
+    }
+  ]
+}
