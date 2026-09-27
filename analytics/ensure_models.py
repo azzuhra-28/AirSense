@@ -143,9 +143,64 @@ def ensure():
 
     return True
 
+# ============================================================
+# RF Robustness Layer Availability Check
+# ============================================================
+
+RF_MODEL_PATH = os.path.join(
+    MODEL_DIR,
+    "robustness_rf.joblib",
+)
+
+
+def rf_model_available():
+    return os.path.exists(RF_MODEL_PATH)
+
+
+def ensure_rf():
+    """
+    Pastikan RF robustness layer tersedia sebelum inferensi.
+    Kalau training gagal (misal data belum cukup), pipeline
+    utama tetap boleh lanjut -- RF cuma jadi sinyal tambahan.
+    """
+
+    if rf_model_available():
+
+        print(
+            "RF robustness layer sudah tersedia, "
+            "lanjut inferensi."
+        )
+
+        return True
+
+    print(
+        "RF robustness layer belum tersedia. "
+        "Menjalankan training..."
+    )
+
+    try:
+        from train_robustness import main as train_rf
+
+        train_rf()
+
+    except Exception as error:
+
+        print(
+            "Training RF robustness layer gagal, "
+            "dilewati (opsional):",
+            error,
+        )
+
+        return False
+
+    return rf_model_available()
 
 if __name__ == "__main__":
 
+    forecast_ok = ensure()
+
+    ensure_rf()  # opsional, gak menggagalkan pipeline kalau gagal
+
     sys.exit(
-        0 if ensure() else 1
+        0 if forecast_ok else 1
     )
