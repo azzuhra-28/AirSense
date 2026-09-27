@@ -28,6 +28,9 @@ import pandas as pd
 from .alert_logic import apply_alert_logic
 from .anomaly import detect_anomalies
 
+from .robustness_rf import load_model as load_rf_model
+from .anomaly import add_rf_robustness_check
+
 from .ispu import (
     category_of,
     dominant_pollutant_of,
@@ -71,6 +74,8 @@ FORECAST_METADATA_PATH = os.path.join(
     MODEL_DIR,
     "forecast_models_meta.json",
 )
+
+RF_MODEL_PATH = os.path.join(MODEL_DIR, "robustness_rf.joblib")
 
 
 # ============================================================
@@ -924,6 +929,17 @@ def run_from_dataframe(
             column
         ].values
 
+    rf_model = load_rf_model(RF_MODEL_PATH)
+
+    if rf_model is not None:
+        sensor_df = add_rf_robustness_check(
+            sensor_df,
+            rf_model,
+        )
+    else:
+        sensor_df["rf_predicted_category"] = None
+        sensor_df["has_rf_mismatch"] = False
+        
     # --------------------------------------------------------
     # Forecast models
     # --------------------------------------------------------
@@ -1200,6 +1216,16 @@ def run():
         ],
     )
 
+    print(
+        "RF predicted category:",
+        latest["rf_predicted_category"],
+    )
+
+    print(
+        "RF mismatch:",
+        latest["has_rf_mismatch"],
+    )
+    
     print(
         "Forecast timestamp:",
         forecast[

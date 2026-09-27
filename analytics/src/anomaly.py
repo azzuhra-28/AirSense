@@ -440,3 +440,59 @@ def detect_anomalies(
     }
 
     return result, artifacts
+
+# ============================================================
+# RF Robustness Cross-Check
+# ============================================================
+
+def add_rf_robustness_check(
+    df,
+    rf_model,
+):
+    from .robustness_rf import RF_FEATURES
+
+    result = df.copy()
+
+    category_order = [
+        "Baik",
+        "Sedang",
+        "Tidak Sehat",
+        "Sangat Tidak Sehat",
+        "Berbahaya",
+    ]
+
+    valid_mask = result[RF_FEATURES].notna().all(axis=1)
+
+    predictions = pd.Series(
+        index=result.index,
+        dtype=object,
+    )
+
+    if valid_mask.any():
+        X = result.loc[valid_mask, RF_FEATURES].to_numpy()
+        predictions.loc[valid_mask] = rf_model.predict(X)
+
+    result["rf_predicted_category"] = predictions
+
+    def compute_mismatch(row):
+        actual = row.get("ispu_category")
+        predicted = row.get("rf_predicted_category")
+
+        if predicted is None or pd.isna(predicted):
+            return False
+
+        if actual not in category_order or predicted not in category_order:
+            return False
+
+        gap = abs(
+            category_order.index(actual)
+            - category_order.index(predicted)
+        )
+
+        return gap > 1
+
+    result["has_rf_mismatch"] = result.apply(
+        compute_mismatch, axis=1
+    )
+
+    return result
