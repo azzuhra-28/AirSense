@@ -43,12 +43,14 @@ from .preprocess import (
 )
 
 from .supabase_client import (
+    TABLE_ALERT,
+    TABLE_FORECAST,
     TABLE_GAS,
     check_connection,
     fetch_rows,
+    insert_rows,
     supabase_session,
 )
-
 
 # ============================================================
 # Paths
@@ -1008,6 +1010,99 @@ def run_from_dataframe(
         "alerts": alerts,
     }
 
+# ============================================================
+# Simpan Hasil ke Supabase
+# ============================================================
+
+ALERT_TYPE_MAP = {
+    "Air Quality": "ISPU_HIGH",
+    "Anomaly": "ANOMALY",
+    "Forecast": "FORECAST_HIGH",
+}
+
+SEVERITY_MAP = {
+    "Low": "LOW",
+    "Medium": "MEDIUM",
+    "High": "HIGH",
+}
+
+
+def build_forecast_row(forecast):
+    """
+    Bentuk satu baris untuk tabel tb_forecast sesuai skema
+    database/migrasi_forecast_alert.sql.
+
+    Catatan: skema saat ini hanya punya kolom untuk PM2.5,
+    PM10, dan CO. Forecast NO2 dan O3 dihitung juga oleh
+    model tapi belum ada kolomnya di tb_forecast -- perlu
+    dikoordinasikan dengan Anggota 1 (Database) kalau mau
+    ikut disimpan.
+    """
+    pm25 = forecast["pm25_ugm3_forecast_t60"]
+    pm10 = forecast["pm10_ugm3_forecast_t60"]
+    co = forecast["co_ugm3_forecast_t60"]
+
+    return {
+        "forecast_at": forecast["forecast_at"].isoformat(),
+        "pm25_ugm3_pred": pm25,
+        "pm10_ugm3_pred": pm10,
+        "co_ugm3_pred": co,
+        "pm25_ispu_pred": ispu_value("pm25_ugm3", pm25),
+        "pm10_ispu_pred": ispu_value("pm10_ugm3", pm10),
+        "co_ispu_pred": ispu_value("co_ugm3", co),
+        "category": forecast["forecast_indicator_category"],
+    }
+
+
+def build_alert_row(latest_row):
+    """
+    Bentuk satu baris untuk tb_alert dari BARIS SENSOR
+    TERBARU SAJA (bukan seluruh histori alert dari
+    result["alerts"]). Ini penting supaya pipeline yang
+    jalan tiap jam via GitHub Actions tidak insert ulang
+    alert lama yang sudah pernah tersimpan.
+    """
+    alert_type_raw = latest_row["alert_type"]
+    severity_raw = latest_row["severity"]
+
+    return {
+        "alert_type": ALERT_TYPE_MAP.get(
+            alert_type_raw, alert_type_raw.upper()
+        ),
+        "severity": SEVERITY_MAP.get(
+            severity_raw, severity_raw.upper()
+        ),
+        "message": latest_row["alert_message"],
+        "is_active": True,
+        "payload": {
+            "ispu_category": latest_row.get("ispu_category"),
+            "dominant_pollutant": latest_row.get("dominant_pollutant"),
+            "anomaly_level": latest_row.get("anomaly_level"),
+        },
+    }
+
+
+def save_results_to_supabase(session, forecast, latest_row):
+    """
+    Simpan hasil forecast (selalu dilakukan tiap pipeline
+    jalan) dan alert (hanya kalau baris sensor terbaru
+    memang punya alert aktif) ke Supabase.
+
+    Dipanggil setelah run_from_dataframe() di dalam run().
+    """
+    forecast_row = build_forecast_row(forecast)
+    insert_rows(session, TABLE_FORECAST, [forecast_row])
+
+    has_alert = bool(latest_row.get("has_alert", False))
+
+    if has_alert:
+        alert_row = build_alert_row(latest_row)
+        insert_rows(session, TABLE_ALERT, [alert_row])
+
+    return {
+        "forecast_saved": True,
+        "alert_saved": has_alert,
+    }
 
 # ============================================================
 # Production Entry Point
@@ -1059,6 +1154,22 @@ def run():
     alerts = result[
         "alerts"
     ]
+    
+    save_status = save_results_to_supabase(
+        session,
+        result["forecast"],
+        result["latest"],
+    )
+
+    print(
+        "Forecast tersimpan:",
+        save_status["forecast_saved"],
+    )
+
+    print(
+        "Alert tersimpan   :",
+        save_status["alert_saved"],
+    )
 
     print(
         "\nAirSense analytics pipeline selesai."
