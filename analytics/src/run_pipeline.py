@@ -1054,7 +1054,7 @@ SEVERITY_MAP = {
 }
 
 
-def build_forecast_row(forecast):
+def build_forecast_row(forecast, insight=None):
     """
     Bentuk satu baris untuk tabel tb_forecast sesuai skema
     database/migrasi_forecast_alert.sql.
@@ -1078,6 +1078,7 @@ def build_forecast_row(forecast):
         "pm10_ispu_pred": ispu_value("pm10_ugm3", pm10),
         "co_ispu_pred": ispu_value("co_ugm3", co),
         "category": forecast["forecast_indicator_category"],
+        "insight": insight,
     }
 
 
@@ -1109,7 +1110,7 @@ def build_alert_row(latest_row):
     }
 
 
-def save_results_to_supabase(session, forecast, latest_row):
+def save_results_to_supabase(session, forecast, latest_row, insight=None):
     """
     Simpan hasil forecast (selalu dilakukan tiap pipeline
     jalan) dan alert (hanya kalau baris sensor terbaru
@@ -1117,7 +1118,7 @@ def save_results_to_supabase(session, forecast, latest_row):
 
     Dipanggil setelah run_from_dataframe() di dalam run().
     """
-    forecast_row = build_forecast_row(forecast)
+    forecast_row = build_forecast_row(forecast, insight)
     insert_rows(session, TABLE_FORECAST, [forecast_row])
 
     has_alert = bool(latest_row.get("has_alert", False))
@@ -1187,6 +1188,7 @@ def run():
         session,
         result["forecast"],
         result["latest"],
+        result["insight"],
     )
 
     print(
