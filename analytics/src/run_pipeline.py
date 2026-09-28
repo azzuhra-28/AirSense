@@ -30,6 +30,7 @@ from .anomaly import detect_anomalies
 
 from .robustness_rf import load_model as load_rf_model
 from .anomaly import add_rf_robustness_check
+from .insight import build_insight
 
 from .ispu import (
     category_of,
@@ -998,6 +999,15 @@ def run_from_dataframe(
             sensor_df
         )
     )
+    
+    # --------------------------------------------------------
+    # Automatic Insight
+    # --------------------------------------------------------
+
+    insight_text = build_insight(
+        sensor_df.iloc[-1],
+        forecast,
+    )
 
     # --------------------------------------------------------
     # Results
@@ -1024,6 +1034,7 @@ def run_from_dataframe(
         "forecast": forecast,
         "latest": latest,
         "alerts": alerts,
+        "insight": insight_text,
     }
 
 # ============================================================
@@ -1171,6 +1182,7 @@ def run():
         "alerts"
     ]
     
+    
     save_status = save_results_to_supabase(
         session,
         result["forecast"],
@@ -1251,7 +1263,13 @@ def run():
         ),
     )
 
+    print(
+        "\nInsight:",
+        result["insight"],
+    )
+    
     return result
+
 
 
 # ============================================================
