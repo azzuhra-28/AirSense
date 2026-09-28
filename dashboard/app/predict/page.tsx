@@ -10,11 +10,12 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { CalendarClock, LineChart as LineChartIcon } from "lucide-react";
+import { CalendarClock, LineChart as LineChartIcon, Sparkles, TriangleAlert } from "lucide-react";
 
 import { getLatestForecast } from "@/lib/api";
 import { aqiOf, POLLUTANT_COLOR } from "@/lib/brand";
 import { toWIB } from "@/lib/ispu";
+import { useSensorData } from "@/components/SensorProvider";
 import type { ForecastRow } from "@/lib/types";
 
 const SERIES = [
@@ -23,10 +24,31 @@ const SERIES = [
   { key: "co", label: "CO", color: POLLUTANT_COLOR.co },
 ] as const;
 
+// Kolom konsentrasi aktual & prediksi per seri (untuk uji drift).
+const ACTUAL_COL: Record<string, "pm25_ugm3" | "pm10_ugm3" | "co_ugm3"> = {
+  pm25: "pm25_ugm3",
+  pm10: "pm10_ugm3",
+  co: "co_ugm3",
+};
+const PRED_COL: Record<string, "pm25_ugm3_pred" | "pm10_ugm3_pred" | "co_ugm3_pred"> = {
+  pm25: "pm25_ugm3_pred",
+  pm10: "pm10_ugm3_pred",
+  co: "co_ugm3_pred",
+};
+
+// Batas selisih rata-rata forecast vs aktual terkini.
+// Di atas ini, prediksi polutan dianggap tidak bisa dipercaya
+// (distribution shift — model dilatih di rezim data lama).
+const DRIFT_THRESHOLD_PCT = 50;
+
 export default function PredictPage() {
   const [forecast, setForecast] = useState<ForecastRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<"ispu" | "conc">("ispu");
+
+  // Data aktual terkini (untuk uji kewajaran prediksi).
+  const { rows: actualRows } = useSensorData();
 
   useEffect(() => {
     let cancelled = false;
@@ -57,9 +79,14 @@ export default function PredictPage() {
     () =>
       forecast.map((r) => ({
         t: toWIB(r.forecast_at),
-        pm25: r.pm25_ispu_pred,
-        pm10: r.pm10_ispu_pred,
-        co: r.co_ispu_pred,
+        // Nilai ISPU (skala 0 - 300)
+        pm25_ispu: r.pm25_ispu_pred,
+        pm10_ispu: r.pm10_ispu_pred,
+        co_ispu: r.co_ispu_pred,
+        // Nilai Konsentrasi Fisik (PM µg/m³, CO mg/m³)
+        pm25_conc: r.pm25_ugm3_pred,
+        pm10_conc: r.pm10_ugm3_pred,
+        co_conc: r.co_ugm3_pred ? r.co_ugm3_pred / 1000 : null,
       })),
     [forecast]
   );
@@ -87,8 +114,49 @@ export default function PredictPage() {
       dominant,
       generated: forecast[0]?.generated_at,
       horizon: forecast.length,
+      // Teks insight ditulis pipeline ke siklus terbaru (bisa hanya
+      // di sebagian baris); ambil yang pertama tidak kosong.
+      insight: forecast.find((r) => r.insight?.trim())?.insight ?? null,
     };
   }, [forecast]);
+
+  // Uji kewajaran: bandingkan rata-rata forecast (konsentrasi)
+  // dengan rata-rata aktual 60 pembacaan terakhir. Selisih besar
+  // = distribution shift, prediksi polutan itu tidak terpercaya.
+  const drift = useMemo(() => {
+    if (!forecast.length || actualRows.length < 10) return null;
+
+    const recent = actualRows.slice(-60);
+    const result: Record<string, { pct: number; unreliable: boolean }> = {};
+
+    for (const s of SERIES) {
+      const aVals = recent
+        .map((r) => Number(r[ACTUAL_COL[s.key]]))
+        .filter((v) => Number.isFinite(v) && v > 0);
+      const fVals = forecast
+        .map((r) => Number(r[PRED_COL[s.key]]))
+        .filter((v) => Number.isFinite(v) && v >= 0);
+      if (!aVals.length || !fVals.length) continue;
+
+      const amean = aVals.reduce((a, b) => a + b, 0) / aVals.length;
+      const fmean = fVals.reduce((a, b) => a + b, 0) / fVals.length;
+      const diff = Math.abs(fmean - amean);
+      const pct = amean > 0 ? (diff / amean) * 100 : 0;
+
+      // Ambang batas absolut minimum agar tidak terjadi false-alarm pada konsentrasi udara sangat bersih
+      // (misal selisih cuma 3-4 µg/m³ di kondisi udara 'Baik' tidak dianggap drift sistemik)
+      const absThreshold = s.key === "co" ? 800 : s.key === "pm10" ? 12 : 8;
+      const isUnreliable = pct > DRIFT_THRESHOLD_PCT && diff > absThreshold;
+
+      result[s.key] = { pct, unreliable: isUnreliable };
+    }
+    return result;
+  }, [forecast, actualRows]);
+
+  const unreliableLabels = useMemo(() => {
+    if (!drift) return [];
+    return SERIES.filter((s) => drift[s.key]?.unreliable).map((s) => s.label);
+  }, [drift]);
 
   if (loading) {
     return (
@@ -174,34 +242,101 @@ export default function PredictPage() {
         )}
       </header>
 
-      <section className="rounded-2xl border border-slate-200/80 bg-white/90 p-5 sm:p-6">
-        <header className="mb-1 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="text-[15px] font-semibold text-slate-900">
-              Proyeksi ISPU per polutan
-            </h2>
-            <p className="mt-0.5 text-[12px] text-slate-400">
-              Model recurrent (LSTM/GRU) · waktu WIB
+      {unreliableLabels.length > 0 && (
+        <section className="flex items-start gap-3 rounded-2xl border border-amber-200/70 bg-amber-50/60 p-4 sm:p-5">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/80 text-amber-600">
+            <TriangleAlert className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-600">
+              Prediksi kurang dapat diandalkan
+            </p>
+            <p className="mt-1 text-[13px] leading-relaxed text-slate-700">
+              Nilai prediksi {unreliableLabels.join(", ")}{" "}
+              menyimpang jauh dari pembacaan sensor terkini (selisih &gt; 50%). Kemungkinan
+              kondisi udara berubah sejak model dilatih — pertimbangkan
+              menjalankan ulang pipeline.
             </p>
           </div>
-          <span className="flex items-center gap-3 text-[11px] text-slate-400">
-            {SERIES.map((s) => (
-              <span key={s.key} className="flex items-center gap-1">
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{ backgroundColor: s.color }}
-                />
-                {s.label}
-              </span>
-            ))}
+        </section>
+      )}
+
+      {summary?.insight && (
+        <section className="flex items-start gap-3 rounded-2xl border border-violet-200/70 bg-violet-50/60 p-4 sm:p-5">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/80 text-violet-600">
+            <Sparkles className="h-4 w-4" />
           </span>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-violet-500">
+              Insight Analytics
+            </p>
+            <p className="mt-1 text-[13px] leading-relaxed text-slate-700">
+              {summary.insight}
+            </p>
+          </div>
+        </section>
+      )}
+
+      <section className="rounded-2xl border border-slate-200/80 bg-white/90 p-5 sm:p-6">
+        <header className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-[15px] font-semibold text-slate-900">
+              {viewMode === "ispu" ? "Proyeksi Indeks ISPU" : "Proyeksi Konsentrasi Polutan"}
+            </h2>
+            <p className="mt-0.5 text-[12px] text-slate-400">
+              {viewMode === "ispu"
+                ? "Standar KLHK (0 - 300) · Model recurrent (LSTM/GRU)"
+                : "Konsentrasi fisik (PM µg/m³, CO mg/m³) · Model recurrent"}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            {/* Switcher Mode ISPU vs Konsentrasi */}
+            <div className="flex items-center gap-1 rounded-xl border border-slate-200/80 bg-slate-50/80 p-1">
+              <button
+                type="button"
+                onClick={() => setViewMode("ispu")}
+                className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition-all ${
+                  viewMode === "ispu"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                Indeks ISPU
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("conc")}
+                className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition-all ${
+                  viewMode === "conc"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                Konsentrasi Fisik (µg/m³)
+              </button>
+            </div>
+
+            {/* Legend */}
+            <span className="flex items-center gap-2.5 text-[11px] text-slate-400">
+              {SERIES.map((s) => (
+                <span key={s.key} className="flex items-center gap-1">
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: s.color }}
+                  />
+                  {s.label}
+                </span>
+              ))}
+            </span>
+          </div>
         </header>
 
         <div className="mt-2 h-72 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={data}
-              margin={{ top: 8, right: 8, bottom: 0, left: -18 }}
+              margin={{ top: 8, right: 12, bottom: 0, left: -10 }}
             >
               <defs>
                 {SERIES.map((s) => (
@@ -229,13 +364,15 @@ export default function PredictPage() {
                 tick={{ fontSize: 11, fill: "#94A3B8" }}
                 axisLine={false}
                 tickLine={false}
-                interval={9}
+                minTickGap={24}
               />
               <YAxis
+                domain={[0, "auto"]}
                 tick={{ fontSize: 11, fill: "#94A3B8" }}
                 axisLine={false}
                 tickLine={false}
-                width={44}
+                width={42}
+                tickFormatter={(val) => Math.round(val).toString()}
               />
               <Tooltip
                 cursor={{ stroke: "#CBD5E1", strokeDasharray: "4 4" }}
@@ -246,19 +383,43 @@ export default function PredictPage() {
                   fontSize: 12,
                 }}
                 labelStyle={{ color: "#0F172A", fontWeight: 600 }}
+                formatter={(val: number, name: string, item: any) => {
+                  const p = item?.payload;
+                  if (!p) return [val, name];
+                  if (viewMode === "ispu") {
+                    let rawText = "";
+                    if (name === "PM2.5" && p.pm25_conc != null) rawText = ` (~${p.pm25_conc.toFixed(1)} µg/m³)`;
+                    if (name === "PM10" && p.pm10_conc != null) rawText = ` (~${p.pm10_conc.toFixed(1)} µg/m³)`;
+                    if (name === "CO" && p.co_conc != null) rawText = ` (~${p.co_conc.toFixed(2)} mg/m³)`;
+                    return [`${Number(val).toFixed(1)} ISPU${rawText}`, name];
+                  } else {
+                    let ispuText = "";
+                    let unit = "µg/m³";
+                    if (name === "PM2.5" && p.pm25_ispu != null) ispuText = ` (ISPU ${p.pm25_ispu.toFixed(0)})`;
+                    if (name === "PM10" && p.pm10_ispu != null) ispuText = ` (ISPU ${p.pm10_ispu.toFixed(0)})`;
+                    if (name === "CO") {
+                      unit = "mg/m³";
+                      if (p.co_ispu != null) ispuText = ` (ISPU ${p.co_ispu.toFixed(0)})`;
+                    }
+                    return [`${Number(val).toFixed(1)} ${unit}${ispuText}`, name];
+                  }
+                }}
               />
-              {SERIES.map((s) => (
-                <Area
-                  key={s.key}
-                  type="monotone"
-                  dataKey={s.key}
-                  name={s.label}
-                  stroke={s.color}
-                  strokeWidth={2}
-                  fill={`url(#grad-${s.key})`}
-                  dot={false}
-                />
-              ))}
+              {SERIES.map((s) => {
+                const key = viewMode === "ispu" ? `${s.key}_ispu` : `${s.key}_conc`;
+                return (
+                  <Area
+                    key={s.key}
+                    type="monotone"
+                    dataKey={key}
+                    name={s.label}
+                    stroke={s.color}
+                    strokeWidth={2}
+                    fill={`url(#grad-${s.key})`}
+                    dot={false}
+                  />
+                );
+              })}
             </AreaChart>
           </ResponsiveContainer>
         </div>

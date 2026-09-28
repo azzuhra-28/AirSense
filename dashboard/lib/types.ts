@@ -36,6 +36,9 @@ export interface ForecastRow {
   pm10_ispu_pred: number | null;
   co_ispu_pred: number | null;
   category: string | null;
+  // Teks insight dari pipeline analytics (sama di semua baris
+  // dalam satu siklus generated_at; baca dari baris pertama).
+  insight: string | null;
 }
 
 export interface AlertRow {
