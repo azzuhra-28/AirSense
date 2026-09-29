@@ -69,13 +69,16 @@
   - Selesai mengatasi bottleneck performa laptop saat menjalankan dashboard (bug memory Turbopack di Windows diatasi dengan membersihkan lockfile root dan menjalankan server production `next start`).
   - Selesai mendiagnosis dan memperbaiki sinkronisasi forecast: query `getLatestForecast()` di `dashboard/lib/api.ts` kini toleran terhadap data uji coba 1-baris dan selalu memilih batch 60-titik yang valid.
   - Berhasil menjalankan model forecast recurrent (`python -m src.run_forecast_rnn`) yang menghasilkan 60 titik prediksi baru ke `tb_forecast`.
+  - Sukses mengeksekusi ulang pipeline forecast dengan data live sensor ESP32 hari ini (29 Sep 2026), memperbarui proyeksi 60 menit ke depan, dan mengeliminasi warning drift di halaman `/predict`.
 
 ---
 
 ## 4. KEPUTUSAN / CATATAN PENTING
 
 - **Server Dashboard di Windows:**
-  `next dev` dengan Turbopack di Windows sempat menyebabkan crash *out of memory (os error 1450)* saat compile CSS/PostCSS. Solusi stabil: gunakan bundle teroptimasi via `npm run build` dan `npm run start` (penggunaan RAM hanya ~59 MB, CPU < 1%).
+  `next dev` dengan Turbopack di Windows sempat menyebabkan crash *out of memory (os error 1450)* dan BSOD akibat memori kernel habis. Solusi stabil permanen: gunakan mode production via `npm run start -- -p 3000` (penggunaan RAM hanya ~86 MB, CPU < 1%).
+- **Optimasi Pengambilan Data (`supabase_client.py`):**
+  Fungsi `fetch_rows()` ditambahkan parameter kontrol `max_rows` agar query pemodelan seperti `load_data(limit=1500)` tidak mendownload pagination seluruh 10.600+ baris tabel secara boros bandwidth, mempercepat proses training hingga < 1 menit.
 - **Penyempurnaan Pelatihan Model Runtun Waktu (`run_forecast_rnn.py`):**
   Fungsi `load_data()` diperbaiki dari sebelumnya mengambil 1.000 data tertua (`created_at.asc`) menjadi data terbaru (`created_at.desc`, lalu diurutkan kronologis) agar model memprediksi berdasarkan kondisi sensor riil terkini.
 - **Deteksi Data Drift di Halaman Prediksi:**

@@ -60,7 +60,8 @@ def load_data(days: int | None, limit: int = 1500) -> pd.DataFrame:
         "tb_konsentrasi_gas",
         select="*",
         order="created_at.desc",
-        limit=limit,
+        limit=min(limit, 1000),
+        max_rows=limit,
     )
 
     df = pd.DataFrame(rows)
