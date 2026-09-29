@@ -3,7 +3,7 @@
 
 function num(x: unknown): number {
   const v = typeof x === "string" ? Number(x) : (x as number);
-  return Number.isFinite(v) ? v : NaN;
+  return Number.isFinite(v) ? Math.max(0, v) : NaN;
 }
 
 function linear(x: number, xb: number, xa: number, ib: number, ia: number) {

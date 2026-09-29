@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo } from "react";
 import { motion } from "framer-motion";
@@ -31,8 +31,8 @@ export default function OverviewPage() {
     () =>
       rows.slice(-24).map((r) => ({
         t: toWIB(r.created_at),
-        pm25: Number(r.pm25_ugm3) || 0,
-        pm10: Number(r.pm10_ugm3) || 0,
+        pm25: Math.max(0, Number(r.pm25_ugm3) || 0),
+        pm10: Math.max(0, Number(r.pm10_ugm3) || 0),
       })),
     [rows]
   );

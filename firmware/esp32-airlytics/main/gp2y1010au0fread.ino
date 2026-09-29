@@ -36,6 +36,7 @@ void readPM25() {
   sensorValue_PM25 = total / NUM_SAMPLES;
   voutPM25 = (sensorValue_PM25 / 4095.0) * VREF;
   pm25ugm3 = 218.7 * voutPM25 - 9.7854;
+  if (pm25ugm3 < 0.0) pm25ugm3 = 0.0;
   pm25ISPU = convertpm25ToISPU(pm25ugm3);
 }
 
@@ -53,5 +54,6 @@ void readPM10() {
   sensorValue_PM10 = total / NUM_SAMPLES;
   voutPM10 = (sensorValue_PM10 / 4095.0) * VREF;
   pm10ugm3 = 288.27 * voutPM10 - 15.753;
+  if (pm10ugm3 < 0.0) pm10ugm3 = 0.0;
   pm10ISPU = convertpm10ToISPU(pm10ugm3);
 }
