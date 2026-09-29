@@ -12,7 +12,7 @@ import {
 } from "recharts";
 import { CalendarClock, LineChart as LineChartIcon, Sparkles, TriangleAlert } from "lucide-react";
 
-import { getLatestForecast } from "@/lib/api";
+import { getLatestForecast, subscribeForecast } from "@/lib/api";
 import { aqiOf, POLLUTANT_COLOR } from "@/lib/brand";
 import { toWIB } from "@/lib/ispu";
 import { useSensorData } from "@/components/SensorProvider";
@@ -68,9 +68,13 @@ export default function PredictPage() {
         });
 
     load();
-    const timer = setInterval(load, 5 * 60 * 1000);
+    const unsubscribe = subscribeForecast(() => {
+      load();
+    });
+    const timer = setInterval(load, 2 * 60 * 1000);
     return () => {
       cancelled = true;
+      unsubscribe();
       clearInterval(timer);
     };
   }, []);

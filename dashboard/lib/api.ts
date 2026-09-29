@@ -181,4 +181,32 @@ export function subscribeGas(
   };
 }
 
+/**
+ * Berlangganan data forecast baru secara realtime.
+ * Mengembalikan fungsi berhenti berlangganan.
+ */
+export function subscribeForecast(
+  onNewForecast: () => void
+): () => void {
+  const client = supabase;
+  if (!client) return () => {};
+
+  const channel = client
+    .channel("airsense-forecast-live")
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "tb_forecast",
+      },
+      () => onNewForecast()
+    )
+    .subscribe();
+
+  return () => {
+    client.removeChannel(channel);
+  };
+}
+
 export { supabaseConfigured };
