@@ -70,13 +70,24 @@
   - Selesai mendiagnosis dan memperbaiki sinkronisasi forecast: query `getLatestForecast()` di `dashboard/lib/api.ts` kini toleran terhadap data uji coba 1-baris dan selalu memilih batch 60-titik yang valid.
   - Berhasil menjalankan model forecast recurrent (`python -m src.run_forecast_rnn`) yang menghasilkan 60 titik prediksi baru ke `tb_forecast`.
   - Sukses mengeksekusi ulang pipeline forecast dengan data live sensor ESP32 hari ini (29 Sep 2026), memperbarui proyeksi 60 menit ke depan, dan mengeliminasi warning drift di halaman `/predict`.
+  - Berhasil mengaktifkan otomatisasi pipeline cloud 24/7 via GitHub Actions (`.github/workflows/forecast-nightly.yml`, run #86 sukses `Success`) yang berjalan otomatis setiap 30 menit.
+  - Selesai menyempurnakan halaman **Prediksi** (`dashboard/app/predict/page.tsx`):
+    1. Ditambahkan 3 Kartu Ringkasan Puncak & Arah Tren per polutan (Nilai akhir, waktu puncak, delta %).
+    2. Ditambahkan Garis Ambang Batas Kategori ISPU (ReferenceLine: 50 Baik, 100 Sedang, 200 Tidak Sehat) pada grafik.
+    3. Ditambahkan Panduan Waktu & Rekomendasi Aksi Dinamis (Waktu Terbersih luar ruangan, ventilasi alami vs purifier, kelompok rentan).
+    4. Ditambahkan Kartu Transparansi Model & Pipeline AI.
+    5. Ditambahkan integrasi Supabase Realtime WebSocket agar grafik ter-update instan tanpa refresh browser.
 
 ---
 
 ## 4. KEPUTUSAN / CATATAN PENTING
 
+- **Otomatisasi Cloud GitHub Actions:**
+  Pipeline ML recurrent (LSTM/GRU) dijalankan setiap 30 menit secara serverless dan gratis di GitHub Actions dengan secret `SUPABASE_URL` dan `SUPABASE_KEY`, membebaskan laptop dari keharusan menyala terus menerus.
 - **Server Dashboard di Windows:**
   `next dev` dengan Turbopack di Windows sempat menyebabkan crash *out of memory (os error 1450)* dan BSOD akibat memori kernel habis. Solusi stabil permanen: gunakan mode production via `npm run start -- -p 3000` (penggunaan RAM hanya ~86 MB, CPU < 1%).
+- **Sanitasi Nilai Negatif Sensor (Zero-clamping):**
+  Sensor optik GP2Y1010AU0F memiliki offset regresi negatif (-9.78 untuk PM2.5 dan -15.75 untuk PM10). Saat udara sangat bersih atau pemanasan awal, voltase rendah memicu angka minus. Telah diperbaiki dengan zero-clamping (`Math.max(0, val)`) di UI dan firmware ESP32 (`if (pm < 0) pm = 0`).
 - **Optimasi Pengambilan Data (`supabase_client.py`):**
   Fungsi `fetch_rows()` ditambahkan parameter kontrol `max_rows` agar query pemodelan seperti `load_data(limit=1500)` tidak mendownload pagination seluruh 10.600+ baris tabel secara boros bandwidth, mempercepat proses training hingga < 1 menit.
 - **Penyempurnaan Pelatihan Model Runtun Waktu (`run_forecast_rnn.py`):**
