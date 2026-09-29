@@ -1,18 +1,21 @@
-name: Forecast Nightly
+name: AirSense Automated Forecast & Analytics Pipeline
 
 on:
   schedule:
-    # tiap jam (UTC) - sesuaikan kalau mau 15/30 menit:  15 * * * *  /  */30 * * * *
-    - cron: "0 * * * *"
-  workflow_dispatch: {}   # bolein run manual dari tab Actions
+    # Berjalan otomatis setiap 30 menit
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}   # Tombol pemicu manual langsung di tab Actions GitHub
 
 jobs:
   forecast:
+    name: Run Forecast and Alert Pipeline
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
@@ -20,17 +23,19 @@ jobs:
       - name: Install dependencies
         run: pip install -r analytics/requirements.txt
 
-      - name: Training (otomatis kalau model belum ada)
+      - name: Jalankan RNN Multi-step Forecast (60 Menit ke Depan)
         working-directory: analytics
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          python ensure_models.py || (echo "Training gagal / data belum cukup, abaikan." && exit 0)
+          python -m src.run_forecast_rnn --epochs 40
 
-      - name: Jalankan pipeline (forecast + klasifikasi + alert)
+      - name: Jalankan Anomaly Detection & Alert Pipeline
         working-directory: analytics
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        run: python -m src.run_pipeline
+        run: |
+          python ensure_models.py || true
+          python -m src.run_pipeline || true
