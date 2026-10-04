@@ -33,8 +33,9 @@ export async function fetchRecentReadings(
 export async function getLatestGas() {
   if (!supabase) return undefined;
   const { data, error } = await supabase
-    .from("tb_konsentrasi_iso")
+    .from("tb_konsentrasi_gas")
     .select("*")
+    .order("created_at", { ascending: false })
     .limit(1);
   if (error) throw error;
   return (data ?? [])[0] as KonsentrasiGas | undefined;
@@ -67,19 +68,30 @@ export async function getHistory(minutes: number) {
 export async function getLatestForecast() {
   if (!supabase) return [] as ForecastRow[];
 
-  const { data: gen } = await supabase
+  // Ambil beberapa baris terbaru untuk mendeteksi batch siklus yang valid (>= 2 titik)
+  const { data: recent, error: recentErr } = await supabase
     .from("tb_forecast")
     .select("generated_at")
     .order("generated_at", { ascending: false })
-    .limit(1);
+    .limit(120);
 
-  const latestGen = gen?.[0]?.generated_at;
-  if (!latestGen) return [] as ForecastRow[];
+  if (recentErr || !recent?.length) return [] as ForecastRow[];
+
+  // Hitung jumlah baris per batch generated_at
+  const counts: Record<string, number> = {};
+  for (const r of recent) {
+    counts[r.generated_at] = (counts[r.generated_at] || 0) + 1;
+  }
+
+  // Pilih generated_at terbaru yang memiliki siklus valid (>= 2 titik)
+  // Menghindari dashboard terkunci pada data uji coba tunggal (1 baris)
+  const validGen =
+    Object.keys(counts).find((gen) => counts[gen] >= 2) ?? recent[0].generated_at;
 
   const { data, error } = await supabase
     .from("tb_forecast")
     .select("*")
-    .eq("generated_at", latestGen)
+    .eq("generated_at", validGen)
     .order("forecast_at", { ascending: true });
 
   if (error) throw error;
@@ -161,6 +173,34 @@ export function subscribeGas(
         table: "tb_konsentrasi_gas",
       },
       (payload) => cb(payload.new as KonsentrasiGas)
+    )
+    .subscribe();
+
+  return () => {
+    client.removeChannel(channel);
+  };
+}
+
+/**
+ * Berlangganan data forecast baru secara realtime.
+ * Mengembalikan fungsi berhenti berlangganan.
+ */
+export function subscribeForecast(
+  onNewForecast: () => void
+): () => void {
+  const client = supabase;
+  if (!client) return () => {};
+
+  const channel = client
+    .channel("airsense-forecast-live")
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "tb_forecast",
+      },
+      () => onNewForecast()
     )
     .subscribe();
 

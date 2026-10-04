@@ -176,7 +176,7 @@ export function SensorProvider({ children }: { children: ReactNode }) {
     if (!latest) return [];
     return POLLUTANTS.map((p) => {
       const raw = Number(latest[p.key as keyof KonsentrasiGas]);
-      const safe = Number.isFinite(raw) ? raw : 0;
+      const safe = Number.isFinite(raw) ? Math.max(0, raw) : 0;
       return {
         key: p.key,
         label: p.label,
@@ -242,6 +242,6 @@ export function metricSeries(
 ) {
   return rows.slice(-n).map((r) => ({
     t: toWIB(r.created_at),
-    v: (Number(r[key as keyof KonsentrasiGas]) || 0) * scale,
+    v: Math.max(0, (Number(r[key as keyof KonsentrasiGas]) || 0) * scale),
   }));
 }

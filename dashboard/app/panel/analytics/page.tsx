@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState } from "react";
 import {
@@ -17,19 +17,38 @@ import { POLLUTANTS } from "@/lib/brand";
 import { toWIB } from "@/lib/ispu";
 import { useSensorData } from "@/components/SensorProvider";
 
+const LIMIT_OPTIONS = [
+  { label: "30 Terakhir", value: 30 },
+  { label: "60 Terakhir (1 Jam)", value: 60 },
+  { label: "120 Terakhir", value: 120 },
+  { label: "Semua Data", value: 0 },
+] as const;
+
 export default function AnalyticsPage() {
   const { loading, failed, rows, reload } = useSensorData();
   const [active, setActive] = useState<string>(POLLUTANTS[0].key);
+  const [limit, setLimit] = useState<number>(60);
 
   const meta = POLLUTANTS.find((p) => p.key === active) ?? POLLUTANTS[0];
 
+  // Batasi jumlah titik yang ditampilkan sesuai pilihan (default 60 titik / ~1 jam)
+  const activeRows = useMemo(() => {
+    if (!limit || limit <= 0) return rows;
+    return rows.slice(-limit);
+  }, [rows, limit]);
+
   const data = useMemo(
     () =>
-      rows.map((r) => ({
-        t: toWIB(r.created_at),
-        v: (Number(r[active as keyof typeof r]) || 0) * meta.scale,
-      })),
-    [rows, active, meta.scale]
+      activeRows.map((r) => {
+        const raw = Number(r[active as keyof typeof r]) || 0;
+        // Konsentrasi gas tidak boleh negatif secara fisik (clamp ke 0)
+        const val = Math.max(0, raw * meta.scale);
+        return {
+          t: toWIB(r.created_at),
+          v: val,
+        };
+      }),
+    [activeRows, active, meta.scale]
   );
 
   const stats = useMemo(() => {
@@ -41,6 +60,14 @@ export default function AnalyticsPage() {
       max: Math.max(...vals),
       avg: sum / vals.length,
     };
+  }, [data]);
+
+  const timeRangeLabel = useMemo(() => {
+    if (!data.length) return "";
+    const firstTime = data[0].t;
+    const lastTime = data[data.length - 1].t;
+    if (firstTime === lastTime) return lastTime;
+    return `${firstTime} - ${lastTime} WIB`;
   }, [data]);
 
   if (loading) {
@@ -109,20 +136,45 @@ export default function AnalyticsPage() {
 
       {/* Grafik utama */}
       <section className="rounded-2xl border border-slate-200/80 bg-white/90 p-5 sm:p-6">
-        <header className="mb-2">
-          <h2 className="text-[15px] font-semibold text-slate-900">
-            {meta.label} ({meta.unit})
-          </h2>
-          <p className="mt-0.5 text-[12px] text-slate-400">
-            {data.length} titik pembacaan
-          </p>
+        <header className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-[15px] font-semibold text-slate-900">
+              {meta.label} ({meta.unit})
+            </h2>
+            <p className="mt-0.5 text-[12px] text-slate-400">
+              {limit > 0 && limit < rows.length
+                ? `Menampilkan ${data.length} titik terakhir (${timeRangeLabel}) dari ${rows.length} total data`
+                : `Menampilkan seluruh ${data.length} titik pembacaan (${timeRangeLabel})`}
+            </p>
+          </div>
+
+          {/* Filter Batas Titik / Rentang Waktu */}
+          <div className="flex flex-wrap items-center gap-1 self-start rounded-xl border border-slate-200/80 bg-slate-50/80 p-1 sm:self-auto">
+            {LIMIT_OPTIONS.map((opt) => {
+              const isSelected = limit === opt.value;
+              return (
+                <button
+                  key={opt.label}
+                  type="button"
+                  onClick={() => setLimit(opt.value)}
+                  className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition-all ${
+                    isSelected
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "text-slate-500 hover:text-slate-900"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
         </header>
 
         <div className="h-80 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={data}
-              margin={{ top: 8, right: 8, bottom: 0, left: -18 }}
+              margin={{ top: 12, right: 12, bottom: 4, left: -10 }}
             >
               <defs>
                 <linearGradient id="anaFill" x1="0" y1="0" x2="0" y2="1">
@@ -140,13 +192,16 @@ export default function AnalyticsPage() {
                 tick={{ fontSize: 11, fill: "#94A3B8" }}
                 axisLine={false}
                 tickLine={false}
-                minTickGap={32}
+                minTickGap={28}
               />
               <YAxis
+                domain={[0, "auto"]}
+                allowDataOverflow={false}
                 tick={{ fontSize: 11, fill: "#94A3B8" }}
                 axisLine={false}
                 tickLine={false}
-                width={44}
+                width={42}
+                tickFormatter={(val) => Math.round(val).toString()}
               />
               <Tooltip
                 cursor={{ stroke: "#CBD5E1", strokeDasharray: "4 4" }}

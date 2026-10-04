@@ -39,22 +39,29 @@ def supabase_session() -> requests.Session:
     return s
 
 
-def fetch_rows(sess, table, select="*", order="created_at.asc", limit=1000):
-    """Ambil semua baris dengan pagination (batch 1000, sesuai laporan)."""
+def fetch_rows(sess, table, select="*", order="created_at.asc", limit=1000, max_rows=None):
+    """Ambil baris dengan pagination (batch limit, opsional batasan total max_rows)."""
     rows = []
     offset = 0
     while True:
+        current_limit = limit
+        if max_rows is not None:
+            remaining = max_rows - len(rows)
+            if remaining <= 0:
+                break
+            current_limit = min(limit, remaining)
+
         r = sess.get(
             f"{SUPABASE_URL}/rest/v1/{table}",
-            params={"select": select, "order": order, "limit": limit, "offset": offset},
+            params={"select": select, "order": order, "limit": current_limit, "offset": offset},
             timeout=30,
         )
         r.raise_for_status()
         batch = r.json()
         rows.extend(batch)
-        if len(batch) < limit:
+        if len(batch) < current_limit or (max_rows is not None and len(rows) >= max_rows):
             break
-        offset += limit
+        offset += current_limit
     return rows
 
 

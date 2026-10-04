@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Database } from "lucide-react";
@@ -157,7 +157,7 @@ function formatCell(
 ) {
   const v = Number(r[key as keyof KonsentrasiGas]);
   if (!Number.isFinite(v)) return "—";
-  const scaled = v * scale;
+  const scaled = Math.max(0, v * scale);
   if (Math.abs(scaled) >= 1000) return Math.round(scaled).toLocaleString("id-ID");
   return scaled.toFixed(scaled < 10 ? 2 : 1);
 }

@@ -52,24 +52,28 @@ BATCH_SIZE = 500
 # Muat data
 # ============================================================
 
-def load_data(days: int | None) -> pd.DataFrame:
-    """Ambil data sensor dari Supabase (opsional dibatasi N hari)."""
+def load_data(days: int | None, limit: int = 1500) -> pd.DataFrame:
+    """Ambil data sensor terbaru dari Supabase (diurutkan secara kronologis)."""
     sess = supabase_session()
     rows = fetch_rows(
         sess,
         "tb_konsentrasi_gas",
         select="*",
-        order="created_at.asc",
-        limit=1000,
+        order="created_at.desc",
+        limit=min(limit, 1000),
+        max_rows=limit,
     )
 
     df = pd.DataFrame(rows)
+    if df.empty:
+        return df
 
-    if days is not None and not df.empty:
+    # Kembalikan ke urutan kronologis agar training runtun waktu benar
+    df["created_at"] = pd.to_datetime(df["created_at"], utc=True, format="mixed")
+    df = df.sort_values("created_at").reset_index(drop=True)
+
+    if days is not None:
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-        df["created_at"] = pd.to_datetime(
-            df["created_at"], utc=True
-        )
         df = df[df["created_at"] >= cutoff].reset_index(drop=True)
 
     return df
@@ -255,6 +259,76 @@ def merge_rows(per_target_rows: dict[str, list[dict]]) -> list[dict]:
     return out
 
 
+def build_insight_text(rows: list[dict]) -> str | None:
+    """
+    Susun teks insight deterministik dari satu siklus forecast.
+
+    Isi: kategori saat ini (dari titik awal), polutan dominan,
+    arah tren (naik/turun/stabil dari 10 titik awal vs 10 akhir),
+    dan kategori yang dituju di akhir horizon. Teks yang SAMA
+    ditulis ke semua baris dalam siklus; dashboard cukup baca
+    dari satu baris saja.
+    """
+    if not rows:
+        return None
+
+    labels = {
+        "pm25_ugm3": "PM2.5",
+        "pm10_ugm3": "PM10",
+        "co_ugm3": "CO",
+    }
+    ispu_of = {
+        "pm25_ugm3": "pm25_ispu_pred",
+        "pm10_ugm3": "pm10_ispu_pred",
+        "co_ugm3": "co_ispu_pred",
+    }
+
+    # ISPU maksimum + polutan dominan sepanjang horizon.
+    peak = 0.0
+    dom_key = TARGETS[0]
+    for r in rows:
+        for t in TARGETS:
+            v = r.get(ispu_of[t])
+            if v is not None and v > peak:
+                peak = v
+                dom_key = t
+
+    first_cat = rows[0].get("category") or "—"
+    last_cat = rows[-1].get("category") or "—"
+
+    # Tren: bandingkan rata-rata 10 titik awal vs 10 akhir
+    # pada ISPU polutan dominan.
+    head_vals = [
+        r[ispu_of[dom_key]] for r in rows[:10]
+        if r.get(ispu_of[dom_key]) is not None
+    ]
+    tail_vals = [
+        r[ispu_of[dom_key]] for r in rows[-10:]
+        if r.get(ispu_of[dom_key]) is not None
+    ]
+    if head_vals and tail_vals:
+        h_mean = sum(head_vals) / len(head_vals)
+        t_mean = sum(tail_vals) / len(tail_vals)
+        if t_mean > h_mean * 1.1:
+            trend = "cenderung naik"
+        elif t_mean < h_mean * 0.9:
+            trend = "cenderung turun"
+        else:
+            trend = "relatif stabil"
+    else:
+        trend = "relatif stabil"
+
+    dom_label = labels.get(dom_key, dom_key)
+    text = (
+        f"Kondisi udara saat ini tergolong {first_cat}. "
+        f"Kontributor utama adalah {dom_label} "
+        f"(ISPU puncak {peak:.0f}). "
+        f"Untuk satu jam ke depan, tren {trend} "
+        f"dengan kategori akhir {last_cat}."
+    )
+    return text
+
+
 # ============================================================
 # Tulis ke Supabase
 # ============================================================
@@ -385,6 +459,12 @@ def main():
         )
 
     rows = merge_rows(per_target_rows)
+
+    insight = build_insight_text(rows)
+    if insight:
+        for r in rows:
+            r["insight"] = insight
+        print(f"\nInsight: {insight}")
 
     print(f"\nMenulis {len(rows)} baris ke {TABLE_FORECAST}...")
     written = write_forecast(rows)
