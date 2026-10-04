@@ -4,18 +4,23 @@
 # Pipeline:
 # 1. Load and validate sensor data
 # 2. Calculate current ISPU from 24-hour rolling concentration
-# 3. Detect anomalies
+# 3. Detect anomalies (+ RF robustness cross-check)
 # 4. Load trained forecasting models
 # 5. Direct forecast t+60 minutes
-# 6. Calculate experimental forecast indicator
-# 7. Apply alert logic
+# 6. Build interpolated forecast curve t+1..t+60 for dashboard
+# 7. Calculate experimental forecast indicator
+# 8. Apply alert logic
+# 9. Build automatic insight
+# 10. Save forecast curve, alert, and insight to Supabase
 #
 # Notes:
 # - Current ISPU uses 24-hour rolling concentration.
 # - Forecast indicator is experimental and is NOT an official
 #   future ISPU because the required future 24-hour measurement
 #   window is not yet available.
-# - No database writes are performed here yet.
+# - Forecast curve t+1..t+59 is LINEAR INTERPOLATION between the
+#   latest observation and the t+60 model prediction. Only t+60
+#   is a true model output. See build_forecast_curve().
 # ============================================================
 
 import json
@@ -26,10 +31,7 @@ import numpy as np
 import pandas as pd
 
 from .alert_logic import apply_alert_logic
-from .anomaly import detect_anomalies
-
-from .robustness_rf import load_model as load_rf_model
-from .anomaly import add_rf_robustness_check
+from .anomaly import add_rf_robustness_check, detect_anomalies
 from .insight import build_insight
 
 from .ispu import (
@@ -46,7 +48,10 @@ from .preprocess import (
     load_to_df,
 )
 
+from .robustness_rf import load_model as load_rf_model
+
 from .supabase_client import (
+    SUPABASE_URL,
     TABLE_ALERT,
     TABLE_FORECAST,
     TABLE_GAS,
@@ -76,7 +81,10 @@ FORECAST_METADATA_PATH = os.path.join(
     "forecast_models_meta.json",
 )
 
-RF_MODEL_PATH = os.path.join(MODEL_DIR, "robustness_rf.joblib")
+RF_MODEL_PATH = os.path.join(
+    MODEL_DIR,
+    "robustness_rf.joblib",
+)
 
 
 # ============================================================
@@ -84,6 +92,12 @@ RF_MODEL_PATH = os.path.join(MODEL_DIR, "robustness_rf.joblib")
 # ============================================================
 
 ISPU_ROLLING_WINDOW = 1440
+
+ALERT_COOLDOWN_HOURS = 6
+
+
+class InsufficientHistoryError(RuntimeError):
+    """Riwayat sensor belum cukup untuk perhitungan ISPU 24 jam."""
 
 
 # ============================================================
@@ -672,6 +686,86 @@ def forecast_t60(
 
 
 # ============================================================
+# Multi-step Forecast Curve (interpolated t+1..t+59, model t+60)
+#
+# CATATAN METODOLOGI:
+# Model forecast dilatih khusus untuk prediksi langsung di
+# t+60 (direct forecasting), bukan model per-menit. Titik
+# t+1 s.d. t+59 di bawah ini adalah INTERPOLASI LINEAR antara
+# observasi terakhir (t+0) dan prediksi model di t+60, dibuat
+# semata untuk kebutuhan visualisasi kurva di dashboard.
+# Titik t+60 tetap murni hasil model. Titik selain t+60 TIDAK
+# untuk dipakai sebagai dasar keputusan presisi.
+# ============================================================
+
+def build_forecast_curve(
+    sensor_df,
+    forecast,
+    steps=60,
+):
+    """
+    forecast: hasil forecast_t60().
+    Return: list of dict, satu dict per menit (t+1..t+steps).
+    """
+
+    latest_row = sensor_df.iloc[-1]
+
+    curve = []
+
+    for step in range(1, steps + 1):
+
+        fraction = step / steps
+
+        point = {
+            "created_at": forecast["created_at"],
+            "forecast_at": (
+                forecast["created_at"]
+                + pd.Timedelta(minutes=step)
+            ),
+            "horizon_minutes": step,
+        }
+
+        for pollutant in POLLUTANTS:
+
+            start_value = float(
+                latest_row[pollutant]
+            )
+
+            end_value = forecast[
+                f"{pollutant}_forecast_t60"
+            ]
+
+            interpolated = (
+                start_value
+                + (end_value - start_value) * fraction
+            )
+
+            interpolated = max(
+                0.0,
+                interpolated,
+            )
+
+            point[
+                f"{pollutant}_forecast_t60"
+            ] = interpolated
+
+        curve.append(point)
+
+    # Titik terakhir (t+60) diganti dengan hasil model asli,
+    # bukan hasil interpolasi, supaya tidak ada informasi yang
+    # hilang/terdistorsi di endpoint yang paling penting.
+    for pollutant in POLLUTANTS:
+
+        curve[-1][
+            f"{pollutant}_forecast_t60"
+        ] = forecast[
+            f"{pollutant}_forecast_t60"
+        ]
+
+    return curve
+
+
+# ============================================================
 # Experimental Forecast Indicator
 # ============================================================
 
@@ -837,9 +931,10 @@ def run_from_dataframe(
 
     Returns:
     - sensor: complete processed timeline
-    - forecast: latest t+60 forecast
+    - forecast: latest t+60 forecast (single point, model output)
     - latest: latest processed sensor row
     - alerts: rows with active unified alerts
+    - insight: automatic insight text (string)
     """
 
     if raw_df is None:
@@ -874,7 +969,7 @@ def run_from_dataframe(
         len(sensor_df)
         < ISPU_ROLLING_WINDOW
     ):
-        raise RuntimeError(
+        raise InsufficientHistoryError(
             "Riwayat sensor belum cukup "
             "untuk perhitungan ISPU 24 jam. "
             f"Minimal {ISPU_ROLLING_WINDOW} "
@@ -930,17 +1025,24 @@ def run_from_dataframe(
             column
         ].values
 
+    # --------------------------------------------------------
+    # RF Robustness Cross-Check (opsional, jalan kalau model ada)
+    # --------------------------------------------------------
+
     rf_model = load_rf_model(RF_MODEL_PATH)
 
     if rf_model is not None:
+
         sensor_df = add_rf_robustness_check(
             sensor_df,
             rf_model,
         )
+
     else:
+
         sensor_df["rf_predicted_category"] = None
         sensor_df["has_rf_mismatch"] = False
-        
+
     # --------------------------------------------------------
     # Forecast models
     # --------------------------------------------------------
@@ -999,7 +1101,7 @@ def run_from_dataframe(
             sensor_df
         )
     )
-    
+
     # --------------------------------------------------------
     # Automatic Insight
     # --------------------------------------------------------
@@ -1037,6 +1139,7 @@ def run_from_dataframe(
         "insight": insight_text,
     }
 
+
 # ============================================================
 # Simpan Hasil ke Supabase
 # ============================================================
@@ -1054,10 +1157,15 @@ SEVERITY_MAP = {
 }
 
 
-def build_forecast_row(forecast, insight=None):
+def build_forecast_rows(
+    sensor_df,
+    forecast,
+    insight=None,
+):
     """
-    Bentuk satu baris untuk tabel tb_forecast sesuai skema
-    database/migrasi_forecast_alert.sql.
+    Bentuk 60 baris untuk tb_forecast: 1 per menit dari t+1
+    sampai t+60, dengan generated_at yang sama (otomatis dari
+    DEFAULT NOW() di Supabase, karena tidak dikirim eksplisit).
 
     Catatan: skema saat ini hanya punya kolom untuk PM2.5,
     PM10, dan CO. Forecast NO2 dan O3 dihitung juga oleh
@@ -1065,72 +1173,225 @@ def build_forecast_row(forecast, insight=None):
     dikoordinasikan dengan Anggota 1 (Database) kalau mau
     ikut disimpan.
     """
-    pm25 = forecast["pm25_ugm3_forecast_t60"]
-    pm10 = forecast["pm10_ugm3_forecast_t60"]
-    co = forecast["co_ugm3_forecast_t60"]
 
-    return {
-        "forecast_at": forecast["forecast_at"].isoformat(),
-        "pm25_ugm3_pred": pm25,
-        "pm10_ugm3_pred": pm10,
-        "co_ugm3_pred": co,
-        "pm25_ispu_pred": ispu_value("pm25_ugm3", pm25),
-        "pm10_ispu_pred": ispu_value("pm10_ugm3", pm10),
-        "co_ispu_pred": ispu_value("co_ugm3", co),
-        "category": forecast["forecast_indicator_category"],
-        "insight": insight,
-    }
+    curve = build_forecast_curve(
+        sensor_df,
+        forecast,
+    )
+
+    rows = []
+
+    for point in curve:
+
+        pm25 = point["pm25_ugm3_forecast_t60"]
+        pm10 = point["pm10_ugm3_forecast_t60"]
+        co = point["co_ugm3_forecast_t60"]
+
+        concentrations = {
+            "pm25_ugm3": pm25,
+            "pm10_ugm3": pm10,
+            "co_ugm3": co,
+            "no2_ugm3": point["no2_ugm3_forecast_t60"],
+            "o3_ugm3": point["o3_ugm3_forecast_t60"],
+        }
+
+        total, category = ispu_total_of(
+            concentrations
+        )
+
+        if total is not None:
+            category = category_of(
+                round(total)
+            )
+
+        rows.append(
+            {
+                "forecast_at": point[
+                    "forecast_at"
+                ].isoformat(),
+                "pm25_ugm3_pred": pm25,
+                "pm10_ugm3_pred": pm10,
+                "co_ugm3_pred": co,
+                "pm25_ispu_pred": ispu_value(
+                    "pm25_ugm3", pm25
+                ),
+                "pm10_ispu_pred": ispu_value(
+                    "pm10_ugm3", pm10
+                ),
+                "co_ispu_pred": ispu_value(
+                    "co_ugm3", co
+                ),
+                "category": category,
+                "insight": insight,
+            }
+        )
+
+    return rows
 
 
 def build_alert_row(latest_row):
     """
     Bentuk satu baris untuk tb_alert dari BARIS SENSOR
-    TERBARU SAJA (bukan seluruh histori alert dari
-    result["alerts"]). Ini penting supaya pipeline yang
-    jalan tiap jam via GitHub Actions tidak insert ulang
-    alert lama yang sudah pernah tersimpan.
+    TERBARU SAJA (bukan seluruh histori alert).
     """
+
     alert_type_raw = latest_row["alert_type"]
     severity_raw = latest_row["severity"]
 
+    rf_predicted = latest_row.get(
+        "rf_predicted_category"
+    )
+
+    rf_predicted = (
+        None
+        if pd.isna(rf_predicted)
+        else str(rf_predicted)
+    )
+
     return {
         "alert_type": ALERT_TYPE_MAP.get(
-            alert_type_raw, alert_type_raw.upper()
+            alert_type_raw,
+            alert_type_raw.upper(),
         ),
         "severity": SEVERITY_MAP.get(
-            severity_raw, severity_raw.upper()
+            severity_raw,
+            severity_raw.upper(),
         ),
         "message": latest_row["alert_message"],
         "is_active": True,
         "payload": {
-            "ispu_category": latest_row.get("ispu_category"),
-            "dominant_pollutant": latest_row.get("dominant_pollutant"),
-            "anomaly_level": latest_row.get("anomaly_level"),
+            "ispu_category": latest_row.get(
+                "ispu_category"
+            ),
+            "dominant_pollutant": latest_row.get(
+                "dominant_pollutant"
+            ),
+            "anomaly_level": latest_row.get(
+                "anomaly_level"
+            ),
+            "rf_predicted_category": rf_predicted,
+            "rf_mismatch": bool(
+                latest_row.get(
+                    "has_rf_mismatch", False
+                )
+            ),
         },
     }
 
 
-def save_results_to_supabase(session, forecast, latest_row, insight=None):
+def forecast_exists(session, forecast_at_iso):
     """
-    Simpan hasil forecast (selalu dilakukan tiap pipeline
-    jalan) dan alert (hanya kalau baris sensor terbaru
-    memang punya alert aktif) ke Supabase.
-
-    Dipanggil setelah run_from_dataframe() di dalam run().
+    True kalau forecast untuk waktu target yang sama sudah
+    tersimpan (misalnya karena belum ada data sensor baru).
     """
-    forecast_row = build_forecast_row(forecast, insight)
-    insert_rows(session, TABLE_FORECAST, [forecast_row])
 
-    has_alert = bool(latest_row.get("has_alert", False))
+    response = session.get(
+        f"{SUPABASE_URL}/rest/v1/{TABLE_FORECAST}",
+        params={
+            "select": "id",
+            "forecast_at": f"eq.{forecast_at_iso}",
+            "limit": 1,
+        },
+        timeout=30,
+    )
 
-    if has_alert:
+    response.raise_for_status()
+
+    return len(response.json()) > 0
+
+
+def recent_alert_exists(session, alert_type, severity):
+    """
+    True kalau alert dengan tipe dan severity yang sama sudah
+    dibuat dalam ALERT_COOLDOWN_HOURS terakhir. Kalau severity
+    naik (misal MEDIUM jadi HIGH), alert baru tetap dibuat.
+    """
+
+    since = (
+        pd.Timestamp.now(tz="UTC")
+        - pd.Timedelta(hours=ALERT_COOLDOWN_HOURS)
+    ).isoformat()
+
+    response = session.get(
+        f"{SUPABASE_URL}/rest/v1/{TABLE_ALERT}",
+        params={
+            "select": "id",
+            "alert_type": f"eq.{alert_type}",
+            "severity": f"eq.{severity}",
+            "created_at": f"gte.{since}",
+            "limit": 1,
+        },
+        timeout=30,
+    )
+
+    response.raise_for_status()
+
+    return len(response.json()) > 0
+
+
+def save_results_to_supabase(
+    session,
+    sensor_df,
+    forecast,
+    latest_row,
+    insight=None,
+):
+    """
+    Simpan kurva forecast (60 baris, t+1..t+60) dan alert ke
+    Supabase tanpa duplikasi.
+
+    - Satu siklus forecast dilewati seluruhnya kalau titik t+60
+      (forecast_at paling akhir di siklus itu) sudah ada --
+      artinya observasi sensor sumbernya belum berubah.
+    - Alert dilewati kalau alert dengan tipe + severity yang sama
+      sudah dibuat dalam ALERT_COOLDOWN_HOURS terakhir.
+    """
+
+    forecast_rows = build_forecast_rows(
+        sensor_df,
+        forecast,
+        insight,
+    )
+
+    forecast_saved = False
+
+    last_forecast_at = forecast_rows[-1]["forecast_at"]
+
+    if not forecast_exists(session, last_forecast_at):
+
+        insert_rows(
+            session,
+            TABLE_FORECAST,
+            forecast_rows,
+        )
+
+        forecast_saved = True
+
+    alert_saved = False
+
+    if bool(latest_row.get("has_alert", False)):
+
         alert_row = build_alert_row(latest_row)
-        insert_rows(session, TABLE_ALERT, [alert_row])
+
+        if not recent_alert_exists(
+            session,
+            alert_row["alert_type"],
+            alert_row["severity"],
+        ):
+
+            insert_rows(
+                session,
+                TABLE_ALERT,
+                [alert_row],
+            )
+
+            alert_saved = True
 
     return {
-        "forecast_saved": True,
-        "alert_saved": has_alert,
+        "forecast_saved": forecast_saved,
+        "alert_saved": alert_saved,
     }
+
 
 # ============================================================
 # Production Entry Point
@@ -1138,12 +1399,9 @@ def save_results_to_supabase(session, forecast, latest_row, insight=None):
 
 def run():
     """
-    Fetch sensor data from Supabase and execute the analytics
-    pipeline.
-
-    Database writes are intentionally not performed yet.
-    The database schema and write contract must first be
-    coordinated with the database/cloud team member.
+    Fetch sensor data from Supabase, run the analytics
+    pipeline, and save the forecast curve, alert, and
+    automatic insight back to Supabase.
     """
 
     check_connection()
@@ -1167,25 +1425,25 @@ def run():
         rows
     )
 
-    result = run_from_dataframe(
-        raw_df
-    )
+    try:
+        result = run_from_dataframe(
+            raw_df
+        )
 
-    forecast = result[
-        "forecast"
-    ]
+    except InsufficientHistoryError as error:
 
-    latest = result[
-        "latest"
-    ]
+        print("SKIP: pipeline dilewati.")
+        print(error)
 
-    alerts = result[
-        "alerts"
-    ]
-    
-    
+        return None
+
+    forecast = result["forecast"]
+    latest = result["latest"]
+    alerts = result["alerts"]
+
     save_status = save_results_to_supabase(
         session,
+        result["sensor"],
         result["forecast"],
         result["latest"],
         result["insight"],
@@ -1239,9 +1497,9 @@ def run():
         "RF mismatch:",
         latest["has_rf_mismatch"],
     )
-    
+
     print(
-        "Forecast timestamp:",
+        "Forecast timestamp (t+60):",
         forecast[
             "forecast_at"
         ],
@@ -1269,9 +1527,8 @@ def run():
         "\nInsight:",
         result["insight"],
     )
-    
-    return result
 
+    return result
 
 
 # ============================================================

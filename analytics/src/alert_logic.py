@@ -51,6 +51,14 @@ def add_anomaly_level(df):
     - Strong:
         Z-Score and Isolation Forest both detect anomaly
 
+    RF robustness cross-check (optional):
+        If column has_rf_mismatch exists and is True, the
+        Random Forest prediction disagrees strongly with the
+        official ISPU category. This acts as corroborating
+        evidence:
+        - Observation -> Moderate
+        - None        -> Observation
+
     Only Moderate and Strong generate anomaly alerts.
     """
 
@@ -105,6 +113,33 @@ def add_anomaly_level(df):
         choices,
         default="None",
     )
+
+    # --------------------------------------------------------
+    # RF robustness cross-check
+    #
+    # Urutan penting: Observation dinaikkan dulu, baru None,
+    # supaya satu baris tidak naik dua tingkat sekaligus.
+    # --------------------------------------------------------
+
+    if "has_rf_mismatch" in result.columns:
+
+        rf_mismatch = (
+            result["has_rf_mismatch"]
+            .fillna(False)
+            .astype(bool)
+        )
+
+        result.loc[
+            rf_mismatch
+            & (result["anomaly_level"] == "Observation"),
+            "anomaly_level",
+        ] = "Moderate"
+
+        result.loc[
+            rf_mismatch
+            & (result["anomaly_level"] == "None"),
+            "anomaly_level",
+        ] = "Observation"
 
     result["anomaly_alert"] = (
         result["anomaly_level"]
@@ -408,6 +443,7 @@ def apply_alert_logic(
     - anomaly detection results
     - current ISPU category
     - experimental forecast indicator
+    - (optional) has_rf_mismatch from the RF robustness check
 
     Returns dataframe with:
     - anomaly_level
