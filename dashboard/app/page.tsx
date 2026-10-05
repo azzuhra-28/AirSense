@@ -54,7 +54,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="mt-6 max-w-2xl text-base leading-relaxed text-slate-400 sm:text-lg">
-            AirSense adalah platform cerdas berbasis IoT untuk memantau indeks kualitas udara (ISPU), polutan berbahaya (PM2.5, PM10, CO), serta prediksi tren udara secara real-time.
+            AirSense adalah platform cerdas berbasis IoT untuk memantau indeks kualitas udara (ISPU), polutan berbahaya (PM2.5, PM10, CO, NO2, O3), serta prediksi tren udara secara real-time.
           </p>
 
           <div className="mt-10 flex items-center justify-center">
