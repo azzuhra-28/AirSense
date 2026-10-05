@@ -116,12 +116,12 @@ export const SHADOW = {
  * agar daftar menu hanya didefinisikan sekali.
  */
 export const NAV = [
-  { href: "/", label: "Ringkasan", icon: "gauge" },
-  { href: "/analytics", label: "Analitik", icon: "trending" },
-  { href: "/predict", label: "Prediksi", icon: "sparkles" },
-  { href: "/history", label: "Riwayat", icon: "list" },
-  { href: "/devices", label: "Perangkat", icon: "cpu" },
-  { href: "/alerts", label: "Peringatan", icon: "bell" },
+  { href: "/panel", label: "Ringkasan", icon: "gauge" },
+  { href: "/panel/analytics", label: "Analitik", icon: "trending" },
+  { href: "/panel/predict", label: "Prediksi", icon: "sparkles" },
+  { href: "/panel/history", label: "Riwayat", icon: "list" },
+  { href: "/panel/devices", label: "Perangkat", icon: "cpu" },
+  { href: "/panel/alerts", label: "Peringatan", icon: "bell" },
 ] as const;
 
 export type NavItem = (typeof NAV)[number];
