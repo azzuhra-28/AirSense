@@ -37,12 +37,21 @@ def _inject_noise(X, noise_fraction=RF_NOISE_FRACTION, random_state=42):
 
 def train_robustness_rf(sensor_df, random_state=42):
     """
-    Input : 5 konsentrasi polutan mentah (RF_FEATURES).
-    Label : kolom ispu_category (harus sudah dihitung lebih
-            dulu lewat add_current_ispu() di run_pipeline.py).
+    Latih Random Forest robustness layer.
+
+    Input : 5 konsentrasi polutan mentah (tanpa rekayasa fitur),
+            sesuai batasan metodologi PA Yusuf.
+    Label : kategori ISPU resmi (deterministik), dari kolom
+            ispu_category (harus sudah dihitung lebih dulu
+            lewat add_current_ispu() di run_pipeline.py).
+            Baris dengan kategori "Belum tersedia" dibuang --
+            itu penanda ISPU belum bisa dihitung, bukan
+            kategori kualitas udara yang valid.
     """
     required = RF_FEATURES + ["ispu_category"]
     data = sensor_df.dropna(subset=required)
+
+    data = data[data["ispu_category"] != "Belum tersedia"]
 
     if data.empty:
         raise RuntimeError(

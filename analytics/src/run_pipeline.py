@@ -1204,6 +1204,9 @@ def build_forecast_rows(
                 round(total)
             )
 
+        no2 = point["no2_ugm3_forecast_t60"]
+        o3 = point["o3_ugm3_forecast_t60"]
+
         rows.append(
             {
                 "forecast_at": point[
@@ -1212,6 +1215,8 @@ def build_forecast_rows(
                 "pm25_ugm3_pred": pm25,
                 "pm10_ugm3_pred": pm10,
                 "co_ugm3_pred": co,
+                "no2_ugm3_pred": no2,
+                "o3_ugm3_pred": o3,
                 "pm25_ispu_pred": ispu_value(
                     "pm25_ugm3", pm25
                 ),
@@ -1220,6 +1225,12 @@ def build_forecast_rows(
                 ),
                 "co_ispu_pred": ispu_value(
                     "co_ugm3", co
+                ),
+                "no2_ispu_pred": ispu_value(
+                    "no2_ugm3", no2
+                ),
+                "o3_ispu_pred": ispu_value(
+                    "o3_ugm3", o3
                 ),
                 "category": category,
                 "insight": insight,
