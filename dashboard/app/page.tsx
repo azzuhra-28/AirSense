@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { Wind, ArrowRight, ShieldCheck, Activity, Cpu } from "lucide-react";
 import { Quicksand } from "next/font/google";
@@ -13,6 +14,16 @@ const logoFont = Quicksand({
 export default function LandingPage() {
   return (
     <div className="relative min-h-screen bg-slate-900 text-slate-100 flex flex-col justify-between overflow-hidden">
+      {/* Foto awan + overlay gelap */}
+      <Image
+        src="/images/cloud-bg.jpg"
+        alt=""
+        aria-hidden
+        fill
+        priority
+        className="absolute inset-0 -z-20 h-full w-full object-cover"
+      />
+      <div aria-hidden className="absolute inset-0 -z-10 bg-slate-900/75" />
       {/* Background Glow Effects */}
       <div className="absolute top-0 left-1/4 -z-10 h-96 w-96 rounded-full bg-emerald-500/10 blur-3xl" />
       <div className="absolute bottom-0 right-1/4 -z-10 h-96 w-96 rounded-full bg-teal-500/10 blur-3xl" />

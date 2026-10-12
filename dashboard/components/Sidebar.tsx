@@ -3,11 +3,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 import {
   Bell,
+  ChevronsLeft,
   Cpu,
   Gauge,
   List,
+  Menu,
   Sparkles,
   TrendingUp,
   Wind,
@@ -29,19 +32,40 @@ const ICONS: Record<string, LucideIcon> = {
   bell: Bell,
 };
 
-export function Sidebar() {
+export function Sidebar({
+  open,
+  onToggle,
+}: {
+  open: boolean;
+  onToggle: () => void;
+}) {
   const pathname = usePathname();
   const { status, lastSeenMinutes, loading } = useSensorData();
 
   const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
+    pathname === href ||
+    (href !== "/panel" && pathname.startsWith(`${href}/`));
 
   const meta = DEVICE_STATUS_META[status];
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onToggle();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onToggle]);
 
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-stone-200 bg-white lg:flex">
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-stone-200 bg-white shadow-[0_16px_48px_-16px_rgba(15,23,42,0.25)] transition-transform duration-300 ease-in-out lg:flex ${
+          open ? "translate-x-0" : "-translate-x-full"
+        }`}
+        aria-hidden={!open}
+      >
         {/* Brand */}
         <div className="flex h-20 items-center gap-3 px-5">
           <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-stone-100 ring-1 ring-stone-200 shadow-sm">
@@ -59,6 +83,16 @@ export function Sidebar() {
               Air Quality Monitoring
             </span>
           </div>
+
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-label="Sembunyikan sidebar"
+            title="Sembunyikan sidebar (Esc)"
+            className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-700"
+          >
+            <ChevronsLeft className="h-4 w-4" strokeWidth={2.2} />
+          </button>
         </div>
 
         {/* Navigation */}
@@ -122,6 +156,19 @@ export function Sidebar() {
           </div>
         </div>
       </aside>
+
+      {/* Tombol buka (saat drawer sembunyi) */}
+      {!open && (
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label="Tampilkan sidebar"
+          title="Tampilkan sidebar"
+          className="fixed left-4 top-4 z-40 hidden h-10 w-10 items-center justify-center rounded-xl border border-stone-200 bg-white/90 text-stone-500 shadow-md backdrop-blur-md transition-colors hover:bg-white hover:text-stone-900 lg:flex"
+        >
+          <Menu className="h-5 w-5" strokeWidth={2.2} />
+        </button>
+      )}
 
       {/* Mobile bottom navigation */}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-stone-200 bg-white/95 backdrop-blur-md lg:hidden">
