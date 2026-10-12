@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useState } from "react";
@@ -5,12 +6,17 @@ import {
   ChevronLeft,
   ChevronRight,
   Database,
+  History,
+  RefreshCw,
+  Thermometer,
+  Droplets,
+  Activity,
   Clock3,
-  FileSpreadsheet,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
 import { POLLUTANTS } from "@/lib/brand";
+import { toWIB } from "@/lib/ispu";
 import { useSensorData } from "@/components/SensorProvider";
 import type { KonsentrasiGas } from "@/lib/types";
 
@@ -20,14 +26,9 @@ export default function HistoryPage() {
   const { loading, failed, rows, reload } = useSensorData();
   const [page, setPage] = useState(0);
 
-  // Terbaru di atas.
   const ordered = useMemo(() => [...rows].reverse(), [rows]);
 
-  const pageCount = Math.max(
-    1,
-    Math.ceil(ordered.length / PAGE_SIZE)
-  );
-
+  const pageCount = Math.max(1, Math.ceil(ordered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
 
   const slice = ordered.slice(
@@ -35,377 +36,313 @@ export default function HistoryPage() {
     safePage * PAGE_SIZE + PAGE_SIZE
   );
 
-  /* =========================
-     LOADING
-  ========================= */
+  const stats = useMemo(() => {
+    if (!rows.length) {
+      return { total: 0, temperature: "—", humidity: "—" };
+    }
+
+    const latest = rows[rows.length - 1];
+
+    return {
+      total: rows.length,
+      temperature: formatNumber(latest.suhu),
+      humidity: formatNumber(latest.kelembapan),
+    };
+  }, [rows]);
 
   if (loading) {
     return (
       <div className="space-y-5">
-        <div className="h-10 w-56 animate-pulse rounded-xl bg-[#B7E4C7]/60" />
-
-        <div className="h-96 animate-pulse rounded-2xl border border-emerald-100 bg-[#B7E4C7]/40" />
+        <div className="h-24 animate-pulse rounded-2xl bg-stone-200" />
+        <div className="grid gap-4 sm:grid-cols-3">
+          {[1, 2, 3].map((n) => (
+            <div
+              key={n}
+              className="h-28 animate-pulse rounded-2xl border border-stone-200 bg-white"
+            />
+          ))}
+        </div>
+        <div className="h-80 animate-pulse rounded-2xl border border-stone-200 bg-white" />
       </div>
     );
   }
 
-  /* =========================
-     EMPTY / ERROR
-  ========================= */
-
   if (failed || !rows.length) {
     return (
-      <div className="rounded-2xl border border-emerald-200 bg-[#B7E4C7] p-10 text-center shadow-sm">
+      <div className="space-y-5">
+        <PageHeader
+          title="Riwayat Pembacaan"
+          subtitle="Rekam jejak data sensor kualitas udara AirSense."
+        />
 
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white/70">
-          <Database
-            className="h-7 w-7 text-emerald-700"
-            strokeWidth={2}
-          />
-        </div>
+        <section className="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
+          <div className="bg-stone-200 p-6 sm:p-8">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-stone-700">
+              <Database size={23} />
+            </div>
 
-        <p className="mt-4 text-sm font-semibold text-emerald-950">
-          Belum ada riwayat pembacaan
-        </p>
+            <h2 className="mt-4 text-xl font-bold text-stone-900">
+              {failed ? "Data belum dapat dimuat" : "Belum ada riwayat"}
+            </h2>
 
-        <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-emerald-800/70">
-          Data pembacaan sensor belum tersedia. Silakan coba
-          memuat ulang data.
-        </p>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-stone-600">
+              {failed
+                ? "Terjadi kendala saat mengambil data sensor. Periksa koneksi database, lalu coba muat ulang."
+                : "Riwayat pembacaan akan ditampilkan di sini setelah data sensor tersedia."}
+            </p>
+          </div>
 
-        <button
-          type="button"
-          onClick={reload}
-          className="mt-5 rounded-xl bg-emerald-700 px-4 py-2.5 text-[12px] font-semibold text-white transition-all hover:bg-emerald-800 hover:shadow-md"
-        >
-          Coba lagi
-        </button>
-
+          <div className="p-5">
+            <button
+              onClick={reload}
+              className="inline-flex items-center gap-2 rounded-xl bg-stone-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-stone-900"
+            >
+              <RefreshCw size={15} />
+              Muat ulang data
+            </button>
+          </div>
+        </section>
       </div>
     );
   }
 
   return (
-    <div className="space-y-5 sm:space-y-6">
-
-      {/* =========================
-          HEADER
-      ========================= */}
-
+    <div className="min-w-0 space-y-6 pb-8">
       <PageHeader
         title="Riwayat Pembacaan"
-        subtitle={`${rows.length.toLocaleString("id-ID")} data tersimpan`}
+        subtitle="Rekam jejak data sensor kualitas udara AirSense."
       />
 
-      {/* =========================
-          SUMMARY
-      ========================= */}
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-
+      {/* RINGKASAN */}
+      <section className="grid gap-4 sm:grid-cols-3">
         <SummaryCard
-          icon={<Database className="h-5 w-5" />}
-          label="Total Data"
-          value={rows.length.toLocaleString("id-ID")}
-          description="Pembacaan tersimpan"
+          icon={<Database size={20} />}
+          label="Total pembacaan"
+          value={stats.total.toLocaleString("id-ID")}
+          detail="Seluruh data tersedia"
         />
 
         <SummaryCard
-          icon={<Clock3 className="h-5 w-5" />}
-          label="Urutan Data"
-          value="Terbaru"
-          description="Data terbaru ditampilkan di atas"
+          icon={<Thermometer size={20} />}
+          label="Suhu terakhir"
+          value={stats.temperature === "—" ? "—" : `${stats.temperature} °C`}
+          detail="Pembacaan sensor terbaru"
         />
 
         <SummaryCard
-          icon={<FileSpreadsheet className="h-5 w-5" />}
-          label="Data per Halaman"
-          value={`${PAGE_SIZE}`}
-          description="Pembacaan sensor"
+          icon={<Droplets size={20} />}
+          label="Kelembapan terakhir"
+          value={stats.humidity === "—" ? "—" : `${stats.humidity} %`}
+          detail="Pembacaan sensor terbaru"
         />
+      </section>
 
-      </div>
-
-      {/* =========================
-          TABLE
-      ========================= */}
-
-      <section className="overflow-hidden rounded-2xl border border-emerald-200 bg-[#B7E4C7] shadow-sm">
-
-        {/* TABLE HEADER */}
-        <div className="flex flex-col gap-3 border-b border-emerald-200/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-
+      {/* TABEL RIWAYAT */}
+      <section className="overflow-hidden rounded-3xl border border-stone-200 bg-[#E7E5E4] shadow-sm">
+        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <div className="flex items-center gap-3">
-
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/70">
-              <Database className="h-5 w-5 text-emerald-700" />
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-stone-700">
+              <History size={21} />
             </div>
-
             <div>
-              <h2 className="text-sm font-bold text-emerald-950">
-                Data Sensor
+              <h2 className="text-base font-bold text-stone-900">
+                Data pembacaan sensor
               </h2>
-
-              <p className="mt-0.5 text-[11px] text-emerald-800/70">
-                Riwayat pembacaan kualitas udara
+              <p className="mt-1 text-xs text-stone-600">
+                Urutan terbaru ke terlama
               </p>
             </div>
-
           </div>
 
-          <div className="w-fit rounded-full bg-white/70 px-3 py-1.5">
-            <span className="text-[11px] font-semibold text-emerald-700">
-              {rows.length.toLocaleString("id-ID")} records
+          <button
+            onClick={reload}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-xs font-semibold text-stone-700 transition hover:bg-stone-100"
+          >
+            <RefreshCw size={14} />
+            Segarkan data
+          </button>
+        </div>
+
+        <div className="border-t border-stone-300 bg-white">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 px-4 py-3 sm:px-5">
+            <span className="flex items-center gap-2 text-xs text-stone-600">
+              <Activity size={14} />
+              Total {rows.length.toLocaleString("id-ID")} baris
+            </span>
+            <span className="flex items-center gap-2 text-xs text-stone-500">
+              <Clock3 size={14} />
+              Halaman {safePage + 1} dari {pageCount}
             </span>
           </div>
 
-        </div>
-
-        {/* TABLE */}
-        <div className="overflow-x-auto p-3 sm:p-4">
-
-          <div className="overflow-hidden rounded-xl border border-emerald-200/70 bg-white/75">
-
-            <table className="w-full min-w-[760px] border-collapse text-left">
-
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[900px] border-collapse text-left">
               <thead>
-                <tr className="border-b border-emerald-100 bg-emerald-50/70">
-
-                  <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-                    Waktu (WIB)
+                <tr className="bg-stone-100">
+                  <th className="px-4 py-4 text-[10px] font-bold uppercase tracking-wider text-stone-500 sm:px-5">
+                    No.
+                  </th>
+                  <th className="px-4 py-4 text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                    Waktu pembacaan
                   </th>
 
                   {POLLUTANTS.map((p) => (
                     <th
                       key={p.key}
-                      className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-wider text-emerald-700"
+                      className="px-4 py-4 text-right text-[10px] font-bold uppercase tracking-wider text-stone-500"
                     >
                       {p.label}
+                      <span className="mt-1 block font-normal normal-case tracking-normal text-stone-400">
+                        {p.unit}
+                      </span>
                     </th>
                   ))}
 
-                  <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                  <th className="px-4 py-4 text-right text-[10px] font-bold uppercase tracking-wider text-stone-500">
                     Suhu
+                    <span className="mt-1 block font-normal normal-case tracking-normal text-stone-400">
+                      °C
+                    </span>
                   </th>
 
-                  <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-                    RH
+                  <th className="px-4 py-4 text-right text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                    Kelembapan
+                    <span className="mt-1 block font-normal normal-case tracking-normal text-stone-400">
+                      %
+                    </span>
                   </th>
-
                 </tr>
               </thead>
 
-              <tbody>
-                {slice.map((r, i) => (
+              <tbody className="divide-y divide-stone-100">
+                {slice.map((row, index) => (
                   <tr
-                    key={`${r.created_at}-${i}`}
-                    className="border-b border-slate-100 last:border-0 transition-colors hover:bg-emerald-50/60"
+                    key={`${row.created_at}-${index}`}
+                    className="transition hover:bg-stone-50"
                   >
-
-                    {/* TIME */}
-                    <td className="tabular whitespace-nowrap px-4 py-3 text-[12px] font-medium text-slate-600">
-                      <div className="flex items-center gap-2">
-
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-
-                        {formatStamp(r.created_at)}
-
-                      </div>
+                    <td className="px-4 py-4 text-xs font-medium tabular-nums text-stone-400 sm:px-5">
+                      {(safePage * PAGE_SIZE + index + 1)
+                        .toString()
+                        .padStart(2, "0")}
                     </td>
 
-                    {/* POLLUTANTS */}
+                    <td className="whitespace-nowrap px-4 py-4 text-xs font-semibold text-stone-800">
+                      {toWIB(row.created_at)}
+                    </td>
+
                     {POLLUTANTS.map((p) => (
                       <td
                         key={p.key}
-                        className="tabular px-4 py-3 text-right text-[12px] font-medium text-slate-700"
+                        className="px-4 py-4 text-right text-xs tabular-nums text-stone-700"
                       >
-                        {formatCell(r, p.key, p.scale)}
+                        {formatCell(row, p.key)}
                       </td>
                     ))}
 
-                    {/* TEMPERATURE */}
-                    <td className="tabular px-4 py-3 text-right text-[12px] font-medium text-slate-700">
-                      {fmt(r.temperature)}°
+                    <td className="px-4 py-4 text-right text-xs tabular-nums text-stone-700">
+                      {formatNumber(row.suhu)}
                     </td>
 
-                    {/* HUMIDITY */}
-                    <td className="tabular px-4 py-3 text-right text-[12px] font-medium text-slate-700">
-                      {fmt(r.humidity)}%
+                    <td className="px-4 py-4 text-right text-xs tabular-nums text-stone-700">
+                      {formatNumber(row.kelembapan)}
                     </td>
-
                   </tr>
                 ))}
               </tbody>
-
             </table>
-
           </div>
-        </div>
 
-        {/* =========================
-            PAGINATION
-        ========================= */}
-
-        <div className="flex flex-col gap-3 border-t border-emerald-200/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-
-          <div>
-            <p className="text-[11px] font-medium text-emerald-800/70">
+          {/* PAGINATION */}
+          <div className="flex flex-col gap-3 border-t border-stone-200 bg-stone-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <p className="text-xs text-stone-500">
               Menampilkan{" "}
-              <span className="font-bold text-emerald-900">
+              <span className="font-semibold text-stone-800">
                 {safePage * PAGE_SIZE + 1}
-              </span>
-              {" – "}
-              <span className="font-bold text-emerald-900">
-                {Math.min(
-                  (safePage + 1) * PAGE_SIZE,
-                  ordered.length
-                )}
+                {"–"}
+                {Math.min((safePage + 1) * PAGE_SIZE, ordered.length)}
               </span>{" "}
-              dari{" "}
-              <span className="font-bold text-emerald-900">
-                {ordered.length}
-              </span>{" "}
-              data
+              dari {ordered.length.toLocaleString("id-ID")} data
             </p>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={safePage === 0}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronLeft size={15} />
+                Sebelumnya
+              </button>
+
+              <span className="min-w-16 rounded-lg bg-stone-200 px-3 py-2 text-center text-xs font-bold text-stone-700">
+                {safePage + 1} / {pageCount}
+              </span>
+
+              <button
+                onClick={() =>
+                  setPage((p) => Math.min(pageCount - 1, p + 1))
+                }
+                disabled={safePage >= pageCount - 1}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Berikutnya
+                <ChevronRight size={15} />
+              </button>
+            </div>
           </div>
-
-          <div className="flex items-center gap-2">
-
-            <span className="mr-1 text-[11px] font-medium text-emerald-800/70">
-              Halaman {safePage + 1} / {pageCount}
-            </span>
-
-            <PagerButton
-              disabled={safePage === 0}
-              onClick={() => setPage(safePage - 1)}
-              icon={<ChevronLeft className="h-4 w-4" />}
-              label="Halaman sebelumnya"
-            />
-
-            <PagerButton
-              disabled={safePage >= pageCount - 1}
-              onClick={() => setPage(safePage + 1)}
-              icon={<ChevronRight className="h-4 w-4" />}
-              label="Halaman berikutnya"
-            />
-
-          </div>
-
         </div>
-
       </section>
+
+      <p className="px-1 text-[10px] leading-5 text-stone-400">
+        AirSense · Riwayat pembacaan sensor. Nilai ditampilkan sesuai data yang
+        diterima dari sumber pembacaan.
+      </p>
     </div>
   );
 }
-
-/* =========================
-   SUMMARY CARD
-========================= */
 
 function SummaryCard({
   icon,
   label,
   value,
-  description,
+  detail,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
-  description: string;
+  detail: string;
 }) {
   return (
-    <div className="rounded-2xl border border-emerald-200 bg-[#B7E4C7] p-4 shadow-sm">
-
-      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/70 text-emerald-700">
-        {icon}
+    <article className="rounded-2xl border border-stone-200 bg-[#E7E5E4] p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-medium text-stone-600">{label}</p>
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-stone-700">
+          {icon}
+        </span>
       </div>
-
-      <p className="mt-4 text-[11px] font-medium text-emerald-800/70">
-        {label}
-      </p>
-
-      <p className="mt-1 text-xl font-bold text-emerald-950">
+      <p className="mt-4 text-2xl font-bold tracking-tight text-stone-900">
         {value}
       </p>
-
-      <p className="mt-1 text-[11px] text-emerald-800/70">
-        {description}
-      </p>
-
-    </div>
+      <p className="mt-1 text-[11px] text-stone-500">{detail}</p>
+    </article>
   );
 }
 
-/* =========================
-   PAGINATION BUTTON
-========================= */
-
-function PagerButton({
-  disabled,
-  onClick,
-  icon,
-  label,
-}: {
-  disabled: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      aria-label={label}
-      className="flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-200 bg-white/80 text-emerald-700 transition-all hover:bg-white hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-35"
-    >
-      {icon}
-    </button>
-  );
+function formatCell(row: KonsentrasiGas, key: string) {
+  const value = Number(row[key as keyof KonsentrasiGas]);
+  if (!Number.isFinite(value)) return "—";
+  return value.toLocaleString("id-ID", {
+    maximumFractionDigits: 3,
+  });
 }
 
-/* =========================
-   FORMAT CELL
-========================= */
+function formatNumber(value: unknown) {
+  if (value === null || value === undefined || value === "") return "—";
 
-function formatCell(
-  r: KonsentrasiGas,
-  key: string,
-  scale: number
-) {
-  const v = Number(r[key as keyof KonsentrasiGas]);
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "—";
 
-  if (!Number.isFinite(v)) return "—";
-
-  const scaled = Math.max(0, v * scale);
-
-  if (Math.abs(scaled) >= 1000) {
-    return Math.round(scaled).toLocaleString("id-ID");
-  }
-
-  return scaled.toFixed(scaled < 10 ? 2 : 1);
-}
-
-/* =========================
-   FORMAT NORMAL VALUE
-========================= */
-
-function fmt(v: number | null) {
-  return Number.isFinite(v)
-    ? (v as number).toFixed(1)
-    : "—";
-}
-
-/* =========================
-   FORMAT TIMESTAMP
-========================= */
-
-function formatStamp(iso: string) {
-  return new Date(iso).toLocaleString("id-ID", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Asia/Jakarta",
+  return number.toLocaleString("id-ID", {
+    maximumFractionDigits: 1,
   });
 }
