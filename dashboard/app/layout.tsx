@@ -1,14 +1,14 @@
-import type { Metadata } from "next";
+import { EB_Garamond } from "next/font/google";
+import "./panel/globals.css";
 
-import { SensorProvider } from "@/components/SensorProvider";
-import { Sidebar } from "@/components/Sidebar";
+const garamond = EB_Garamond({ 
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
 
-import "./globals.css";
-
-export const metadata: Metadata = {
+export const metadata = {
   title: "AirSense — Kualitas Udara",
-  description:
-    "Monitoring dan prediksi kualitas udara: PM2.5, PM10, CO, NO₂, dan O₃.",
+  description: "Monitoring dan prediksi kualitas udara",
 };
 
 export default function RootLayout({
@@ -18,15 +18,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="id">
-      <body className="min-h-screen antialiased">
-        <SensorProvider>
-          <Sidebar />
-          <div className="lg:pl-60">
-            <main className="mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-6 sm:pt-8 lg:pb-10">
-              {children}
-            </main>
-          </div>
-        </SensorProvider>
+      <body className={`${garamond.className} min-h-screen bg-slate-100 text-slate-950 antialiased`}>
+        {children}
       </body>
     </html>
   );
