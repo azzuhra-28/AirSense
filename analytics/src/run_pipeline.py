@@ -1204,6 +1204,7 @@ def build_forecast_rows(
                 round(total)
             )
 
+        
         no2 = point["no2_ugm3_forecast_t60"]
         o3 = point["o3_ugm3_forecast_t60"]
 
