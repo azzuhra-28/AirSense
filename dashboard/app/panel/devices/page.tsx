@@ -378,14 +378,14 @@ export default function DevicesPage() {
 
           <ReadingCard
             label="Suhu"
-            value={latest?.suhu}
+            value={latest?.temperature}
             unit="°C"
             icon={<Thermometer size={18} />}
           />
 
           <ReadingCard
             label="Kelembapan"
-            value={latest?.kelembapan}
+            value={latest?.humidity}
             unit="%"
             icon={<Droplets size={18} />}
           />

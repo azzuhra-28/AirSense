@@ -45,8 +45,8 @@ export default function HistoryPage() {
 
     return {
       total: rows.length,
-      temperature: formatNumber(latest.suhu),
-      humidity: formatNumber(latest.kelembapan),
+      temperature: formatNumber(latest.temperature),
+      humidity: formatNumber(latest.humidity),
     };
   }, [rows]);
 
@@ -156,9 +156,9 @@ export default function HistoryPage() {
 
           <button
             onClick={reload}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-xs font-semibold text-stone-700 transition hover:bg-stone-100"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-xs font-semibold text-stone-700 transition hover:bg-stone-100 sm:w-auto"
           >
-            <RefreshCw size={14} />
+            <RefreshCw size={14} className="shrink-0" />
             Segarkan data
           </button>
         </div>
@@ -175,7 +175,7 @@ export default function HistoryPage() {
             </span>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="hidden overflow-x-auto sm:block">
             <table className="w-full min-w-[900px] border-collapse text-left">
               <thead>
                 <tr className="bg-stone-100">
@@ -240,16 +240,81 @@ export default function HistoryPage() {
                     ))}
 
                     <td className="px-4 py-4 text-right text-xs tabular-nums text-stone-700">
-                      {formatNumber(row.suhu)}
+                      {formatNumber(row.temperature)}
                     </td>
 
                     <td className="px-4 py-4 text-right text-xs tabular-nums text-stone-700">
-                      {formatNumber(row.kelembapan)}
+                      {formatNumber(row.humidity)}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* KARTU MOBILE — pengganti tabel di layar kecil */}
+          <div className="divide-y divide-stone-100 sm:hidden">
+            {slice.map((row, index) => (
+              <article
+                key={`m-${row.created_at}-${index}`}
+                className="space-y-3 px-4 py-4"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-medium tabular-nums text-stone-400">
+                    #
+                    {(safePage * PAGE_SIZE + index + 1)
+                      .toString()
+                      .padStart(2, "0")}
+                  </span>
+                  <span className="text-xs font-semibold text-stone-800">
+                    {toWIB(row.created_at)}
+                  </span>
+                </div>
+
+                <dl className="grid grid-cols-3 gap-2">
+                  {POLLUTANTS.map((p) => (
+                    <div
+                      key={p.key}
+                      className="min-w-0 rounded-lg bg-stone-50 px-2 py-1.5"
+                    >
+                      <dt className="truncate text-[9px] font-semibold uppercase tracking-wide text-stone-400">
+                        {p.label}
+                      </dt>
+                      <dd className="mt-0.5 truncate text-xs font-semibold tabular-nums text-stone-800">
+                        {formatCell(row, p.key)}
+                        <span className="ml-0.5 text-[9px] font-normal text-stone-400">
+                          {p.unit}
+                        </span>
+                      </dd>
+                    </div>
+                  ))}
+
+                  <div className="min-w-0 rounded-lg bg-stone-50 px-2 py-1.5">
+                    <dt className="truncate text-[9px] font-semibold uppercase tracking-wide text-stone-400">
+                      Suhu
+                    </dt>
+                    <dd className="mt-0.5 truncate text-xs font-semibold tabular-nums text-stone-800">
+                      {formatNumber(row.temperature)}
+                      <span className="ml-0.5 text-[9px] font-normal text-stone-400">
+                        °C
+                      </span>
+                    </dd>
+                  </div>
+
+                  <div className="min-w-0 rounded-lg bg-stone-50 px-2 py-1.5">
+                    <dt className="truncate text-[9px] font-semibold uppercase tracking-wide text-stone-400">
+                      Lembap
+                    </dt>
+                    <dd className="mt-0.5 truncate text-xs font-semibold tabular-nums text-stone-800">
+                      {formatNumber(row.humidity)}
+                      <span className="ml-0.5 text-[9px] font-normal text-stone-400">
+                        %
+                      </span>
+                    </dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
           </div>
 
           {/* PAGINATION */}
@@ -264,7 +329,7 @@ export default function HistoryPage() {
               dari {ordered.length.toLocaleString("id-ID")} data
             </p>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
                 disabled={safePage === 0}
