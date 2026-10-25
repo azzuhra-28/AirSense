@@ -43,6 +43,8 @@ import { toWIB } from "@/lib/ispu";
 
 import { useSensorData } from "@/components/SensorProvider";
 
+import { AnomalyPanel } from "@/components/AnomalyPanel";
+
 const LIMIT_OPTIONS = [
 
   { label: "30 Terakhir", value: 30 },
@@ -787,11 +789,13 @@ export default function AnalyticsPage() {
 
       </section>
 
+      <AnomalyPanel rows={rows} active={active} onSelect={setActive} />
+
     </div>
 
   );
 
-}
+} 
 
 /* =========================
 
