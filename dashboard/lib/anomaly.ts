@@ -5,12 +5,11 @@ import type { KonsentrasiGas } from "@/lib/types";
  *
  * Parameter dan cara hitungnya sama dengan komponen Z-Score pada
  * pipeline analytics (analytics/src/anomaly.py):
- * - jendela acuan 60 pembacaan SEBELUM titik yang dinilai
- *   (titik itu sendiri tidak ikut menentukan acuannya),
+ * - jendela acuan 60 pembacaan SEBELUM titik yang dinilai,
  * - simpangan baku sampel (n - 1),
  * - anomali bila |z| > 3,
- * - titik tanpa 60 riwayat lengkap, atau dengan simpangan baku 0,
- *   tidak dinilai.
+ * - titik tanpa 60 riwayat lengkap, atau simpangan baku 0, tidak dinilai,
+ * - nilai negatif diperlakukan sebagai 0 (sama dengan zero-clamping pipeline).
  *
  * Isolation Forest dan RF cross-check hanya ada di pipeline; hasil
  * akhirnya muncul sebagai alert tipe ANOMALY di halaman Peringatan.
@@ -18,6 +17,22 @@ import type { KonsentrasiGas } from "@/lib/types";
 
 export const Z_WINDOW = 60;
 export const Z_THRESHOLD = 3;
+
+/** Minimal pembacaan beruntun bernilai sama persis agar dianggap sensor macet. */
+export const OFFLINE_MIN_RUN = 10;
+/** Jarak antar pembacaan yang dianggap data terlambat. */
+export const OFFLINE_GAP_MS = 5 * 60_000;
+/** Setelah sensor macet, kejadian dalam rentang ini dianggap efek penyalaan ulang. */
+export const RECOVERY_MS = Z_WINDOW * 60_000;
+
+export type EventLevel = "Moderat" | "Pengamatan" | "Gangguan perangkat";
+
+export interface OfflinePeriod {
+  start: string;
+  end: string;
+  reason: "konstan" | "terlambat";
+  readings: number;
+}
 
 export interface AnomalyPoint {
   at: string;
@@ -36,19 +51,30 @@ export interface AnomalyEvent {
   peakValue: number;
   peakZ: number;
   baseline: number;
-  level: "Moderat" | "Pengamatan";
+  level: EventLevel;
   others: string[]; // polutan lain yang anomali bersamaan
+  device?: OfflinePeriod; // diisi bila kejadian terkait gangguan perangkat
 }
 
 export interface AnomalyResult {
   points: Record<string, AnomalyPoint[]>;
   events: AnomalyEvent[];
+  offline: OfflinePeriod[];
 }
 
+/** Angka konsentrasi; kosong/invalid jadi NaN, negatif jadi 0. */
 function toNum(v: unknown): number {
   if (v === null || v === undefined || v === "") return NaN;
   const n = Number(v);
-  return Number.isFinite(n) ? n : NaN;
+  return Number.isFinite(n) ? Math.max(0, n) : NaN;
+}
+
+export function fmtDur(ms: number): string {
+  const min = Math.round(ms / 60_000);
+  if (min < 60) return `${Math.max(min, 1)} menit`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m ? `${h} jam ${m} menit` : `${h} jam`;
 }
 
 /** Titik anomali satu polutan. `rows` harus terurut menaik menurut waktu. */
@@ -96,6 +122,61 @@ export function rollingZScore(
   }
 
   return out;
+}
+
+/**
+ * Periode sensor bermasalah:
+ * - "konstan": semua polutan bernilai sama persis >= minRun pembacaan beruntun
+ * - "terlambat": jarak dua pembacaan berurutan > maxGapMs
+ */
+export function detectOffline(
+  rows: KonsentrasiGas[],
+  keys: readonly string[],
+  minRun: number = OFFLINE_MIN_RUN,
+  maxGapMs: number = OFFLINE_GAP_MS
+): OfflinePeriod[] {
+  const out: OfflinePeriod[] = [];
+
+  const sig = rows.map((r) => {
+    const v = keys.map((k) => toNum(r[k as keyof KonsentrasiGas]));
+    return v.every((x) => Number.isFinite(x)) ? v.join("|") : "";
+  });
+
+  let i = 0;
+  while (i < rows.length) {
+    let j = i;
+    while (j + 1 < rows.length && sig[j + 1] === sig[i]) j++;
+
+    if (sig[i] !== "" && j - i + 1 >= minRun) {
+      out.push({
+        start: rows[i].created_at,
+        end: rows[j].created_at,
+        reason: "konstan",
+        readings: j - i + 1,
+      });
+    }
+
+    i = j + 1;
+  }
+
+  for (let k = 1; k < rows.length; k++) {
+    const gap =
+      new Date(rows[k].created_at).getTime() -
+      new Date(rows[k - 1].created_at).getTime();
+
+    if (gap > maxGapMs) {
+      out.push({
+        start: rows[k - 1].created_at,
+        end: rows[k].created_at,
+        reason: "terlambat",
+        readings: 0,
+      });
+    }
+  }
+
+  return out.sort(
+    (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
+  );
 }
 
 /** Gabungkan titik beruntun (jarak <= maxGapMs) menjadi satu kejadian. */
@@ -155,6 +236,21 @@ function groupEvents(
   return events;
 }
 
+/** Cari periode offline yang menjelaskan kejadian ini (di dalam / sesudahnya). */
+function findDevicePeriod(
+  e: AnomalyEvent,
+  offline: OfflinePeriod[]
+): OfflinePeriod | undefined {
+  const s = new Date(e.start).getTime();
+
+  return offline.find((p) => {
+    const ps = new Date(p.start).getTime();
+    const pe = new Date(p.end).getTime();
+    const after = p.reason === "konstan" ? RECOVERY_MS : OFFLINE_GAP_MS;
+    return s >= ps && s <= pe + after;
+  });
+}
+
 export function detectAnomalies(
   rows: KonsentrasiGas[],
   keys: readonly string[],
@@ -174,14 +270,22 @@ export function detectAnomalies(
     }
   }
 
+  const offline = detectOffline(rows, keys);
+
   const events = keys
     .flatMap((key) => groupEvents(points[key], simultaneous, maxGapMs))
+    .map((e) => {
+      const device = findDevicePeriod(e, offline);
+      return device
+        ? { ...e, level: "Gangguan perangkat" as const, device }
+        : e;
+    })
     .sort(
       (a, b) =>
         new Date(b.end).getTime() - new Date(a.end).getTime()
     );
 
-  return { points, events };
+  return { points, events, offline };
 }
 
 /* ------------------------------------------------------------------ */
@@ -222,10 +326,8 @@ export function explainEvent(
 
   const up = e.peakZ > 0;
   const pct =
-    e.baseline !== 0
-      ? Math.round(
-          ((e.peakValue - e.baseline) / Math.abs(e.baseline)) * 100
-        )
+    e.baseline > 0
+      ? Math.round(((e.peakValue - e.baseline) / e.baseline) * 100)
       : null;
 
   const summary =
@@ -233,6 +335,22 @@ export function explainEvent(
     (pct !== null ? ` sekitar ${Math.abs(pct)}% dari acuan` : "") +
     `, menyimpang ${Math.abs(e.peakZ).toFixed(1)}× simpangan baku, ` +
     `berlangsung ${e.points} titik.`;
+
+  if (e.device) {
+    const d = e.device;
+    const dur = fmtDur(
+      new Date(d.end).getTime() - new Date(d.start).getTime()
+    );
+    return {
+      summary,
+      causes: [
+        d.reason === "konstan"
+          ? `Muncul tepat setelah sensor macet (nilai konstan) ±${dur}. Kemungkinan efek pemanasan atau penyalaan ulang sensor, bukan kejadian udara.`
+          : `Muncul tepat setelah data terputus ±${dur}. Kemungkinan perbedaan kondisi akibat jeda pengiriman, bukan kejadian udara.`,
+      ],
+      confidence: "Rendah",
+    };
+  }
 
   const causes: string[] = [];
   let score = 0;

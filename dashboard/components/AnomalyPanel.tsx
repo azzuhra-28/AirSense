@@ -5,12 +5,13 @@ import {
   CartesianGrid,
   ComposedChart,
   Line,
+  ReferenceArea,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import { Activity, CheckCircle2 } from "lucide-react";
+import { Activity, CheckCircle2, WifiOff } from "lucide-react";
 
 import { POLLUTANTS } from "@/lib/brand";
 import { toWIB } from "@/lib/ispu";
@@ -19,12 +20,14 @@ import {
   Z_WINDOW,
   detectAnomalies,
   explainEvent,
+  fmtDur,
 } from "@/lib/anomaly";
 import type { KonsentrasiGas } from "@/lib/types";
 
 const LEVEL_STYLE = {
   Moderat: "bg-red-50 text-red-700 ring-red-200",
   Pengamatan: "bg-amber-50 text-amber-700 ring-amber-200",
+  "Gangguan perangkat": "bg-stone-100 text-stone-700 ring-stone-300",
 } as const;
 
 const KEYS = POLLUTANTS.map((p) => p.key as string);
@@ -85,8 +88,15 @@ export function AnomalyPanel({
         key: p.key as string,
         label: p.label as string,
         color: p.color as string,
-        n: result.events.filter((e) => e.key === p.key).length,
+        n: result.events.filter(
+          (e) => e.key === p.key && e.level !== "Gangguan perangkat"
+        ).length,
       })),
+    [result]
+  );
+
+  const offlineList = useMemo(
+    () => [...result.offline].reverse().slice(0, 5),
     [result]
   );
 
@@ -200,6 +210,29 @@ export function AnomalyPanel({
                   ]}
                 />
 
+                {/* BLOK SENSOR OFFLINE */}
+                {result.offline.map((p) => (
+                  <ReferenceArea
+                    key={`${p.reason}-${p.start}`}
+                    x1={toWIB(p.start)}
+                    x2={toWIB(p.end)}
+                    fill="#A8A29E"
+                    fillOpacity={0.18}
+                    stroke="none"
+                    ifOverflow="visible"
+                    label={
+                      p.reason === "konstan"
+                        ? {
+                            value: "Sensor offline",
+                            position: "insideTop",
+                            fontSize: 10,
+                            fill: "#57534E",
+                          }
+                        : undefined
+                    }
+                  />
+                ))}
+
                 <Line
                   type="monotone"
                   dataKey="v"
@@ -229,6 +262,54 @@ export function AnomalyPanel({
             </ResponsiveContainer>
           </div>
 
+          {/* STATUS PERANGKAT */}
+          {offlineList.length > 0 && (
+            <div className="mt-5">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">
+                Status perangkat
+              </p>
+
+              <ul className="mt-2 space-y-2">
+                {offlineList.map((p) => {
+                  const dur = fmtDur(
+                    new Date(p.end).getTime() -
+                      new Date(p.start).getTime()
+                  );
+
+                  return (
+                    <li
+                      key={`${p.reason}-${p.start}`}
+                      className="flex items-start gap-3 rounded-xl border border-stone-200 bg-stone-50 p-3"
+                    >
+                      <WifiOff className="mt-0.5 h-4 w-4 shrink-0 text-stone-500" />
+
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-bold text-stone-800">
+                            {p.reason === "konstan"
+                              ? "Sensor offline"
+                              : "Data terlambat"}
+                          </span>
+
+                          <span className="rounded-full bg-stone-200 px-2 py-0.5 text-[10px] font-semibold text-stone-600">
+                            Perangkat
+                          </span>
+                        </div>
+
+                        <p className="mt-1 text-xs text-stone-600">
+                          {toWIB(p.start)} – {toWIB(p.end)} WIB · ±{dur} ·{" "}
+                          {p.reason === "konstan"
+                            ? `nilai konstan (${p.readings} pembacaan)`
+                            : "jeda pengiriman data"}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
           {/* DAFTAR KEJADIAN */}
           <div className="mt-5">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">
@@ -247,7 +328,10 @@ export function AnomalyPanel({
               <ul className="mt-2 space-y-2">
                 {result.events.slice(0, 8).map((e) => {
                   const m = meterOf(e.key);
-                  const ex = explainEvent(e, (k) => meterOf(k).label as string);
+                  const ex = explainEvent(
+                    e,
+                    (k) => meterOf(k).label as string
+                  );
 
                   return (
                     <li key={`${e.key}-${e.start}`}>
@@ -288,28 +372,31 @@ export function AnomalyPanel({
                           <p className="mt-1 text-[10px] text-stone-400">
                             {toWIB(e.start)} WIB · {e.points} titik
                           </p>
-                          
                         </div>
                       </button>
-                        {e.key === active && (
+
+                      {e.key === active && (
                         <div className="mt-1 rounded-xl border border-stone-200 bg-stone-50 p-3">
-                            <p className="text-xs text-stone-700">{ex.summary}</p>
+                          <p className="text-xs text-stone-700">
+                            {ex.summary}
+                          </p>
 
-                            <p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-stone-500">
+                          <p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-stone-500">
                             Kemungkinan penyebab
-                            </p>
+                          </p>
 
-                            <ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-stone-600">
+                          <ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-stone-600">
                             {ex.causes.map((c) => (
-                                <li key={c}>{c}</li>
+                              <li key={c}>{c}</li>
                             ))}
-                            </ul>
+                          </ul>
 
-                            <p className="mt-2 text-[10px] text-stone-500">
-                            Dugaan kejadian udara nyata: <b>{ex.confidence}</b>
-                            </p>
+                          <p className="mt-2 text-[10px] text-stone-500">
+                            Dugaan kejadian udara nyata:{" "}
+                            <b>{ex.confidence}</b>
+                          </p>
                         </div>
-                        )}
+                      )}
                     </li>
                   );
                 })}
@@ -320,12 +407,16 @@ export function AnomalyPanel({
           <p className="mt-4 text-[10px] leading-relaxed text-stone-400">
             Metode: Rolling Z-Score (jendela {Z_WINDOW} pembacaan,
             ambang |z| &gt; {Z_THRESHOLD}), sama dengan komponen
-            Z-Score di pipeline analitik. Level Moderat berarti dua
-            polutan atau lebih menyimpang bersamaan; Pengamatan berarti
-            satu polutan. Penilaian lengkap (Isolation Forest dan RF
+            Z-Score di pipeline analitik; nilai negatif dihitung
+            sebagai 0. Level Moderat berarti dua polutan atau lebih
+            menyimpang bersamaan; Pengamatan berarti satu polutan;
+            Gangguan perangkat berarti muncul saat atau sesudah sensor
+            macet/data terputus. Sensor dianggap macet bila semua
+            polutan bernilai sama persis selama 10 pembacaan atau
+            lebih. Penilaian lengkap (Isolation Forest dan RF
             cross-check) ada di pipeline dan muncul sebagai alert
-            Anomali di halaman Peringatan. Anomali bukan berarti udara
-            berbahaya, bisa juga gangguan sensor.
+            Anomali di halaman Peringatan. Penjelasan bersifat dugaan
+            berbasis aturan, bukan diagnosis penyebab.
           </p>
         </>
       )}
