@@ -18,6 +18,7 @@ import {
   Z_THRESHOLD,
   Z_WINDOW,
   detectAnomalies,
+  explainEvent,
 } from "@/lib/anomaly";
 import type { KonsentrasiGas } from "@/lib/types";
 
@@ -246,6 +247,7 @@ export function AnomalyPanel({
               <ul className="mt-2 space-y-2">
                 {result.events.slice(0, 8).map((e) => {
                   const m = meterOf(e.key);
+                  const ex = explainEvent(e, (k) => meterOf(k).label as string);
 
                   return (
                     <li key={`${e.key}-${e.start}`}>
@@ -286,8 +288,28 @@ export function AnomalyPanel({
                           <p className="mt-1 text-[10px] text-stone-400">
                             {toWIB(e.start)} WIB · {e.points} titik
                           </p>
+                          
                         </div>
                       </button>
+                        {e.key === active && (
+                        <div className="mt-1 rounded-xl border border-stone-200 bg-stone-50 p-3">
+                            <p className="text-xs text-stone-700">{ex.summary}</p>
+
+                            <p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-stone-500">
+                            Kemungkinan penyebab
+                            </p>
+
+                            <ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-stone-600">
+                            {ex.causes.map((c) => (
+                                <li key={c}>{c}</li>
+                            ))}
+                            </ul>
+
+                            <p className="mt-2 text-[10px] text-stone-500">
+                            Dugaan kejadian udara nyata: <b>{ex.confidence}</b>
+                            </p>
+                        </div>
+                        )}
                     </li>
                   );
                 })}

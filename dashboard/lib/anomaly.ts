@@ -37,6 +37,7 @@ export interface AnomalyEvent {
   peakZ: number;
   baseline: number;
   level: "Moderat" | "Pengamatan";
+  others: string[]; // polutan lain yang anomali bersamaan
 }
 
 export interface AnomalyResult {
@@ -100,7 +101,7 @@ export function rollingZScore(
 /** Gabungkan titik beruntun (jarak <= maxGapMs) menjadi satu kejadian. */
 function groupEvents(
   points: AnomalyPoint[],
-  simultaneous: Map<string, number>,
+  simultaneous: Map<string, string[]>,
   maxGapMs: number
 ): AnomalyEvent[] {
   const events: AnomalyEvent[] = [];
@@ -113,8 +114,12 @@ function groupEvents(
       Math.abs(b.z) > Math.abs(a.z) ? b : a
     );
 
-    const concurrent = group.some(
-      (p) => (simultaneous.get(p.at) ?? 0) >= 2
+    const others = Array.from(
+      new Set(
+        group.flatMap((p) =>
+          (simultaneous.get(p.at) ?? []).filter((k) => k !== peak.key)
+        )
+      )
     );
 
     events.push({
@@ -126,7 +131,8 @@ function groupEvents(
       peakValue: peak.value,
       peakZ: peak.z,
       baseline: peak.mean,
-      level: concurrent ? "Moderat" : "Pengamatan",
+      level: others.length > 0 ? "Moderat" : "Pengamatan",
+      others,
     });
 
     group = [];
@@ -155,14 +161,16 @@ export function detectAnomalies(
   maxGapMs: number = 5 * 60_000
 ): AnomalyResult {
   const points: Record<string, AnomalyPoint[]> = {};
-  const simultaneous = new Map<string, number>();
+  const simultaneous = new Map<string, string[]>();
 
   for (const key of keys) {
     const list = rollingZScore(rows, key);
     points[key] = list;
 
     for (const p of list) {
-      simultaneous.set(p.at, (simultaneous.get(p.at) ?? 0) + 1);
+      const arr = simultaneous.get(p.at) ?? [];
+      arr.push(key);
+      simultaneous.set(p.at, arr);
     }
   }
 
@@ -174,4 +182,115 @@ export function detectAnomalies(
     );
 
   return { points, events };
+}
+
+/* ------------------------------------------------------------------ */
+/* Penjelasan kejadian (rule-based, bukan diagnosis penyebab)          */
+/* ------------------------------------------------------------------ */
+
+export interface Explanation {
+  summary: string;
+  causes: string[];
+  confidence: "Rendah" | "Sedang" | "Tinggi";
+}
+
+function kindOf(key: string, label: string): string {
+  const s = `${key} ${label}`
+    .toLowerCase()
+    .replace(/₂/g, "2")
+    .replace(/₃/g, "3")
+    .replace(/\./g, "")
+    .replace(/[^a-z0-9]+/g, " ");
+
+  if (s.includes("pm25")) return "pm25";
+  if (s.includes("pm10")) return "pm10";
+  if (s.includes("no2")) return "no2";
+  if (s.includes("o3")) return "o3";
+  if (/\bco\b/.test(s)) return "co";
+  return "other";
+}
+
+export function explainEvent(
+  e: AnomalyEvent,
+  labelOf: (key: string) => string
+): Explanation {
+  const me = kindOf(e.key, labelOf(e.key));
+  const kinds = new Set([
+    me,
+    ...e.others.map((k) => kindOf(k, labelOf(k))),
+  ]);
+
+  const up = e.peakZ > 0;
+  const pct =
+    e.baseline !== 0
+      ? Math.round(
+          ((e.peakValue - e.baseline) / Math.abs(e.baseline)) * 100
+        )
+      : null;
+
+  const summary =
+    `${up ? "Naik" : "Turun"}` +
+    (pct !== null ? ` sekitar ${Math.abs(pct)}% dari acuan` : "") +
+    `, menyimpang ${Math.abs(e.peakZ).toFixed(1)}× simpangan baku, ` +
+    `berlangsung ${e.points} titik.`;
+
+  const causes: string[] = [];
+  let score = 0;
+
+  if (e.points === 1) {
+    causes.push(
+      "Hanya satu titik: pola khas noise atau gangguan sesaat pada sensor."
+    );
+    score -= 1;
+  } else if (e.points >= 5) {
+    causes.push(
+      "Bertahan beberapa menit, lebih mungkin perubahan nyata daripada noise."
+    );
+    score += 1;
+  }
+
+  if (kinds.has("pm25") && kinds.has("pm10")) {
+    causes.push(
+      "PM2.5 dan PM10 menyimpang bersamaan, konsisten dengan debu, asap, atau partikel di sekitar sensor."
+    );
+    score += 1;
+  }
+
+  if (kinds.has("co") && kinds.has("no2")) {
+    causes.push(
+      "CO dan NO₂ berasal dari sensor MiCS-6814 yang sama, jadi bisa gangguan sensor atau emisi kendaraan."
+    );
+  }
+
+  if (e.others.length > 0) {
+    causes.push(
+      "Beberapa polutan menyimpang bersamaan, lebih kuat sebagai kejadian nyata daripada gangguan satu kanal."
+    );
+    score += 1;
+  }
+
+  if (me === "no2" || me === "o3") {
+    causes.push(
+      "Sensor NO₂/O₃ belum terkalibrasi, jadi interpretasikan dengan hati-hati."
+    );
+    score -= 1;
+  }
+
+  if (!up) {
+    causes.push(
+      "Penurunan mendadak belum tentu udara membaik; bisa sensor bermasalah atau data tidak wajar."
+    );
+  }
+
+  if (!causes.length) {
+    causes.push(
+      "Menyimpang dari pola 60 pembacaan sebelumnya; penyebab belum dapat dipastikan dari data sensor saja."
+    );
+  }
+
+  return {
+    summary,
+    causes,
+    confidence: score >= 2 ? "Tinggi" : score >= 0 ? "Sedang" : "Rendah",
+  };
 }
