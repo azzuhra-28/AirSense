@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  Activity,
   AlertTriangle,
   BellRing,
   CheckCircle2,
@@ -51,6 +52,12 @@ const TYPE_META: Record<
     color: "#B45309",
     soft: "#FFFBEB",
   },
+    ANOMALY: {
+    label: "Anomali",
+    icon: Activity,
+    color: "#BE123C",
+    soft: "#FFF1F2",
+  },
   FORECAST_HIGH: {
     label: "Prediksi",
     icon: LineChart,
@@ -58,6 +65,7 @@ const TYPE_META: Record<
     soft: "#F5F3FF",
   },
 };
+
 
 const SEVERITY_STYLE: Record<string, string> = {
   HIGH: "bg-red-50 text-red-700 ring-red-200",
