@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -340,42 +339,42 @@ export default function PredictPage() {
   if (loading && !forecast.length) {
     return (
       <div className="space-y-5">
-        <div className="h-44 animate-pulse rounded-3xl bg-stone-200" />
+        <div className="h-44 animate-pulse rounded-3xl bg-slate-800/50" />
         <div className="grid gap-4 sm:grid-cols-3">
           {[1, 2, 3].map((item) => (
             <div
               key={item}
-              className="h-36 animate-pulse rounded-2xl border border-stone-200 bg-white"
+              className="h-36 animate-pulse rounded-2xl border border-sky-400/30 bg-slate-900/60"
             />
           ))}
         </div>
-        <div className="h-80 animate-pulse rounded-3xl border border-stone-200 bg-white" />
+        <div className="h-80 animate-pulse rounded-3xl border border-sky-400/30 bg-slate-900/60" />
       </div>
     );
   }
 
   if (error && !forecast.length) {
     return (
-      <div className="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
-        <div className="bg-stone-200 p-6 sm:p-8">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-rose-600">
+      <div className="overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70 shadow-xl backdrop-blur-md text-slate-100">
+        <div className="bg-slate-950/40 p-6 sm:p-8 border-b border-white/10">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-500/20 text-rose-300 border border-rose-500/30">
             <ShieldAlert size={24} />
           </div>
-          <h1 className="mt-4 text-xl font-bold text-stone-900">
+          <h1 className="mt-4 text-xl font-bold text-white">
             Prediksi belum tersedia
           </h1>
-          <p className="mt-2 max-w-xl text-sm leading-6 text-stone-600">
+          <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">
             Data forecast belum berhasil dimuat. Periksa koneksi dan pipeline
             prediksi, lalu coba muat ulang.
           </p>
         </div>
         <div className="p-6">
-          <p className="break-words rounded-xl bg-rose-50 p-3 text-xs text-rose-700">
+          <p className="break-words rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300">
             {error}
           </p>
           <button
             onClick={retry}
-            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-stone-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-stone-900"
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-sky-400 cursor-pointer"
           >
             <RefreshCw size={15} />
             Coba lagi
@@ -387,27 +386,27 @@ export default function PredictPage() {
 
   if (!forecast.length) {
     return (
-      <div className="overflow-hidden rounded-3xl border border-stone-200 bg-white">
-        <div className="bg-stone-200 p-7 sm:p-10">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-stone-700">
+      <div className="overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70 shadow-xl backdrop-blur-md text-slate-100">
+        <div className="bg-slate-950/40 p-7 sm:p-10 border-b border-white/10">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/20 text-sky-300 border border-sky-400/30">
             <Activity size={24} />
           </div>
-          <h1 className="mt-5 text-2xl font-bold text-stone-900">
+          <h1 className="mt-5 text-2xl font-bold text-white">
             Belum ada hasil prediksi
           </h1>
-          <p className="mt-2 max-w-lg text-sm leading-6 text-stone-600">
+          <p className="mt-2 max-w-lg text-sm leading-6 text-slate-300">
             Halaman ini akan menampilkan tren polutan setelah pipeline
             menghasilkan data forecast.
           </p>
         </div>
         <div className="p-6">
-          <p className="text-sm text-stone-500">
+          <p className="text-sm text-slate-300">
             Pastikan tabel <code>tb_forecast</code> tersedia dan pipeline
             analytics telah dijalankan.
           </p>
           <button
             onClick={retry}
-            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-stone-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-stone-900"
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-sky-400 cursor-pointer"
           >
             <RefreshCw size={15} />
             Periksa kembali
@@ -418,69 +417,69 @@ export default function PredictPage() {
   }
 
   return (
-    <div className="min-w-0 space-y-6 bg-[#F5F5F4] pb-8">
+    <div className="min-w-0 space-y-6 text-slate-100 pb-8">
       {/* HEADER UTAMA */}
-      <section className="relative isolate overflow-hidden rounded-3xl border border-stone-200 bg-[#E7E5E4] shadow-sm">
-        <div className="pointer-events-none absolute -right-16 -top-24 -z-10 h-72 w-72 rounded-full bg-white/60 blur-3xl" />
+      <section className="relative isolate overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70 shadow-xl backdrop-blur-md">
+        <div className="pointer-events-none absolute -right-16 -top-24 -z-10 h-72 w-72 rounded-full bg-sky-500/10 blur-3xl" />
 
         <div className="grid gap-7 p-5 sm:p-7 lg:grid-cols-[1fr_auto] lg:items-end lg:p-9">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-stone-300 bg-white/70 px-3 py-1.5 text-[11px] font-bold text-stone-700">
+            <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/30 bg-slate-800/80 px-3 py-1.5 text-[11px] font-bold text-sky-200">
               <Sparkles size={14} />
               AIRSENSE INTELLIGENCE
-              <span className="h-1 w-1 rounded-full bg-stone-500" />
+              <span className="h-1 w-1 rounded-full bg-sky-400" />
               FORECAST
             </div>
 
-            <h1 className="mt-5 max-w-2xl text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl lg:text-5xl">
+            <h1 className="mt-5 max-w-2xl text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
               Lihat kualitas udara
-              <span className="block text-stone-600">sebelum berubah.</span>
+              <span className="block text-sky-300">sebelum berubah.</span>
             </h1>
 
-            <p className="mt-4 max-w-xl text-sm leading-6 text-stone-600 sm:text-base">
+            <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300 sm:text-base">
               Proyeksi kualitas udara 60 menit ke depan berdasarkan hasil model
               prediksi dan data sensor yang tersedia.
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-3 text-xs">
-              <span className="inline-flex items-center gap-2 rounded-xl border border-stone-300 bg-white/70 px-3 py-2 text-stone-600">
-                <Clock3 size={14} />
+              <span className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-slate-300 backdrop-blur-sm">
+                <Clock3 size={14} className="text-sky-400" />
                 {formatGenerated(summary?.generated)}
               </span>
-              <span className="inline-flex items-center gap-2 rounded-xl border border-stone-300 bg-white/70 px-3 py-2 text-stone-600">
-                <Activity size={14} />
+              <span className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-slate-300 backdrop-blur-sm">
+                <Activity size={14} className="text-sky-400" />
                 {summary?.horizon ?? 0} titik forecast
               </span>
-              <span className="inline-flex items-center gap-2 rounded-xl border border-stone-300 bg-white/70 px-3 py-2 text-stone-600">
-                <Cloud size={14} />
+              <span className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-slate-300 backdrop-blur-sm">
+                <Cloud size={14} className="text-sky-400" />
                 Pembaruan otomatis
               </span>
             </div>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-stretch">
-            <div className="min-w-40 rounded-2xl border border-stone-300 bg-white/80 p-4 shadow-sm">
-              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-stone-500">
+            <div className="min-w-40 rounded-2xl border border-sky-400/30 bg-slate-950/50 p-4 shadow-xl backdrop-blur-md">
+              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">
                 Indeks puncak proyeksi
               </p>
               <div className="mt-3 flex items-end gap-3">
                 <span
                   className="text-5xl font-bold tracking-tight"
-                  style={{ color: summary?.tone.text ?? "#292524" }}
+                  style={{ color: summary?.tone.text ?? "#FFFFFF" }}
                 >
                   {summary?.total ?? "—"}
                 </span>
                 <span
-                  className="mb-1 rounded-lg px-2.5 py-1 text-[11px] font-semibold"
+                  className="mb-1 rounded-lg px-2.5 py-1 text-[11px] font-semibold border border-white/10"
                   style={{
-                    backgroundColor: summary?.tone.soft,
-                    color: summary?.tone.text,
+                    backgroundColor: summary?.tone.soft ?? "rgba(56, 189, 248, 0.2)",
+                    color: summary?.tone.text ?? "#FFFFFF",
                   }}
                 >
                   {summary?.tone.label ?? "Belum diketahui"}
                 </span>
               </div>
-              <p className="mt-2 text-[11px] leading-5 text-stone-500">
+              <p className="mt-2 text-[11px] leading-5 text-slate-400">
                 Berdasarkan nilai maksimum proyeksi pada titik akhir.
               </p>
             </div>
@@ -488,7 +487,7 @@ export default function PredictPage() {
             <button
               onClick={retry}
               disabled={refreshing}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-stone-800 px-4 py-3 text-sm font-bold text-white transition hover:bg-stone-900 disabled:cursor-wait disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-sky-400 disabled:cursor-wait disabled:opacity-60 cursor-pointer shadow-lg"
             >
               <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
               {refreshing ? "Memperbarui..." : "Perbarui prediksi"}
@@ -496,35 +495,35 @@ export default function PredictPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-stone-300 bg-white/40 px-5 py-3 text-[11px] sm:px-9">
-          <span className="flex items-center gap-2 text-stone-600">
-            <span className="h-2 w-2 rounded-full bg-stone-600" />
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-sky-400/20 bg-slate-950/40 px-5 py-3 text-[11px] sm:px-9 backdrop-blur-sm">
+          <span className="flex items-center gap-2 text-slate-300">
+            <span className="h-2 w-2 rounded-full bg-emerald-400" />
             Data forecast berhasil dimuat
           </span>
-          <span className="text-stone-500">
+          <span className="text-slate-400">
             Polutan dominan:{" "}
-            <strong className="text-stone-800">{summary?.dominant ?? "—"}</strong>
+            <strong className="text-white">{summary?.dominant ?? "—"}</strong>
           </span>
         </div>
       </section>
 
       {/* PESAN ERROR PEMBARUAN */}
       {error && forecast.length > 0 && (
-        <section className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <section className="flex flex-col gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 sm:flex-row sm:items-center sm:justify-between backdrop-blur-md">
           <div className="flex items-start gap-3">
-            <TriangleAlert className="mt-0.5 shrink-0 text-amber-600" size={19} />
+            <TriangleAlert className="mt-0.5 shrink-0 text-amber-400" size={19} />
             <div>
-              <p className="text-sm font-semibold text-amber-900">
+              <p className="text-sm font-semibold text-amber-200">
                 Pembaruan data mengalami kendala
               </p>
-              <p className="mt-1 break-words text-xs leading-5 text-amber-800">
+              <p className="mt-1 break-words text-xs leading-5 text-amber-300">
                 Data forecast sebelumnya masih ditampilkan. {error}
               </p>
             </div>
           </div>
           <button
             onClick={retry}
-            className="shrink-0 rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+            className="shrink-0 rounded-xl border border-amber-500/30 bg-slate-900/80 px-3 py-2 text-xs font-semibold text-amber-200 hover:bg-slate-800 cursor-pointer"
           >
             Coba lagi
           </button>
@@ -533,23 +532,23 @@ export default function PredictPage() {
 
       {/* PERINGATAN DRIFT */}
       {unreliableLabels.length > 0 && (
-        <section className="overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-sm">
+        <section className="overflow-hidden rounded-2xl border border-amber-500/30 bg-slate-900/70 shadow-xl backdrop-blur-md">
           <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start sm:p-5">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-300 border border-amber-500/30">
               <ShieldAlert size={21} />
             </div>
 
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-sm font-bold text-stone-900">
+                <h2 className="text-sm font-bold text-white">
                   Periksa kewajaran prediksi
                 </h2>
-                <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold text-amber-800">
+                <span className="rounded-full border border-amber-500/30 bg-amber-500/20 px-2.5 py-1 text-[10px] font-bold text-amber-300">
                   PERLU DITINJAU
                 </span>
               </div>
 
-              <p className="mt-1.5 text-sm leading-6 text-stone-600">
+              <p className="mt-1.5 text-sm leading-6 text-slate-300">
                 Proyeksi {unreliableLabels.join(", ")} memiliki selisih rata-rata
                 yang besar terhadap pembacaan sensor terkini. Hasil ini perlu
                 ditinjau sebelum dijadikan dasar keputusan.
@@ -557,7 +556,7 @@ export default function PredictPage() {
 
               <button
                 onClick={() => setShowDriftDetails((v) => !v)}
-                className="mt-3 inline-flex items-center gap-2 text-xs font-bold text-stone-700 hover:text-stone-900"
+                className="mt-3 inline-flex items-center gap-2 text-xs font-bold text-sky-300 hover:text-sky-200 cursor-pointer"
               >
                 {showDriftDetails ? "Sembunyikan rincian" : "Lihat rincian"}
                 {showDriftDetails ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
@@ -571,20 +570,20 @@ export default function PredictPage() {
                     return (
                       <div
                         key={s.key}
-                        className="rounded-xl border border-stone-200 bg-stone-50 p-3"
+                        className="rounded-xl border border-white/10 bg-slate-950/40 p-3 backdrop-blur-sm"
                       >
-                        <p className="text-xs font-bold text-stone-800">{s.label}</p>
-                        <p className="mt-2 text-xl font-bold text-stone-900">
+                        <p className="text-xs font-bold text-white">{s.label}</p>
+                        <p className="mt-2 text-xl font-bold text-white">
                           {item.pct.toFixed(1)}%
                         </p>
-                        <p className="mt-1 text-[11px] text-stone-500">
+                        <p className="mt-1 text-[11px] text-slate-400">
                           Selisih relatif rata-rata
                         </p>
                         <span
-                          className={`mt-2 inline-flex rounded-full px-2 py-1 text-[10px] font-semibold ${
+                          className={`mt-2 inline-flex rounded-full px-2 py-1 text-[10px] font-semibold border ${
                             item.unreliable
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-stone-200 text-stone-700"
+                              ? "border-amber-500/30 bg-amber-500/20 text-amber-300"
+                              : "border-white/10 bg-slate-800 text-slate-300"
                           }`}
                         >
                           {item.unreliable ? "Perlu ditinjau" : "Dalam ambang pemeriksaan"}
@@ -601,17 +600,17 @@ export default function PredictPage() {
 
       {/* INSIGHT */}
       {summary?.insight && (
-        <section className="relative overflow-hidden rounded-2xl border border-stone-200 bg-[#E7E5E4] p-5 sm:p-6">
-          <div className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/60 blur-2xl" />
+        <section className="relative overflow-hidden rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 sm:p-6 shadow-xl backdrop-blur-md">
+          <div className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-sky-500/10 blur-2xl" />
           <div className="relative flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-stone-700 shadow-sm">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/30 shadow-sm">
               <Sparkles size={19} />
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-stone-600">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-sky-300">
                 Insight dari pipeline analytics
               </p>
-              <p className="mt-2 text-sm leading-6 text-stone-700">
+              <p className="mt-2 text-sm leading-6 text-slate-200">
                 {summary.insight}
               </p>
             </div>
@@ -623,17 +622,17 @@ export default function PredictPage() {
       <section>
         <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-stone-500">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
               Forecast overview
             </p>
-            <h2 className="mt-1 text-xl font-bold tracking-tight text-stone-900 sm:text-2xl">
+            <h2 className="mt-1 text-xl font-bold tracking-tight text-white sm:text-2xl">
               Ringkasan polutan
             </h2>
-            <p className="mt-1 text-xs leading-5 text-stone-500">
+            <p className="mt-1 text-xs leading-5 text-slate-400">
               Perubahan dari titik pertama ke titik terakhir pada horizon prediksi.
             </p>
           </div>
-          <span className="rounded-lg bg-stone-200 px-3 py-2 text-[11px] font-semibold text-stone-700">
+          <span className="rounded-xl border border-white/10 bg-slate-900/70 px-3 py-2 text-[11px] font-semibold text-slate-300 backdrop-blur-md">
             {viewMode === "ispu" ? "Mode indeks ISPU" : "Mode konsentrasi"}
           </span>
         </div>
@@ -649,7 +648,7 @@ export default function PredictPage() {
             return (
               <article
                 key={stat.key}
-                className="group relative overflow-hidden rounded-2xl border border-stone-200 bg-[#E7E5E4] p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md"
+                className="group relative overflow-hidden rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 shadow-xl backdrop-blur-md transition duration-300 hover:-translate-y-1 hover:shadow-2xl"
               >
                 <div
                   className="absolute inset-x-0 top-0 h-1"
@@ -658,21 +657,21 @@ export default function PredictPage() {
                 <div className="relative flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5">
                     <span
-                      className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/80"
+                      className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/20 border border-sky-400/30"
                       style={{ color: stat.color }}
                     >
                       {stat.key === "co" ? <Wind size={19} /> : <Activity size={19} />}
                     </span>
                     <div>
-                      <h3 className="text-sm font-bold text-stone-900">{stat.label}</h3>
-                      <p className="mt-0.5 text-[10px] text-stone-500">
+                      <h3 className="text-sm font-bold text-white">{stat.label}</h3>
+                      <p className="mt-0.5 text-[10px] text-slate-400">
                         Model {stat.model}
                       </p>
                     </div>
                   </div>
 
                   <span
-                    className="rounded-full px-2.5 py-1 text-[10px] font-bold"
+                    className="rounded-full px-2.5 py-1 text-[10px] font-bold border border-white/10"
                     style={{
                       backgroundColor: stat.category.soft,
                       color: stat.category.text,
@@ -684,24 +683,24 @@ export default function PredictPage() {
 
                 <div className="relative mt-6 flex items-end justify-between gap-3">
                   <div>
-                    <p className="text-[11px] font-medium text-stone-500">
+                    <p className="text-[11px] font-medium text-slate-400">
                       Proyeksi akhir
                     </p>
-                    <p className="mt-1 text-3xl font-bold tracking-tight text-stone-900">
+                    <p className="mt-1 text-3xl font-bold tracking-tight text-white">
                       {finalVal.toFixed(1)}
-                      <span className="ml-1.5 text-xs font-medium text-stone-500">
+                      <span className="ml-1.5 text-xs font-medium text-slate-400">
                         {unit}
                       </span>
                     </p>
                   </div>
 
                   <span
-                    className={`mb-1 inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-bold ${
+                    className={`mb-1 inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-bold border ${
                       stat.trend === "up"
-                        ? "bg-rose-50 text-rose-700"
+                        ? "border-rose-500/30 bg-rose-500/20 text-rose-300"
                         : stat.trend === "down"
-                          ? "bg-emerald-50 text-emerald-700"
-                          : "bg-white text-stone-600"
+                          ? "border-emerald-500/30 bg-emerald-500/20 text-emerald-300"
+                          : "border-white/10 bg-slate-800 text-slate-300"
                     }`}
                   >
                     {stat.trend === "up" ? (
@@ -716,25 +715,25 @@ export default function PredictPage() {
                   </span>
                 </div>
 
-                <div className="relative mt-5 grid grid-cols-2 gap-3 border-t border-stone-300 pt-4">
+                <div className="relative mt-5 grid grid-cols-2 gap-3 border-t border-white/10 pt-4">
                   <div>
-                    <p className="text-[10px] text-stone-500">Nilai awal</p>
-                    <p className="mt-1 text-sm font-semibold text-stone-800">
+                    <p className="text-[10px] text-slate-400">Nilai awal</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-200">
                       {(isConc ? stat.initialConc : stat.initialIspu).toFixed(1)}
-                      <span className="ml-1 text-[10px] font-normal text-stone-500">
+                      <span className="ml-1 text-[10px] font-normal text-slate-400">
                         {unit}
                       </span>
                     </p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-stone-500">Puncak proyeksi</p>
-                    <p className="mt-1 text-sm font-semibold text-stone-800">
+                    <p className="text-[10px] text-slate-400">Puncak proyeksi</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-200">
                       {peakVal.toFixed(1)}
-                      <span className="ml-1 text-[10px] font-normal text-stone-500">
+                      <span className="ml-1 text-[10px] font-normal text-slate-400">
                         {unit}
                       </span>
                     </p>
-                    <p className="mt-1 text-[10px] text-stone-500">{stat.peakTime}</p>
+                    <p className="mt-1 text-[10px] text-slate-400">{stat.peakTime}</p>
                   </div>
                 </div>
               </article>
@@ -744,35 +743,35 @@ export default function PredictPage() {
       </section>
 
       {/* GRAFIK UTAMA */}
-      <section className="overflow-hidden rounded-3xl border border-stone-200 bg-[#E7E5E4] shadow-sm">
-        <div className="bg-[#E7E5E4] p-5 sm:p-7">
+      <section className="overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70 shadow-xl backdrop-blur-md">
+        <div className="p-5 sm:p-7 border-b border-white/10">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
             <div>
-              <div className="flex items-center gap-2 text-stone-700">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white">
+              <div className="flex items-center gap-2 text-sky-300">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-sky-500/20 border border-sky-400/30">
                   <Activity size={17} />
                 </div>
                 <span className="text-[10px] font-bold uppercase tracking-[0.2em]">
                   Forecast visualization
                 </span>
               </div>
-              <h2 className="mt-3 text-xl font-bold text-stone-900 sm:text-2xl">
+              <h2 className="mt-3 text-xl font-bold text-white sm:text-2xl">
                 Perjalanan kualitas udara
               </h2>
-              <p className="mt-2 max-w-2xl text-xs leading-5 text-stone-600 sm:text-sm">
+              <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-300 sm:text-sm">
                 Bandingkan tren antarpolutan, periksa titik waktu, dan ubah skala
                 pengukuran sesuai kebutuhan analisis.
               </p>
             </div>
 
-            <div className="flex rounded-xl border border-stone-300 bg-white/70 p-1">
+            <div className="flex rounded-xl border border-sky-400/30 bg-slate-950/40 p-1 backdrop-blur-sm">
               <button
                 type="button"
                 onClick={() => setViewMode("ispu")}
-                className={`flex-1 rounded-lg px-4 py-2.5 text-xs font-semibold transition sm:flex-none ${
+                className={`flex-1 rounded-lg px-4 py-2.5 text-xs font-semibold transition sm:flex-none cursor-pointer ${
                   viewMode === "ispu"
-                    ? "bg-stone-800 text-white shadow"
-                    : "text-stone-600 hover:bg-stone-100"
+                    ? "bg-sky-500/20 text-white border border-sky-400/30 shadow"
+                    : "text-slate-400 hover:bg-slate-800 hover:text-white"
                 }`}
               >
                 Indeks ISPU
@@ -780,10 +779,10 @@ export default function PredictPage() {
               <button
                 type="button"
                 onClick={() => setViewMode("conc")}
-                className={`flex-1 rounded-lg px-4 py-2.5 text-xs font-semibold transition sm:flex-none ${
+                className={`flex-1 rounded-lg px-4 py-2.5 text-xs font-semibold transition sm:flex-none cursor-pointer ${
                   viewMode === "conc"
-                    ? "bg-stone-800 text-white shadow"
-                    : "text-stone-600 hover:bg-stone-100"
+                    ? "bg-sky-500/20 text-white border border-sky-400/30 shadow"
+                    : "text-slate-400 hover:bg-slate-800 hover:text-white"
                 }`}
               >
                 Konsentrasi
@@ -800,15 +799,15 @@ export default function PredictPage() {
                   type="button"
                   onClick={() => toggleSeries(s.key)}
                   aria-pressed={selected}
-                  className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                  className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition cursor-pointer backdrop-blur-sm ${
                     selected
-                      ? "border-stone-300 bg-white text-stone-800"
-                      : "border-stone-200 bg-transparent text-stone-400 hover:bg-white/50"
+                      ? "border-sky-400/40 bg-sky-500/20 text-white shadow-sm"
+                      : "border-white/10 bg-slate-950/40 text-slate-400 hover:bg-slate-800 hover:text-white"
                   }`}
                 >
                   <span
                     className="h-2.5 w-2.5 rounded-full"
-                    style={{ backgroundColor: selected ? s.color : "#A8A29E" }}
+                    style={{ backgroundColor: selected ? s.color : "#64748B" }}
                   />
                   {s.label}
                   <span className="text-[10px] opacity-60">
@@ -820,26 +819,26 @@ export default function PredictPage() {
           </div>
         </div>
 
-        <div className="bg-white p-3 sm:p-6">
+        <div className="bg-slate-950/40 p-3 sm:p-6 backdrop-blur-sm">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-2 pt-2">
             <div>
-              <p className="text-xs font-bold text-stone-800">
+              <p className="text-xs font-bold text-white">
                 {viewMode === "ispu"
                   ? "Indeks Standar Pencemar Udara"
                   : "Konsentrasi polutan"}
               </p>
-              <p className="mt-1 text-[10px] text-stone-400">
+              <p className="mt-1 text-[10px] text-slate-400">
                 {viewMode === "ispu"
                   ? "Skala indeks 0–300 · garis ambang sebagai acuan visual"
                   : "PM2.5 & PM10 dalam µg/m³ · CO dalam mg/m³"}
               </p>
             </div>
-            <span className="rounded-lg bg-stone-100 px-2.5 py-1.5 text-[10px] font-semibold text-stone-600">
+            <span className="rounded-xl border border-white/10 bg-slate-900 px-2.5 py-1.5 text-[10px] font-semibold text-slate-300">
               {data.length} titik data
             </span>
           </div>
 
-          <div className="h-[340px] w-full sm:h-[410px]">
+          <div className="h-[340px] w-full sm:h-[410px] rounded-xl border border-white/10 bg-slate-900/50 p-2 sm:p-3">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
                 data={data}
@@ -855,20 +854,20 @@ export default function PredictPage() {
                       x2="0"
                       y2="1"
                     >
-                      <stop offset="0%" stopColor={s.color} stopOpacity={0.28} />
-                      <stop offset="95%" stopColor={s.color} stopOpacity={0.015} />
+                      <stop offset="0%" stopColor={s.color} stopOpacity={0.35} />
+                      <stop offset="95%" stopColor={s.color} stopOpacity={0.02} />
                     </linearGradient>
                   ))}
                 </defs>
 
                 <CartesianGrid
                   strokeDasharray="3 6"
-                  stroke="#E7E5E4"
+                  stroke="rgba(255, 255, 255, 0.1)"
                   vertical={false}
                 />
                 <XAxis
                   dataKey="t"
-                  tick={{ fontSize: 10, fill: "#78716C" }}
+                  tick={{ fontSize: 10, fill: "#94A3B8" }}
                   axisLine={false}
                   tickLine={false}
                   minTickGap={28}
@@ -877,7 +876,7 @@ export default function PredictPage() {
                 <YAxis
                   domain={viewMode === "ispu" ? [0, 300] : [0, "auto"]}
                   allowDataOverflow={viewMode === "ispu"}
-                  tick={{ fontSize: 10, fill: "#78716C" }}
+                  tick={{ fontSize: 10, fill: "#94A3B8" }}
                   axisLine={false}
                   tickLine={false}
                   width={42}
@@ -888,37 +887,37 @@ export default function PredictPage() {
                   <>
                     <ReferenceLine
                       y={50}
-                      stroke="#10B981"
+                      stroke="#34D399"
                       strokeDasharray="5 5"
                       strokeOpacity={0.8}
                       label={{
                         value: "Baik · 50",
                         position: "insideTopRight",
-                        fill: "#059669",
+                        fill: "#34D399",
                         fontSize: 10,
                       }}
                     />
                     <ReferenceLine
                       y={100}
-                      stroke="#F59E0B"
+                      stroke="#FBBF24"
                       strokeDasharray="5 5"
                       strokeOpacity={0.8}
                       label={{
                         value: "Sedang · 100",
                         position: "insideTopRight",
-                        fill: "#B45309",
+                        fill: "#FBBF24",
                         fontSize: 10,
                       }}
                     />
                     <ReferenceLine
                       y={200}
-                      stroke="#EF4444"
+                      stroke="#F87171"
                       strokeDasharray="5 5"
                       strokeOpacity={0.8}
                       label={{
                         value: "Tidak sehat · 200",
                         position: "insideTopRight",
-                        fill: "#DC2626",
+                        fill: "#F87171",
                         fontSize: 10,
                       }}
                     />
@@ -926,16 +925,18 @@ export default function PredictPage() {
                 )}
 
                 <Tooltip
-                  cursor={{ stroke: "#A8A29E", strokeDasharray: "4 4" }}
+                  cursor={{ stroke: "rgba(255, 255, 255, 0.3)", strokeDasharray: "4 4" }}
                   contentStyle={{
                     borderRadius: 14,
-                    border: "1px solid #E7E5E4",
-                    boxShadow: "0 14px 35px -18px rgba(41,37,36,0.3)",
+                    border: "1px solid rgba(56, 189, 248, 0.3)",
+                    boxShadow: "0 14px 35px -18px rgba(15,23,42,0.6)",
                     fontSize: 12,
                     padding: 12,
+                    backgroundColor: "#0F172A",
+                    color: "#FFFFFF",
                   }}
                   labelStyle={{
-                    color: "#292524",
+                    color: "#F8FAFC",
                     fontWeight: 700,
                     marginBottom: 6,
                   }}
@@ -1000,14 +1001,14 @@ export default function PredictPage() {
           </div>
 
           {activeSeries.length === 0 && (
-            <div className="mx-2 mt-2 rounded-xl border border-dashed border-stone-300 bg-stone-50 p-4 text-center text-xs text-stone-500">
+            <div className="mx-2 mt-2 rounded-xl border border-dashed border-white/15 bg-slate-900/50 p-4 text-center text-xs text-slate-400">
               Pilih minimal satu polutan di atas untuk menampilkan grafik.
             </div>
           )}
 
-          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-stone-100 px-2 pt-4 text-[10px] leading-5 text-stone-400">
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-white/10 px-2 pt-4 text-[10px] leading-5 text-slate-400">
             <span className="flex items-center gap-1.5">
-              <CheckCircle2 size={13} className="text-stone-600" />
+              <CheckCircle2 size={13} className="text-sky-400" />
               Data berasal dari pipeline forecast
             </span>
             <span>
@@ -1022,13 +1023,13 @@ export default function PredictPage() {
       {actionPlan && (
         <section>
           <div className="mb-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-stone-500">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
               Suggested actions
             </p>
-            <h2 className="mt-1 text-xl font-bold tracking-tight text-stone-900 sm:text-2xl">
+            <h2 className="mt-1 text-xl font-bold tracking-tight text-white sm:text-2xl">
               Panduan berdasarkan proyeksi
             </h2>
-            <p className="mt-1 text-xs leading-5 text-stone-500">
+            <p className="mt-1 text-xs leading-5 text-slate-400">
               Rekomendasi indikatif untuk membantu memahami hasil prediksi.
               Tetap perhatikan kondisi aktual di lingkunganmu.
             </p>
@@ -1064,36 +1065,36 @@ export default function PredictPage() {
       )}
 
       {/* DETAIL MODEL */}
-      <section className="overflow-hidden rounded-3xl border border-stone-200 bg-[#E7E5E4] shadow-sm">
+      <section className="overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70 shadow-xl backdrop-blur-md">
         <button
           type="button"
           onClick={() => setShowModelDetails((v) => !v)}
           aria-expanded={showModelDetails}
-          className="flex w-full items-center justify-between gap-4 p-5 text-left transition hover:bg-white/40 sm:p-6"
+          className="flex w-full items-center justify-between gap-4 p-5 text-left transition hover:bg-slate-800/60 sm:p-6 cursor-pointer"
         >
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-stone-700">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-500/20 text-sky-300 border border-sky-400/30">
               <Cpu size={21} />
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-stone-500">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-sky-300">
                 Model transparency
               </p>
-              <h2 className="mt-1 text-sm font-bold text-stone-900 sm:text-base">
+              <h2 className="mt-1 text-sm font-bold text-white sm:text-base">
                 Spesifikasi model & pipeline
               </h2>
-              <p className="mt-1 text-xs text-stone-500">
+              <p className="mt-1 text-xs text-slate-400">
                 Lihat arsitektur dan informasi proses prediksi.
               </p>
             </div>
           </div>
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-stone-300 bg-white text-stone-700">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-sky-400/30 bg-slate-800 text-sky-300">
             {showModelDetails ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
           </span>
         </button>
 
         {showModelDetails && (
-          <div className="grid gap-3 border-t border-stone-300 bg-white/50 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-3">
+          <div className="grid gap-3 border-t border-white/10 bg-slate-950/40 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-3 backdrop-blur-sm">
             <ModelInfo
               icon={<Activity size={17} />}
               label="Arsitektur"
@@ -1115,21 +1116,21 @@ export default function PredictPage() {
           </div>
         )}
 
-        <div className="flex items-start gap-2.5 border-t border-stone-300 bg-amber-50/80 px-5 py-4 sm:px-6">
-          <TriangleAlert size={16} className="mt-0.5 shrink-0 text-amber-700" />
-          <p className="text-[11px] leading-5 text-amber-900">
+        <div className="flex items-start gap-2.5 border-t border-white/10 bg-amber-500/10 px-5 py-4 sm:px-6 backdrop-blur-sm">
+          <TriangleAlert size={16} className="mt-0.5 shrink-0 text-amber-400" />
+          <p className="text-[11px] leading-5 text-amber-200">
             Hasil forecast adalah estimasi model, bukan jaminan kondisi aktual.
-            Metrik evaluasi model tidak ditampilkan sebagai angka performa terkini
+            Metode evaluasi model tidak ditampilkan sebagai angka performa terkini
             karena perhitungannya tidak dilakukan pada halaman ini.
           </p>
         </div>
       </section>
 
       {/* FOOTER */}
-      <footer className="flex flex-col gap-2 border-t border-stone-200 pt-4 text-[10px] leading-5 text-stone-400 sm:flex-row sm:items-center sm:justify-between">
+      <footer className="flex flex-col gap-2 border-t border-sky-400/20 pt-4 text-[10px] leading-5 text-slate-400 sm:flex-row sm:items-center sm:justify-between">
         <span>AirSense · Air Quality Forecast</span>
         <span className="flex items-center gap-1.5">
-          <Clock3 size={12} />
+          <Clock3 size={12} className="text-sky-400" />
           Waktu ditampilkan dalam WIB
         </span>
       </footer>
@@ -1153,21 +1154,21 @@ function AdviceCard({
   description: string;
 }) {
   return (
-    <article className="rounded-2xl border border-stone-200 bg-[#E7E5E4] p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+    <article className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 shadow-xl backdrop-blur-md transition hover:-translate-y-0.5 hover:shadow-2xl">
       <div className="flex items-center justify-between">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-stone-700">
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/30">
           {icon}
         </span>
-        <span className="text-xs font-bold text-stone-500">{number}</span>
+        <span className="text-xs font-bold text-sky-300">{number}</span>
       </div>
-      <h3 className="mt-4 text-sm font-bold text-stone-900">{title}</h3>
-      <div className="mt-3 rounded-xl bg-white/80 p-3">
-        <p className="text-[10px] text-stone-500">{metricLabel}</p>
-        <p className="mt-1 break-words text-xs font-bold leading-5 text-stone-800">
+      <h3 className="mt-4 text-sm font-bold text-white">{title}</h3>
+      <div className="mt-3 rounded-xl border border-white/10 bg-slate-950/40 p-3 backdrop-blur-sm">
+        <p className="text-[10px] text-slate-400">{metricLabel}</p>
+        <p className="mt-1 break-words text-xs font-bold leading-5 text-slate-200">
           {metric}
         </p>
       </div>
-      <p className="mt-3 text-xs leading-6 text-stone-600">{description}</p>
+      <p className="mt-3 text-xs leading-6 text-slate-300">{description}</p>
     </article>
   );
 }
@@ -1184,13 +1185,13 @@ function ModelInfo({
   detail: string;
 }) {
   return (
-    <div className="rounded-2xl border border-stone-200 bg-white p-4">
-      <div className="flex items-center gap-2 text-stone-500">
+    <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 backdrop-blur-sm">
+      <div className="flex items-center gap-2 text-sky-300">
         {icon}
-        <span className="text-xs font-medium">{label}</span>
+        <span className="text-xs font-medium text-slate-300">{label}</span>
       </div>
-      <p className="mt-3 text-base font-bold text-stone-900">{value}</p>
-      <p className="mt-2 text-xs leading-5 text-stone-500">{detail}</p>
+      <p className="mt-3 text-base font-bold text-white">{value}</p>
+      <p className="mt-2 text-xs leading-5 text-slate-400">{detail}</p>
     </div>
   );
 }

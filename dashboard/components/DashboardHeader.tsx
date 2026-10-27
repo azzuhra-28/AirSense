@@ -44,10 +44,10 @@ export function DashboardHeader({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 className="text-base font-semibold text-slate-900 sm:text-lg">
+        <h1 className="text-base font-semibold text-white sm:text-lg">
           Ringkasan Kualitas Udara
         </h1>
-        <p className="mt-0.5 text-[12px] text-slate-400">
+        <p className="mt-0.5 text-[12px] text-slate-300">
           Pembacaan real-time dari sensor di sekitar Anda
         </p>
       </div>
@@ -59,11 +59,11 @@ export function DashboardHeader({
             type="button"
             onClick={() => setOpen((v) => !v)}
             onBlur={() => setTimeout(() => setOpen(false), 120)}
-            className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white/90 px-3 py-1.5 text-[12px] font-medium text-slate-700 transition-colors hover:border-slate-300"
+            className="flex items-center gap-2 rounded-xl border border-sky-400/30 bg-slate-900/70 backdrop-blur-md px-3 py-1.5 text-[12px] font-medium text-slate-100 transition-colors hover:bg-slate-800/80"
             aria-haspopup="listbox"
             aria-expanded={open}
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
             {active}
             <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
           </button>
@@ -71,7 +71,7 @@ export function DashboardHeader({
           {open && devices.length > 1 && (
             <ul
               role="listbox"
-              className="absolute right-0 z-40 mt-1.5 w-52 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-[0_12px_32px_-16px_rgba(15,23,42,0.25)]"
+              className="absolute right-0 z-40 mt-1.5 w-52 overflow-hidden rounded-xl border border-sky-400/30 bg-slate-900/95 py-1 shadow-2xl backdrop-blur-md"
             >
               {devices.map((d) => (
                 <li key={d}>
@@ -80,13 +80,13 @@ export function DashboardHeader({
                     role="option"
                     aria-selected={d === active}
                     onMouseDown={() => onDeviceChange?.(d)}
-                    className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] transition-colors hover:bg-slate-50 ${
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] transition-colors hover:bg-slate-800 ${
                       d === active
-                        ? "font-semibold text-slate-900"
-                        : "text-slate-600"
+                        ? "font-semibold text-white bg-sky-500/20"
+                        : "text-slate-300"
                     }`}
                   >
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     {d}
                   </button>
                 </li>
@@ -97,27 +97,27 @@ export function DashboardHeader({
 
         {/* Indikator sumber data */}
         {isLive ? (
-          <span className="flex items-center gap-1.5 rounded-lg border border-emerald-200/70 bg-emerald-50 px-3 py-1.5 text-[12px] font-medium text-emerald-700">
+          <span className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[12px] font-medium text-emerald-300 backdrop-blur-md">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
             </span>
             Supabase
           </span>
         ) : (
           <span
-            className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12px] font-medium"
+            className="flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-[12px] font-medium backdrop-blur-md"
             style={
               source === "demo"
                 ? {
-                    backgroundColor: "#FFFBEB",
-                    borderColor: "#FDE68A",
-                    color: "#B45309",
+                    backgroundColor: "rgba(245, 158, 11, 0.15)",
+                    borderColor: "rgba(245, 158, 11, 0.3)",
+                    color: "#FCD34D",
                   }
                 : {
-                    backgroundColor: "#F3F4F6",
-                    borderColor: "#D1D5DB",
-                    color: "#4B5563",
+                    backgroundColor: "rgba(100, 116, 139, 0.2)",
+                    borderColor: "rgba(100, 116, 139, 0.3)",
+                    color: "#CBD5E1",
                   }
             }
           >
@@ -126,17 +126,17 @@ export function DashboardHeader({
         )}
 
         {/* Waktu sinkron + refresh */}
-        <div className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white/90 px-3 py-1.5">
-          <span className="text-[12px] text-slate-400">
+        <div className="flex items-center gap-2 rounded-xl border border-sky-400/30 bg-slate-900/70 backdrop-blur-md px-3 py-1.5">
+          <span className="text-[12px] text-slate-300">
             Sinkron{" "}
-            <span className="font-medium text-slate-600">
+            <span className="font-medium text-white">
               {relativeTime(lastSynced)}
             </span>
           </span>
           <button
             type="button"
             onClick={onRefresh}
-            className="text-slate-400 transition-colors hover:text-slate-700"
+            className="text-slate-300 transition-colors hover:text-white"
             aria-label="Muat ulang data"
           >
             <RefreshCw

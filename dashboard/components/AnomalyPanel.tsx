@@ -25,9 +25,9 @@ import {
 import type { KonsentrasiGas } from "@/lib/types";
 
 const LEVEL_STYLE = {
-  Moderat: "bg-red-50 text-red-700 ring-red-200",
-  Pengamatan: "bg-amber-50 text-amber-700 ring-amber-200",
-  "Gangguan perangkat": "bg-stone-100 text-stone-700 ring-stone-300",
+  Moderat: "bg-red-500/20 text-red-300 ring-red-500/30",
+  Pengamatan: "bg-amber-500/20 text-amber-300 ring-amber-500/30",
+  "Gangguan perangkat": "bg-slate-800 text-slate-300 ring-slate-700",
 } as const;
 
 const KEYS = POLLUTANTS.map((p) => p.key as string);
@@ -104,18 +104,18 @@ export function AnomalyPanel({
     POLLUTANTS.find((p) => p.key === key) ?? POLLUTANTS[0];
 
   return (
-    <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6">
+    <section className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 shadow-xl backdrop-blur-md sm:p-6 text-slate-100">
       <header className="flex items-center gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-700">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/30">
           <Activity className="h-5 w-5" />
         </div>
 
         <div className="min-w-0">
-          <h2 className="text-sm font-bold text-stone-900">
+          <h2 className="text-sm font-bold text-white">
             Deteksi Anomali
           </h2>
 
-          <p className="mt-0.5 text-[11px] text-stone-500">
+          <p className="mt-0.5 text-[11px] text-slate-400">
             Lonjakan atau penurunan tidak wajar dibanding{" "}
             {Z_WINDOW} pembacaan sebelumnya
           </p>
@@ -123,7 +123,7 @@ export function AnomalyPanel({
       </header>
 
       {!enough ? (
-        <p className="mt-5 rounded-xl border border-stone-200 bg-stone-50 px-4 py-6 text-center text-xs text-stone-500">
+        <p className="mt-5 rounded-xl border border-sky-400/20 bg-slate-950/40 px-4 py-6 text-center text-xs text-slate-400 backdrop-blur-sm">
           Data belum cukup. Deteksi anomali membutuhkan lebih dari{" "}
           {Z_WINDOW} pembacaan.
         </p>
@@ -141,8 +141,8 @@ export function AnomalyPanel({
                   onClick={() => onSelect(c.key)}
                   className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition ${
                     on
-                      ? "border-stone-800 bg-stone-800 text-white"
-                      : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
+                      ? "border-sky-400/50 bg-sky-500/20 text-white shadow-md backdrop-blur-sm"
+                      : "border-white/10 bg-slate-950/40 text-slate-300 hover:bg-slate-800 hover:text-white"
                   }`}
                 >
                   <span
@@ -154,7 +154,7 @@ export function AnomalyPanel({
                     className={`rounded-full px-1.5 text-[10px] ${
                       on
                         ? "bg-white/20 text-white"
-                        : "bg-stone-100 text-stone-500"
+                        : "bg-slate-800 text-slate-400"
                     }`}
                   >
                     {c.n}
@@ -165,7 +165,7 @@ export function AnomalyPanel({
           </div>
 
           {/* GRAFIK DENGAN PENANDA */}
-          <div className="mt-4 h-64 w-full">
+          <div className="mt-4 h-64 w-full rounded-xl border border-white/10 bg-slate-950/40 p-2 sm:p-3 backdrop-blur-sm">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart
                 data={chartData}
@@ -173,13 +173,13 @@ export function AnomalyPanel({
               >
                 <CartesianGrid
                   strokeDasharray="3 3"
-                  stroke="#E7E5E4"
+                  stroke="rgba(255, 255, 255, 0.1)"
                   vertical={false}
                 />
 
                 <XAxis
                   dataKey="t"
-                  tick={{ fontSize: 10, fill: "#78716C" }}
+                  tick={{ fontSize: 10, fill: "#94A3B8" }}
                   axisLine={false}
                   tickLine={false}
                   minTickGap={40}
@@ -187,7 +187,7 @@ export function AnomalyPanel({
 
                 <YAxis
                   domain={[0, "auto"]}
-                  tick={{ fontSize: 10, fill: "#78716C" }}
+                  tick={{ fontSize: 10, fill: "#94A3B8" }}
                   axisLine={false}
                   tickLine={false}
                   width={42}
@@ -201,8 +201,10 @@ export function AnomalyPanel({
                 <Tooltip
                   contentStyle={{
                     borderRadius: 12,
-                    border: "1px solid #E7E5E4",
+                    border: "1px solid rgba(56, 189, 248, 0.3)",
                     fontSize: 12,
+                    backgroundColor: "#0F172A",
+                    color: "#FFFFFF",
                   }}
                   formatter={(v, n) => [
                     `${fmt(Number(v))} ${meta.unit}`,
@@ -216,8 +218,8 @@ export function AnomalyPanel({
                     key={`${p.reason}-${p.start}`}
                     x1={toWIB(p.start)}
                     x2={toWIB(p.end)}
-                    fill="#A8A29E"
-                    fillOpacity={0.18}
+                    fill="#38BDF8"
+                    fillOpacity={0.12}
                     stroke="none"
                     ifOverflow="visible"
                     label={
@@ -226,7 +228,7 @@ export function AnomalyPanel({
                             value: "Sensor offline",
                             position: "insideTop",
                             fontSize: 10,
-                            fill: "#57534E",
+                            fill: "#CBD5E1",
                           }
                         : undefined
                     }
@@ -250,7 +252,7 @@ export function AnomalyPanel({
                   stroke="none"
                   dot={{
                     r: 4,
-                    fill: "#DC2626",
+                    fill: "#EF4444",
                     stroke: "#FFFFFF",
                     strokeWidth: 1.5,
                   }}
@@ -265,7 +267,7 @@ export function AnomalyPanel({
           {/* STATUS PERANGKAT */}
           {offlineList.length > 0 && (
             <div className="mt-5">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                 Status perangkat
               </p>
 
@@ -279,24 +281,24 @@ export function AnomalyPanel({
                   return (
                     <li
                       key={`${p.reason}-${p.start}`}
-                      className="flex items-start gap-3 rounded-xl border border-stone-200 bg-stone-50 p-3"
+                      className="flex items-start gap-3 rounded-xl border border-white/10 bg-slate-950/40 p-3 backdrop-blur-sm"
                     >
-                      <WifiOff className="mt-0.5 h-4 w-4 shrink-0 text-stone-500" />
+                      <WifiOff className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />
 
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-xs font-bold text-stone-800">
+                          <span className="text-xs font-bold text-white">
                             {p.reason === "konstan"
                               ? "Sensor offline"
                               : "Data terlambat"}
                           </span>
 
-                          <span className="rounded-full bg-stone-200 px-2 py-0.5 text-[10px] font-semibold text-stone-600">
+                          <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-slate-300">
                             Perangkat
                           </span>
                         </div>
 
-                        <p className="mt-1 text-xs text-stone-600">
+                        <p className="mt-1 text-xs text-slate-300">
                           {toWIB(p.start)} – {toWIB(p.end)} WIB · ±{dur} ·{" "}
                           {p.reason === "konstan"
                             ? `nilai konstan (${p.readings} pembacaan)`
@@ -312,15 +314,15 @@ export function AnomalyPanel({
 
           {/* DAFTAR KEJADIAN */}
           <div className="mt-5">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
               Kejadian terbaru
             </p>
 
             {result.events.length === 0 ? (
-              <div className="mt-2 rounded-xl border border-stone-200 bg-stone-50 py-7 text-center">
-                <CheckCircle2 className="mx-auto h-6 w-6 text-stone-500" />
+              <div className="mt-2 rounded-xl border border-white/10 bg-slate-950/40 py-7 text-center backdrop-blur-sm">
+                <CheckCircle2 className="mx-auto h-6 w-6 text-sky-400" />
 
-                <p className="mt-2 text-xs font-semibold text-stone-600">
+                <p className="mt-2 text-xs font-semibold text-slate-200">
                   Tidak ada anomali pada data yang dimuat
                 </p>
               </div>
@@ -338,10 +340,10 @@ export function AnomalyPanel({
                       <button
                         type="button"
                         onClick={() => onSelect(e.key)}
-                        className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left transition hover:bg-stone-50 ${
+                        className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left transition backdrop-blur-sm ${
                           e.key === active
-                            ? "border-stone-300 bg-stone-50"
-                            : "border-stone-200 bg-white"
+                            ? "border-sky-400/50 bg-sky-500/20 shadow-md"
+                            : "border-white/10 bg-slate-950/40 hover:bg-slate-800"
                         }`}
                       >
                         <span
@@ -351,7 +353,7 @@ export function AnomalyPanel({
 
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-xs font-bold text-stone-800">
+                            <span className="text-xs font-bold text-white">
                               {m.label}
                             </span>
 
@@ -362,38 +364,38 @@ export function AnomalyPanel({
                             </span>
                           </div>
 
-                          <p className="mt-1 text-xs text-stone-600">
+                          <p className="mt-1 text-xs text-slate-300">
                             {e.peakZ > 0 ? "Naik" : "Turun"} ke{" "}
                             {fmt(e.peakValue * m.scale)} {m.unit}{" "}
                             (acuan {fmt(e.baseline * m.scale)} {m.unit},{" "}
                             z = {e.peakZ.toFixed(1)})
                           </p>
 
-                          <p className="mt-1 text-[10px] text-stone-400">
+                          <p className="mt-1 text-[10px] text-slate-400">
                             {toWIB(e.start)} WIB · {e.points} titik
                           </p>
                         </div>
                       </button>
 
                       {e.key === active && (
-                        <div className="mt-1 rounded-xl border border-stone-200 bg-stone-50 p-3">
-                          <p className="text-xs text-stone-700">
+                        <div className="mt-1 rounded-xl border border-sky-400/30 bg-slate-950/60 p-3 backdrop-blur-sm">
+                          <p className="text-xs text-slate-200">
                             {ex.summary}
                           </p>
 
-                          <p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-stone-500">
+                          <p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-sky-300">
                             Kemungkinan penyebab
                           </p>
 
-                          <ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-stone-600">
+                          <ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-slate-300">
                             {ex.causes.map((c) => (
                               <li key={c}>{c}</li>
                             ))}
                           </ul>
 
-                          <p className="mt-2 text-[10px] text-stone-500">
+                          <p className="mt-2 text-[10px] text-slate-400">
                             Dugaan kejadian udara nyata:{" "}
-                            <b>{ex.confidence}</b>
+                            <b className="text-white">{ex.confidence}</b>
                           </p>
                         </div>
                       )}
@@ -404,7 +406,7 @@ export function AnomalyPanel({
             )}
           </div>
 
-          <p className="mt-4 text-[10px] leading-relaxed text-stone-400">
+          <p className="mt-4 text-[10px] leading-relaxed text-slate-400">
             Metode: Rolling Z-Score (jendela {Z_WINDOW} pembacaan,
             ambang |z| &gt; {Z_THRESHOLD}), sama dengan komponen
             Z-Score di pipeline analitik; nilai negatif dihitung

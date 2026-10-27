@@ -1,8 +1,6 @@
-
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Image from "next/image";
 import { SensorProvider } from "@/components/SensorProvider";
 import { Sidebar } from "@/components/Sidebar";
 
@@ -20,7 +18,7 @@ export default function PanelLayout({
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw !== null) setSidebarOpen(raw === "1");
     } catch {
-      /* abaikan — storage tidak tersedia */
+      /* abaikan */
     }
   }, []);
 
@@ -30,7 +28,7 @@ export default function PanelLayout({
       try {
         window.localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
       } catch {
-        /* abaikan — storage tidak tersedia */
+        /* abaikan */
       }
       return next;
     });
@@ -38,24 +36,23 @@ export default function PanelLayout({
 
   return (
     <SensorProvider>
-      <div className="flex min-h-screen bg-[#F5F5F4] relative">
-        {/* Tekstur awan samar di balik konten */}
-        <div aria-hidden className="pointer-events-none fixed inset-0 z-0">
-          <Image
-            src="/images/cloud-bg.jpg"
-            alt=""
-            fill
-            className="object-cover opacity-30"
-          />
-        </div>
-        <Sidebar open={sidebarOpen} onToggle={toggleSidebar} />
+      {/* Bungkus utama dengan background gambar awan */}
+      <div 
+        className="flex min-h-screen relative text-white"
+        style={{
+          backgroundImage: "url('/cloud-bg.jpg')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      >
+        {/* Lapisan overlay gelap semi-transparan */}
+        <div className="absolute inset-0 bg-slate-950/50 -z-0 pointer-events-none"></div>
 
-        <main
-          className={`relative min-w-0 flex-1 transition-[padding] duration-300 ease-in-out ${
-            sidebarOpen ? "lg:pl-60" : "lg:pl-0"
-          }`}
-        >
-          <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+        <Sidebar open={sidebarOpen} onToggle={toggleSidebar} />
+        
+        <main className="min-w-0 flex-1 relative z-10">
+          <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8 text-slate-100">
             {children}
           </div>
         </main>
