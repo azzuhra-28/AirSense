@@ -60,7 +60,7 @@ export function RecommendationCard({ ispu }: { ispu: number }) {
           >
             Saran Kesehatan
           </p>
-          <p className="text-[11px] text-slate-500">
+          <p className="text-[11px] text-slate-400">
             Berdasarkan kondisi saat ini
           </p>
         </div>

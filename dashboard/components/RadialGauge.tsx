@@ -109,7 +109,7 @@ export function RadialGauge({ ispu }: { ispu: number }) {
         <circle cx={cx} cy={cy} r={2.2} fill="#FFFFFF" />
       </svg>
 
-      {/* Blok nilai — diletakkan di bawah, bukan menimpa poros */}
+      {/* Blok nilai - diletakkan di bawah, bukan menimpa poros */}
       <div className="-mt-8 flex flex-col items-center">
         <motion.span
           key={Math.round(value)}

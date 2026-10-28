@@ -91,7 +91,7 @@ export default function AnalyticsPage() {
     if (firstTime === lastTime) {
       return lastTime;
     }
-    return `${firstTime} — ${lastTime} WIB`;
+    return `${firstTime} - ${lastTime} WIB`;
   }, [data]);
 
   /* =========================
@@ -116,7 +116,7 @@ export default function AnalyticsPage() {
   ========================= */
   if (failed || !rows.length) {
     return (
-      <div className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-10 text-center shadow-xl backdrop-blur-md">
+      <div className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-10 text-center">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-500/20 text-sky-300 border border-sky-400/30">
           <Database className="h-7 w-7" />
         </div>
@@ -151,7 +151,7 @@ export default function AnalyticsPage() {
       {/* =========================
           POLLUTANT SELECTOR
       ========================= */}
-      <section className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-4 shadow-xl backdrop-blur-md sm:p-5">
+      <section className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/30">
@@ -181,7 +181,7 @@ export default function AnalyticsPage() {
                 onClick={() => setActive(p.key)}
                 className={`flex items-center gap-2 rounded-xl border px-3.5 py-2 text-[11px] font-semibold transition-all ${
                   on
-                    ? "border-sky-400/50 bg-sky-500/20 text-white shadow-md backdrop-blur-sm"
+                    ? "border-sky-400/50 bg-sky-500/20 text-white shadow-md"
                     : "border-white/10 bg-slate-950/40 text-slate-300 hover:bg-slate-800 hover:text-white"
                 }`}
               >
@@ -230,7 +230,7 @@ export default function AnalyticsPage() {
       {/* =========================
           MAIN CHART
       ========================= */}
-      <section className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 shadow-xl backdrop-blur-md sm:p-6">
+      <section className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 sm:p-6">
         {/* CHART HEADER */}
         <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
@@ -253,7 +253,7 @@ export default function AnalyticsPage() {
           </div>
 
           {/* TIME FILTER */}
-          <div className="flex w-fit flex-wrap items-center gap-1 rounded-xl border border-white/10 bg-slate-950/40 p-1 backdrop-blur-sm">
+          <div className="flex w-fit flex-wrap items-center gap-1 rounded-xl border border-white/10 bg-slate-950/40 p-1">
             {LIMIT_OPTIONS.map((opt) => {
               const isSelected =
                 limit === opt.value;
@@ -278,7 +278,7 @@ export default function AnalyticsPage() {
         </header>
 
         {/* TIME RANGE */}
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2.5 backdrop-blur-sm">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2.5">
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-sky-400" />
             <span className="text-[10px] font-medium text-slate-300">
@@ -291,7 +291,7 @@ export default function AnalyticsPage() {
         </div>
 
         {/* CHART */}
-        <div className="mt-4 h-80 w-full rounded-xl border border-white/10 bg-slate-950/40 p-2 sm:p-3 backdrop-blur-sm">
+        <div className="mt-4 h-80 w-full rounded-xl border border-white/10 bg-slate-950/40 p-2 sm:p-3">
           <ResponsiveContainer
             width="100%"
             height="100%"
@@ -440,7 +440,7 @@ function StatBox({
 }) {
   return (
     <div
-      className={`rounded-2xl border p-4 shadow-xl backdrop-blur-md transition duration-200 hover:-translate-y-0.5 ${
+      className={`rounded-2xl border p-4 transition duration-200 hover:-translate-y-0.5 ${
         featured
           ? "border-sky-400/40 bg-slate-900/80"
           : "border-sky-400/30 bg-slate-900/70"
@@ -473,7 +473,7 @@ function StatBox({
    FORMAT NUMBER
 ========================= */
 function fmt(v: number) {
-  if (!Number.isFinite(v)) return "—";
+  if (!Number.isFinite(v)) return "-";
   if (Math.abs(v) >= 100) {
     return v.toFixed(0);
   }

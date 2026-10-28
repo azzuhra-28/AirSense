@@ -1,5 +1,5 @@
 // ============================================================
-// AirSense — Brandkit & Design Tokens
+// AirSense - Brandkit & Design Tokens
 //
 // Satu sumber kebenaran untuk warna, bayangan, dan kategori
 // kualitas udara. Dipakai lintas komponen agar tidak ada
@@ -9,10 +9,10 @@
 /**
  * Palet status ISPU.
  *
- * `dot`   — warna solid untuk indikator kecil / garis chart
- * `soft`  — latar tipis untuk banner & pill (teks tetap gelap)
- * `ring`  — warna border halus senada
- * `label` — teks aksen di atas latar `soft`
+ * `dot`   - warna solid untuk indikator kecil / garis chart
+ * `soft`  - latar tipis untuk banner & pill (teks tetap gelap)
+ * `ring`  - warna border halus senada
+ * `label` - teks aksen di atas latar `soft`
  */
 export const AQI = {
   good: {
@@ -76,7 +76,7 @@ export function aqiOf(value: number) {
   return { key: found.key, ...AQI[found.key] };
 }
 
-/** Warna chart polutan — dijaga tetap tenang di atas latar terang. */
+/** Warna chart polutan - dijaga tetap tenang di atas latar terang. */
 export const POLLUTANT_COLOR = {
   pm25: "#F97316",
   pm10: "#8B5CF6",
@@ -102,7 +102,7 @@ export const POLLUTANTS = [
 
 export type PollutantKey = (typeof POLLUTANTS)[number]["key"];
 
-/** Bayangan lembut — sengaja halus agar tidak "mengambang". */
+/** Bayangan lembut - sengaja halus agar tidak "mengambang". */
 export const SHADOW = {
   card: "shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.10)]",
   raised:

@@ -12,7 +12,7 @@ interface DashboardHeaderProps {
   onDeviceChange?: (device: string) => void;
   onRefresh?: () => void;
   refreshing?: boolean;
-  /** Sumber data aktif — menentukan label badge. */
+  /** Sumber data aktif - menentukan label badge. */
   source?: "supabase" | "demo" | "none";
 }
 
@@ -22,7 +22,7 @@ interface DashboardHeaderProps {
  */
 export function DashboardHeader({
   lastSynced,
-  devices = ["Node 01 — PENS"],
+  devices = ["Node 01 - PENS"],
   device,
   onDeviceChange,
   onRefresh,
@@ -59,7 +59,7 @@ export function DashboardHeader({
             type="button"
             onClick={() => setOpen((v) => !v)}
             onBlur={() => setTimeout(() => setOpen(false), 120)}
-            className="flex items-center gap-2 rounded-xl border border-sky-400/30 bg-slate-900/70 backdrop-blur-md px-3 py-1.5 text-[12px] font-medium text-slate-100 transition-colors hover:bg-slate-800/80"
+            className="flex items-center gap-2 rounded-xl border border-sky-400/30 bg-slate-900/90 px-3 py-1.5 text-[12px] font-medium text-slate-100 transition-colors hover:bg-slate-800/80"
             aria-haspopup="listbox"
             aria-expanded={open}
           >
@@ -71,7 +71,7 @@ export function DashboardHeader({
           {open && devices.length > 1 && (
             <ul
               role="listbox"
-              className="absolute right-0 z-40 mt-1.5 w-52 overflow-hidden rounded-xl border border-sky-400/30 bg-slate-900/95 py-1 shadow-2xl backdrop-blur-md"
+              className="absolute right-0 z-40 mt-1.5 w-52 overflow-hidden rounded-lg border border-sky-400/30 bg-slate-900 py-1 shadow-lg"
             >
               {devices.map((d) => (
                 <li key={d}>
@@ -97,7 +97,7 @@ export function DashboardHeader({
 
         {/* Indikator sumber data */}
         {isLive ? (
-          <span className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[12px] font-medium text-emerald-300 backdrop-blur-md">
+          <span className="flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[12px] font-medium text-emerald-300">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
@@ -106,7 +106,7 @@ export function DashboardHeader({
           </span>
         ) : (
           <span
-            className="flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-[12px] font-medium backdrop-blur-md"
+            className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12px] font-medium"
             style={
               source === "demo"
                 ? {
@@ -126,7 +126,7 @@ export function DashboardHeader({
         )}
 
         {/* Waktu sinkron + refresh */}
-        <div className="flex items-center gap-2 rounded-xl border border-sky-400/30 bg-slate-900/70 backdrop-blur-md px-3 py-1.5">
+        <div className="flex items-center gap-2 rounded-xl border border-sky-400/30 bg-slate-900/90 px-3 py-1.5">
           <span className="text-[12px] text-slate-300">
             Sinkron{" "}
             <span className="font-medium text-white">
@@ -151,9 +151,9 @@ export function DashboardHeader({
 
 /** Ubah ISO menjadi label relatif berbahasa Indonesia. */
 function relativeTime(iso?: string) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const then = new Date(iso).getTime();
-  if (!Number.isFinite(then)) return "—";
+  if (!Number.isFinite(then)) return "-";
 
   const diff = Date.now() - then;
   const min = Math.round(diff / 60_000);

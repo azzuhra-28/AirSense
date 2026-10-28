@@ -1,9 +1,15 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --font-display: var(--font-audiowide), ui-sans-serif, sans-serif;
+}
+
 /* ============================================================
    AirSense — base layer
-   Tema terang, kalem, dan "bernafas". Warna status AQI hidup
-   di lib/brand.ts, bukan di CSS, agar satu sumber kebenaran.
+   Tema gelap, kalem. Warna status AQI hidup di lib/brand.ts,
+   bukan di CSS, agar satu sumber kebenaran.
    ============================================================ */
 
 
@@ -24,8 +30,9 @@ body {
 }
 
 /* Angka metrik pakai lebar tetap supaya tidak "goyang" saat
-   diperbarui real-time. */
+   diperbarui real-time. Plex Mono sudah tabular secara desain. */
 .tabular {
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
 }

@@ -1,381 +1,362 @@
-﻿"use client";
+"use client";
 
-import type { ReactNode } from "react";
-import { motion } from "framer-motion";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import {
-  Sparkles,
-  TrendingUp,
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
   AlertTriangle,
-  Activity,
-  Target,
-  Gauge,
+  ArrowDownRight,
   ArrowUpRight,
-  Clock3,
+  Database,
+  Minus,
+  RefreshCw,
 } from "lucide-react";
 
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { useSensorData } from "@/components/SensorProvider";
+import { getLatestForecast, subscribeForecast } from "@/lib/api";
+import { aqiOf, POLLUTANT_COLOR } from "@/lib/brand";
+import { toWIB } from "@/lib/ispu";
+import type { ForecastRow } from "@/lib/types";
 
-const DEVICES = ["Node 01 — PENS"];
+const DEVICES = ["Node 01 - PENS"];
 
-export default function PredictPage() {
+const SERIES = [
+  { key: "pm25", label: "PM2.5", unit: "µg/m³", color: POLLUTANT_COLOR.pm25 },
+  { key: "pm10", label: "PM10", unit: "µg/m³", color: POLLUTANT_COLOR.pm10 },
+  { key: "co", label: "CO", unit: "mg/m³", color: POLLUTANT_COLOR.co },
+] as const;
+
+export default function SummaryPage() {
   const data = useSensorData();
   const { refreshing, source, reload } = data;
 
+  const [forecast, setForecast] = useState<ForecastRow[]>([]);
+  const [forecastError, setForecastError] = useState<string | null>(null);
+  const [forecastLoading, setForecastLoading] = useState(true);
+  const [activeSeries, setActiveSeries] = useState<string[]>(["pm25"]);
+  const reduceMotion = useReducedMotion();
+
+  const loadForecast = useCallback(async () => {
+    setForecastError(null);
+    try {
+      const rows = await getLatestForecast();
+      setForecast(rows);
+    } catch (e) {
+      setForecastError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setForecastLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadForecast();
+    const unsubscribe = subscribeForecast(() => {
+      void loadForecast();
+    });
+    return unsubscribe;
+  }, [loadForecast]);
+
+  const chart = useMemo(
+    () =>
+      forecast.map((r) => ({
+        t: toWIB(r.forecast_at),
+        pm25: r.pm25_ugm3_pred,
+        pm10: r.pm10_ugm3_pred,
+        co: r.co_ugm3_pred != null ? r.co_ugm3_pred / 1000 : null,
+      })),
+    [forecast]
+  );
+
+  // Arah tren dihitung dari titik awal vs akhir siklus, bukan dikarang.
+  const trend = useMemo(() => {
+    if (chart.length < 2) return null;
+    const first = chart[0];
+    const last = chart[chart.length - 1];
+    const a = Number(first.pm25);
+    const b = Number(last.pm25);
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+    const delta = b - a;
+    return {
+      delta,
+      direction: delta > 0.5 ? "naik" : delta < -0.5 ? "turun" : "stabil",
+    };
+  }, [chart]);
+
+  const peak = useMemo(() => {
+    if (!chart.length) return null;
+    const values = chart
+      .map((p) => ({ t: p.t, v: Number(p.pm25) }))
+      .filter((p) => Number.isFinite(p.v));
+    if (!values.length) return null;
+    return values.reduce((a, b) => (b.v > a.v ? b : a));
+  }, [chart]);
+
+  const currentIspu = useMemo(() => {
+    const tone = aqiOf(data.ispu);
+    return { value: data.ispu, ...tone };
+  }, [data.ispu]);
+
+  const toggleSeries = (key: string) => {
+    setActiveSeries((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+  };
+
   return (
     <div className="space-y-5 text-slate-100 sm:space-y-6">
-      {/* HEADER */}
-
       <DashboardHeader
         lastSynced={data.at}
         devices={DEVICES}
-        onRefresh={reload}
+        onRefresh={() => {
+          reload();
+          void loadForecast();
+        }}
         refreshing={refreshing}
         source={source}
       />
 
-      {/* CATATAN MODEL */}
-
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-start gap-3 rounded-2xl border border-sky-400/30 bg-slate-900/70 backdrop-blur-md p-4 shadow-xl"
-      >
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/30">
-          <AlertTriangle className="h-5 w-5" />
-        </div>
-
-        <div>
-          <p className="text-sm font-bold text-white">
-            Catatan Model
-          </p>
-          <p className="mt-1 text-[13px] leading-relaxed text-slate-300">
-            Grafik dan metrik di bawah bersifat{" "}
-            <span className="font-semibold underline text-sky-300">
-              indikatif, bukan ISPU resmi
-            </span>
-            . Hasil prediksi dapat meleset jika terjadi perubahan cuaca mendadak.
-          </p>
-        </div>
-      </motion.div>
-
-      {/* RINGKASAN MODEL */}
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard
-          icon={<Activity className="h-5 w-5" />}
-          title="Status Model"
-          value="Aktif"
-          description="Model berjalan normal"
-        />
-
-        <SummaryCard
-          icon={<Clock3 className="h-5 w-5" />}
-          title="Horizon Prediksi"
-          value="60 Menit"
-          description="Proyeksi ke depan"
-        />
-
-        <SummaryCard
-          icon={<Target className="h-5 w-5" />}
-          title="MAPE"
-          value="5.8%"
-          description="Error relatif model"
-        />
-
-        <SummaryCard
-          icon={<Gauge className="h-5 w-5" />}
-          title="Arah Tren"
-          value="Membaik"
-          description="Proyeksi 1 jam"
-        />
-      </div>
-
-      {/* KONTEN UTAMA */}
-
-      <div className="grid gap-5 lg:grid-cols-3">
-        {/* FORECAST */}
-
-        <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl border border-sky-400/30 bg-slate-900/70 backdrop-blur-md p-5 shadow-xl sm:p-6 lg:col-span-2"
-        >
-          <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/30 shadow-sm">
-                <TrendingUp className="h-5 w-5" />
-              </div>
-
-              <div>
-                <h2 className="text-[15px] font-bold text-white">
-                  Forecast Polutan
-                </h2>
-                <p className="text-[12px] text-slate-400">
-                  60 menit ke depan
-                </p>
-              </div>
-            </div>
-
-            <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-sky-400/30 bg-slate-800/80 px-3 py-1.5 text-[11px] font-semibold text-sky-200">
-              <Sparkles className="h-3.5 w-3.5" />
-              Model Aktif
-            </span>
-          </header>
-
-          {/* AREA GRAFIK */}
-
-          <div className="mt-5 rounded-2xl border border-white/10 bg-slate-950/40 p-4 backdrop-blur-sm">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold text-slate-200">
-                  Proyeksi Kualitas Udara
-                </p>
-                <p className="mt-0.5 text-[11px] text-slate-400">
-                  PM2.5 · PM10 · CO
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 rounded-full bg-slate-800/80 border border-white/10 px-3 py-1.5">
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                <span className="text-[10px] font-semibold text-slate-200">
-                  Real-time
-                </span>
-              </div>
-            </div>
-
-            <div className="flex h-64 flex-col items-center justify-center rounded-xl border border-dashed border-white/15 bg-slate-900/50 px-5 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-500/20 text-sky-300 border border-sky-400/30">
-                <TrendingUp className="h-7 w-7" />
-              </div>
-
-              <p className="mt-3 text-sm font-semibold text-white">
-                Grafik Prediksi 60 Menit
-              </p>
-
-              <p className="mt-1 max-w-md text-[12px] leading-relaxed text-slate-300">
-                Menampilkan proyeksi kenaikan atau penurunan kadar polutan
-                berdasarkan data sensor terkini.
-              </p>
-
-              <span className="mt-3 rounded-full border border-white/15 bg-slate-800/80 px-3 py-1 text-[10px] text-slate-300">
-                Visualisasi prediksi belum tersedia pada komponen ini
+      {/* Kondisi terkini: angka nyata dari sensor terakhir. */}
+      <section className="rounded-xl border border-sky-400/25 bg-slate-900/85 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-medium text-slate-400">
+              ISPU saat ini
+            </p>
+            <p className="mt-1 flex items-baseline gap-2">
+              <span className="text-3xl font-bold font-mono tabular-nums text-white">
+                {data.latest ? currentIspu.value : "-"}
               </span>
-            </div>
-          </div>
-
-          {/* RINGKASAN POLUTAN */}
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <PollutantForecast
-              name="PM2.5"
-              value="—"
-              unit="µg/m³"
-            />
-
-            <PollutantForecast
-              name="PM10"
-              value="—"
-              unit="µg/m³"
-            />
-
-            <PollutantForecast
-              name="CO"
-              value="—"
-              unit="ppm"
-            />
-          </div>
-        </motion.section>
-
-        {/* KOLOM KANAN */}
-
-        <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="flex flex-col gap-5"
-        >
-          {/* METRIK EVALUASI */}
-
-          <div className="rounded-2xl border border-sky-400/30 bg-slate-900/70 backdrop-blur-md p-5 shadow-xl">
-            <div className="flex items-start justify-between">
-              <div>
-                <h2 className="text-[15px] font-bold text-white">
-                  Metrik Evaluasi
-                </h2>
-                <p className="mt-0.5 text-[12px] text-slate-400">
-                  Performa model prediksi
-                </p>
-              </div>
-
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/30">
-                <Target className="h-4 w-4" />
-              </div>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              <MetricEvalItem
-                label="MAE"
-                value="2.41 µg/m³"
-              />
-
-              <MetricEvalItem
-                label="RMSE"
-                value="3.12 µg/m³"
-              />
-
-              <MetricEvalItem
-                label="MAPE"
-                value="5.8%"
-              />
-            </div>
-
-            <p className="mt-3 text-[10px] leading-relaxed text-slate-400">
-              Nilai evaluasi mengikuti angka yang tercantum pada kode
-              sebelumnya. Pastikan nilainya sesuai hasil pengujian model.
+              <span
+                className="text-sm font-semibold"
+                style={{ color: currentIspu.dot }}
+              >
+                {data.latest ? currentIspu.label : "Belum ada data"}
+              </span>
+            </p>
+            <p className="mt-1 text-[11px] text-slate-400">
+              {data.latest
+                ? `Polutan dominan ${data.dominant?.label ?? "-"}`
+                : "Menunggu pembacaan sensor"}
             </p>
           </div>
 
-          {/* ARAH PERUBAHAN */}
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-right">
+            <div>
+              <dt className="text-[10px] text-slate-400">Suhu</dt>
+              <dd className="text-sm font-semibold font-mono tabular-nums text-white">
+                {Number.isFinite(data.temp) ? `${data.temp.toFixed(1)} °C` : "-"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[10px] text-slate-400">Kelembapan</dt>
+              <dd className="text-sm font-semibold font-mono tabular-nums text-white">
+                {Number.isFinite(data.hum) ? `${data.hum.toFixed(1)} %` : "-"}
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </section>
 
-          <div className="rounded-2xl border border-sky-400/30 bg-slate-900/70 backdrop-blur-md p-5 shadow-xl">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/30">
-                <ArrowUpRight className="h-5 w-5" />
-              </div>
+      {/* Forecast: data asli dari tb_forecast, bukan placeholder. */}
+      <section className="rounded-xl border border-sky-400/25 bg-slate-900/85 p-5">
+        <header className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-[15px] font-bold text-white">
+              Proyeksi 60 menit
+            </h2>
+            <p className="mt-0.5 text-[11px] text-slate-400">
+              {forecastLoading
+                ? "Memuat siklus forecast"
+                : forecast.length
+                  ? `${forecast.length} titik dari siklus ${forecast[0] ? toWIB(forecast[0].generated_at) : "-"}`
+                  : "Belum ada siklus forecast"}
+            </p>
+          </div>
 
-              <div>
-                <h2 className="text-[15px] font-bold text-white">
-                  Arah Perubahan
-                </h2>
-                <p className="text-[11px] text-slate-400">
-                  Prediksi 1 jam ke depan
-                </p>
-              </div>
+          <div className="flex flex-wrap gap-1.5">
+            {SERIES.map((s) => {
+              const on = activeSeries.includes(s.key);
+              return (
+                <button
+                  key={s.key}
+                  type="button"
+                  onClick={() => toggleSeries(s.key)}
+                  aria-pressed={on}
+                  className={`flex min-h-[36px] items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400 ${
+                    on
+                      ? "border-sky-400/40 bg-sky-500/15 text-sky-200"
+                      : "border-white/10 bg-slate-800/60 text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: on ? s.color : "#64748b" }}
+                  />
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
+        </header>
+
+        {forecastError ? (
+          <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-rose-400/30 bg-rose-500/10 px-4 py-3">
+            <p className="text-[12px] text-rose-200">
+              Gagal memuat forecast: {forecastError}
+            </p>
+            <button
+              type="button"
+              onClick={() => void loadForecast()}
+              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-rose-400/30 px-3 text-[11px] font-semibold text-rose-100 hover:bg-rose-500/20"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Coba lagi
+            </button>
+          </div>
+        ) : forecastLoading ? (
+          <div className="mt-4 h-64 animate-pulse rounded-lg bg-slate-800/60" />
+        ) : !forecast.length ? (
+          <div className="mt-4 flex flex-col items-center justify-center rounded-lg border border-dashed border-white/15 px-5 py-12 text-center">
+            <Database className="h-6 w-6 text-slate-400" />
+            <p className="mt-3 text-[13px] font-semibold text-slate-200">
+              Belum ada siklus forecast
+            </p>
+            <p className="mt-1 max-w-sm text-[11px] leading-relaxed text-slate-400">
+              Siklus muncul setelah pipeline analytics menulis ke tb_forecast.
+              Pipeline berjalan otomatis tiap 30 menit selama alat mengirim data.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="mt-4 h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chart} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
+                  <CartesianGrid strokeDasharray="2 6" stroke="#1e293b" vertical={false} />
+                  <XAxis
+                    dataKey="t"
+                    tick={{ fontSize: 10, fill: "#94a3b8" }}
+                    axisLine={false}
+                    tickLine={false}
+                    minTickGap={28}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: "#94a3b8" }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={44}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: 8,
+                      border: "1px solid #334155",
+                      backgroundColor: "#0f172a",
+                      fontSize: 12,
+                    }}
+                    labelStyle={{ color: "#e2e8f0", fontWeight: 600 }}
+                    formatter={(value, name) => {
+                      const s = SERIES.find((x) => x.key === name);
+                      return [`${Number(value).toFixed(2)} ${s?.unit ?? ""}`, s?.label ?? name];
+                    }}
+                  />
+                  {SERIES.filter((s) => activeSeries.includes(s.key)).map((s) => (
+                    <Area
+                      key={s.key}
+                      type="monotone"
+                      dataKey={s.key}
+                      stroke={s.color}
+                      strokeWidth={2}
+                      fill="none"
+                      dot={false}
+                      connectNulls
+                    />
+                  ))}
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
 
-            <div className="mt-4 rounded-xl border border-white/10 bg-slate-950/40 p-4 backdrop-blur-sm">
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-
-                <span className="text-sm font-bold text-slate-100">
-                  Stabil membaik
-                </span>
+            <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-lg border border-white/10 px-3 py-2">
+                <dt className="text-[10px] text-slate-400">Arah PM2.5</dt>
+                <dd className="mt-0.5 flex items-center gap-1.5 text-[13px] font-semibold text-white">
+                  {trend ? (
+                    <>
+                      {trend.direction === "naik" ? (
+                        <ArrowUpRight className="h-4 w-4 text-rose-400" />
+                      ) : trend.direction === "turun" ? (
+                        <ArrowDownRight className="h-4 w-4 text-emerald-400" />
+                      ) : (
+                        <Minus className="h-4 w-4 text-slate-400" />
+                      )}
+                      {trend.direction}
+                      <span className="font-mono tabular-nums text-slate-400">
+                        ({trend.delta > 0 ? "+" : ""}
+                        {trend.delta.toFixed(2)})
+                      </span>
+                    </>
+                  ) : (
+                    "-"
+                  )}
+                </dd>
               </div>
 
-              <p className="mt-2 text-[12px] leading-relaxed text-slate-300">
-                Kualitas udara diproyeksikan mengalami kondisi yang
-                relatif stabil dan membaik dalam 1 jam ke depan.
+              <div className="rounded-lg border border-white/10 px-3 py-2">
+                <dt className="text-[10px] text-slate-400">Puncak PM2.5</dt>
+                <dd className="mt-0.5 text-[13px] font-semibold font-mono tabular-nums text-white">
+                  {peak ? `${peak.v.toFixed(2)} µg/m³` : "-"}
+                  {peak && (
+                    <span className="ml-1 text-[10px] font-normal text-slate-400">
+                      {peak.t}
+                    </span>
+                  )}
+                </dd>
+              </div>
+
+              <div className="rounded-lg border border-white/10 px-3 py-2">
+                <dt className="text-[10px] text-slate-400">Horizon</dt>
+                <dd className="mt-0.5 text-[13px] font-semibold text-white">
+                  {forecast.length} menit
+                </dd>
+              </div>
+            </dl>
+          </>
+        )}
+      </section>
+
+      {/* Insight dari pipeline, ditampilkan apa adanya. */}
+      {(() => {
+        const insight = forecast.find((r) => r.insight?.trim())?.insight;
+        if (!insight) return null;
+        return (
+          <motion.section
+            initial={reduceMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex items-start gap-3 rounded-xl border border-sky-400/25 bg-slate-900/85 p-4"
+          >
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />
+            <div>
+              <p className="text-[11px] font-semibold text-sky-200">
+                Catatan pipeline
+              </p>
+              <p className="mt-1 text-[12px] leading-relaxed text-slate-300">
+                {insight}
               </p>
             </div>
-          </div>
-        </motion.section>
-      </div>
-    </div>
-  );
-}
+          </motion.section>
+        );
+      })()}
 
-/* =========================
-   SUMMARY CARD
-========================= */
-
-function SummaryCard({
-  icon,
-  title,
-  value,
-  description,
-}: {
-  icon: ReactNode;
-  title: string;
-  value: string;
-  description: string;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="rounded-2xl border border-sky-400/30 bg-slate-900/70 backdrop-blur-md p-4 shadow-xl transition duration-200 hover:-translate-y-0.5 hover:shadow-2xl"
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/30 shadow-sm">
-          {icon}
-        </div>
-      </div>
-
-      <p className="mt-4 text-[11px] font-medium text-slate-400">
-        {title}
-      </p>
-
-      <p className="mt-1 text-xl font-bold text-white">
-        {value}
-      </p>
-
-      <p className="mt-1 text-[11px] text-slate-400">
-        {description}
-      </p>
-    </motion.div>
-  );
-}
-
-/* =========================
-   METRIC ITEM
-========================= */
-
-function MetricEvalItem({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-950/40 p-3 backdrop-blur-sm">
-      <span className="text-[12px] font-medium text-slate-300">
-        {label}
-      </span>
-
-      <span className="text-[13px] font-bold tabular-nums text-white">
-        {value}
-      </span>
-    </div>
-  );
-}
-
-/* =========================
-   POLLUTANT FORECAST
-========================= */
-
-function PollutantForecast({
-  name,
-  value,
-  unit,
-}: {
-  name: string;
-  value: string;
-  unit: string;
-}) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3 backdrop-blur-sm transition hover:border-sky-400/40">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-bold text-slate-200">
-          {name}
-        </span>
-
-        <TrendingUp className="h-3.5 w-3.5 text-sky-400" />
-      </div>
-
-      <div className="mt-2">
-        <span className="text-lg font-bold text-white">
-          {value}
-        </span>
-
-        <span className="ml-1 text-[10px] text-slate-400">
-          {unit}
-        </span>
-      </div>
-
-      <p className="mt-1 text-[10px] text-slate-400">
-        Proyeksi
+      <p className="px-1 text-[10px] leading-5 text-slate-400">
+        Proyeksi dihitung model LSTM/GRU dan bersifat indikatif, bukan ISPU
+        resmi. Angka berubah setiap siklus pipeline.
       </p>
     </div>
   );

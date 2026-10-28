@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import {
@@ -138,7 +138,7 @@ export default function AlertsPage() {
 
       {/* RINGKASAN STATUS */}
       <div className="grid gap-4 sm:grid-cols-2">
-        <section className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 shadow-xl backdrop-blur-md transition hover:-translate-y-0.5 hover:shadow-2xl">
+        <section className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 transition hover:-translate-y-0.5">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-500/25 text-sky-300 border border-sky-400/30 shadow-sm">
@@ -156,12 +156,12 @@ export default function AlertsPage() {
                   {deviceMeta.label}
                 </p>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  Node 01 — PENS
+                  Node 01 - PENS
                 </p>
               </div>
             </div>
 
-            <span className="flex items-center gap-1.5 rounded-full border border-white/10 bg-slate-950/40 px-2.5 py-1 backdrop-blur-sm">
+            <span className="flex items-center gap-1.5 rounded-full border border-white/10 bg-slate-950/40 px-2.5 py-1">
               <span
                 className="h-2 w-2 rounded-full"
                 style={{ backgroundColor: deviceMeta.dot }}
@@ -173,7 +173,7 @@ export default function AlertsPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 shadow-xl backdrop-blur-md transition hover:-translate-y-0.5 hover:shadow-2xl">
+        <section className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 transition hover:-translate-y-0.5">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-500/25 text-sky-300 border border-sky-400/30 shadow-sm">
@@ -199,7 +199,7 @@ export default function AlertsPage() {
               </div>
             </div>
 
-            <span className="flex items-center gap-1.5 rounded-full border border-white/10 bg-slate-950/40 px-2.5 py-1 backdrop-blur-sm">
+            <span className="flex items-center gap-1.5 rounded-full border border-white/10 bg-slate-950/40 px-2.5 py-1">
               <span
                 className="h-2 w-2 rounded-full"
                 style={{ backgroundColor: tone.dot }}
@@ -213,7 +213,7 @@ export default function AlertsPage() {
       </div>
 
       {/* STATUS PERINGATAN */}
-      <section className="rounded-3xl border border-sky-400/30 bg-slate-900/70 p-5 shadow-xl sm:p-6 backdrop-blur-md">
+      <section className="rounded-3xl border border-sky-400/30 bg-slate-900/70 p-5 sm:p-6">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/25 text-sky-300 border border-sky-400/30 shadow-sm">
@@ -256,7 +256,7 @@ export default function AlertsPage() {
               return (
                 <div
                   key={a.id}
-                  className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-800/50 backdrop-blur-sm"
+                  className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-800/50"
                 >
                   <div className="flex items-start gap-3">
                     <span
@@ -276,7 +276,7 @@ export default function AlertsPage() {
                         {meta.label}
                       </p>
                       <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-slate-300">
-                        {a.message ?? "—"}
+                        {a.message ?? "-"}
                       </p>
                     </div>
                   </div>
@@ -285,7 +285,7 @@ export default function AlertsPage() {
             })}
           </div>
         ) : (
-          <div className="rounded-2xl border border-white/10 bg-slate-950/40 py-7 text-center backdrop-blur-sm">
+          <div className="rounded-2xl border border-white/10 bg-slate-950/40 py-7 text-center">
             <CheckCircle2 className="mx-auto h-7 w-7 text-sky-400" />
             <p className="mt-2 text-sm font-semibold text-white">
               Kondisi aman
@@ -298,7 +298,7 @@ export default function AlertsPage() {
       </section>
 
       {/* RIWAYAT ALERT */}
-      <section className="rounded-3xl border border-sky-400/30 bg-slate-900/70 p-5 shadow-xl sm:p-6 backdrop-blur-md">
+      <section className="rounded-3xl border border-sky-400/30 bg-slate-900/70 p-5 sm:p-6">
         <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
@@ -307,7 +307,7 @@ export default function AlertsPage() {
                 Riwayat Alert
               </h2>
               {alerts.length > 0 && (
-                <span className="rounded-full border border-white/10 bg-slate-950/40 px-2 py-0.5 text-[10px] font-semibold text-slate-300 backdrop-blur-sm">
+                <span className="rounded-full border border-white/10 bg-slate-950/40 px-2 py-0.5 text-[10px] font-semibold text-slate-300">
                   {alerts.length} tercatat
                 </span>
               )}
@@ -321,7 +321,7 @@ export default function AlertsPage() {
             type="button"
             onClick={load}
             disabled={alertsLoading}
-            className="flex items-center gap-1.5 rounded-xl border border-sky-400/30 bg-slate-950/40 px-3.5 py-2 text-[11px] font-semibold text-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer backdrop-blur-sm"
+            className="flex items-center gap-1.5 rounded-xl border border-sky-400/30 bg-slate-950/40 px-3.5 py-2 text-[11px] font-semibold text-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
           >
             <RefreshCw
               className={`h-3.5 w-3.5 text-sky-400 ${
@@ -342,7 +342,7 @@ export default function AlertsPage() {
             ))}
           </div>
         ) : failed ? (
-          <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 py-8 text-center backdrop-blur-sm">
+          <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 py-8 text-center">
             <AlertTriangle className="mx-auto h-6 w-6 text-rose-400" />
             <p className="mt-2 text-sm font-semibold text-rose-200">
               Gagal memuat riwayat alert
@@ -356,7 +356,7 @@ export default function AlertsPage() {
             </button>
           </div>
         ) : alerts.length === 0 ? (
-          <div className="rounded-2xl border border-white/10 bg-slate-950/40 py-9 text-center backdrop-blur-sm">
+          <div className="rounded-2xl border border-white/10 bg-slate-950/40 py-9 text-center">
             <CheckCircle2 className="mx-auto h-7 w-7 text-sky-400" />
             <p className="mt-2 text-sm font-semibold text-slate-200">
               Belum ada alert tercatat
@@ -380,7 +380,7 @@ export default function AlertsPage() {
               return (
                 <li
                   key={a.id}
-                  className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-950/40 p-3.5 transition hover:bg-slate-800/50 backdrop-blur-sm"
+                  className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-950/40 p-3.5 transition hover:bg-slate-800/50"
                 >
                   <span
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 shadow-sm"
@@ -411,7 +411,7 @@ export default function AlertsPage() {
                     </div>
 
                     <p className="mt-1 text-xs leading-relaxed text-slate-300">
-                      {a.message ?? "—"}
+                      {a.message ?? "-"}
                     </p>
                     <p className="mt-1.5 text-[10px] text-slate-400">
                       {formatStamp(a.created_at)}
@@ -425,7 +425,7 @@ export default function AlertsPage() {
       </section>
 
       {/* AMBANG BATAS ISPU */}
-      <section className="rounded-3xl border border-sky-400/30 bg-slate-900/70 p-5 shadow-xl sm:p-6 backdrop-blur-md">
+      <section className="rounded-3xl border border-sky-400/30 bg-slate-900/70 p-5 sm:p-6">
         <header className="mb-5 flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-500/25 text-sky-300 border border-sky-400/30 shadow-sm">
             <AlertTriangle className="h-5 w-5" strokeWidth={2.5} />
@@ -449,7 +449,7 @@ export default function AlertsPage() {
             return (
               <div
                 key={t.key}
-                className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 transition backdrop-blur-sm ${
+                className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 transition ${
                   isNow
                     ? "border-sky-400/40 bg-sky-500/15 shadow-sm"
                     : "border-white/10 bg-slate-950/40"
@@ -471,7 +471,7 @@ export default function AlertsPage() {
                   )}
                 </div>
 
-                <span className="shrink-0 text-xs font-semibold tabular-nums text-slate-300">
+                <span className="shrink-0 text-xs font-semibold font-mono tabular-nums text-slate-300">
                   {t.range}
                 </span>
               </div>

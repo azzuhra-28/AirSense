@@ -37,7 +37,7 @@ export default function HistoryPage() {
 
   const stats = useMemo(() => {
     if (!rows.length) {
-      return { total: 0, temperature: "—", humidity: "—" };
+      return { total: 0, temperature: "-", humidity: "-" };
     }
 
     const latest = rows[rows.length - 1];
@@ -74,7 +74,7 @@ export default function HistoryPage() {
           subtitle="Rekam jejak data sensor kualitas udara AirSense."
         />
 
-        <section className="overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70 shadow-xl backdrop-blur-md">
+        <section className="overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70">
           <div className="bg-slate-950/40 p-6 sm:p-8 border-b border-white/10">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/20 text-sky-300 border border-sky-400/30">
               <Database size={23} />
@@ -124,20 +124,20 @@ export default function HistoryPage() {
         <SummaryCard
           icon={<Thermometer size={20} />}
           label="Suhu terakhir"
-          value={stats.temperature === "—" ? "—" : `${stats.temperature} °C`}
+          value={stats.temperature === "-" ? "-" : `${stats.temperature} °C`}
           detail="Pembacaan sensor terbaru"
         />
 
         <SummaryCard
           icon={<Droplets size={20} />}
           label="Kelembapan terakhir"
-          value={stats.humidity === "—" ? "—" : `${stats.humidity} %`}
+          value={stats.humidity === "-" ? "-" : `${stats.humidity} %`}
           detail="Pembacaan sensor terbaru"
         />
       </section>
 
       {/* TABEL RIWAYAT */}
-      <section className="overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70 shadow-xl backdrop-blur-md">
+      <section className="overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70">
         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6 border-b border-white/10">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-500/20 text-sky-300 border border-sky-400/30">
@@ -155,14 +155,14 @@ export default function HistoryPage() {
 
           <button
             onClick={reload}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sky-400/30 bg-slate-950/40 px-3.5 py-2.5 text-xs font-semibold text-slate-200 transition hover:bg-slate-800 sm:w-auto cursor-pointer backdrop-blur-sm"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sky-400/30 bg-slate-950/40 px-3.5 py-2.5 text-xs font-semibold text-slate-200 transition hover:bg-slate-800 sm:w-auto cursor-pointer"
           >
             <RefreshCw size={14} className="shrink-0 text-sky-400" />
             Segarkan data
           </button>
         </div>
 
-        <div className="border-t border-white/10 bg-slate-950/40 backdrop-blur-sm">
+        <div className="border-t border-white/10 bg-slate-950/40">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-4 py-3 sm:px-5">
             <span className="flex items-center gap-2 text-xs text-slate-300">
               <Activity size={14} className="text-sky-400" />
@@ -191,7 +191,7 @@ export default function HistoryPage() {
                       className="px-4 py-4 text-right text-[10px] font-bold uppercase tracking-wider text-slate-400"
                     >
                       {p.label}
-                      <span className="mt-1 block font-normal normal-case tracking-normal text-slate-500">
+                      <span className="mt-1 block font-normal normal-case tracking-normal text-slate-400">
                         {p.unit}
                       </span>
                     </th>
@@ -199,14 +199,14 @@ export default function HistoryPage() {
 
                   <th className="px-4 py-4 text-right text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Suhu
-                    <span className="mt-1 block font-normal normal-case tracking-normal text-slate-500">
+                    <span className="mt-1 block font-normal normal-case tracking-normal text-slate-400">
                       °C
                     </span>
                   </th>
 
                   <th className="px-4 py-4 text-right text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Kelembapan
-                    <span className="mt-1 block font-normal normal-case tracking-normal text-slate-500">
+                    <span className="mt-1 block font-normal normal-case tracking-normal text-slate-400">
                       %
                     </span>
                   </th>
@@ -219,7 +219,7 @@ export default function HistoryPage() {
                     key={`${row.created_at}-${index}`}
                     className="transition hover:bg-slate-900/50"
                   >
-                    <td className="px-4 py-4 text-xs font-medium tabular-nums text-slate-500 sm:px-5">
+                    <td className="px-4 py-4 text-xs font-medium font-mono tabular-nums text-slate-400 sm:px-5">
                       {(safePage * PAGE_SIZE + index + 1)
                         .toString()
                         .padStart(2, "0")}
@@ -232,17 +232,17 @@ export default function HistoryPage() {
                     {POLLUTANTS.map((p) => (
                       <td
                         key={p.key}
-                        className="px-4 py-4 text-right text-xs tabular-nums text-slate-200"
+                        className="px-4 py-4 text-right text-xs font-mono tabular-nums text-slate-200"
                       >
                         {formatCell(row, p.key)}
                       </td>
                     ))}
 
-                    <td className="px-4 py-4 text-right text-xs tabular-nums text-slate-200">
+                    <td className="px-4 py-4 text-right text-xs font-mono tabular-nums text-slate-200">
                       {formatNumber(row.temperature)}
                     </td>
 
-                    <td className="px-4 py-4 text-right text-xs tabular-nums text-slate-200">
+                    <td className="px-4 py-4 text-right text-xs font-mono tabular-nums text-slate-200">
                       {formatNumber(row.humidity)}
                     </td>
                   </tr>
@@ -251,7 +251,7 @@ export default function HistoryPage() {
             </table>
           </div>
 
-          {/* KARTU MOBILE — pengganti tabel di layar kecil */}
+          {/* KARTU MOBILE - pengganti tabel di layar kecil */}
           <div className="divide-y divide-white/5 sm:hidden">
             {slice.map((row, index) => (
               <article
@@ -259,7 +259,7 @@ export default function HistoryPage() {
                 className="space-y-3 px-4 py-4"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-medium tabular-nums text-slate-500">
+                  <span className="text-[11px] font-medium font-mono tabular-nums text-slate-400">
                     #
                     {(safePage * PAGE_SIZE + index + 1)
                       .toString()
@@ -274,12 +274,12 @@ export default function HistoryPage() {
                   {POLLUTANTS.map((p) => (
                     <div
                       key={p.key}
-                      className="min-w-0 rounded-xl border border-white/10 bg-slate-900/60 px-2 py-1.5 backdrop-blur-sm"
+                      className="min-w-0 rounded-xl border border-white/10 bg-slate-900/60 px-2 py-1.5"
                     >
                       <dt className="truncate text-[9px] font-semibold uppercase tracking-wide text-slate-400">
                         {p.label}
                       </dt>
-                      <dd className="mt-0.5 truncate text-xs font-semibold tabular-nums text-white">
+                      <dd className="mt-0.5 truncate text-xs font-semibold font-mono tabular-nums text-white">
                         {formatCell(row, p.key)}
                         <span className="ml-0.5 text-[9px] font-normal text-slate-400">
                           {p.unit}
@@ -288,11 +288,11 @@ export default function HistoryPage() {
                     </div>
                   ))}
 
-                  <div className="min-w-0 rounded-xl border border-white/10 bg-slate-900/60 px-2 py-1.5 backdrop-blur-sm">
+                  <div className="min-w-0 rounded-xl border border-white/10 bg-slate-900/60 px-2 py-1.5">
                     <dt className="truncate text-[9px] font-semibold uppercase tracking-wide text-slate-400">
                       Suhu
                     </dt>
-                    <dd className="mt-0.5 truncate text-xs font-semibold tabular-nums text-white">
+                    <dd className="mt-0.5 truncate text-xs font-semibold font-mono tabular-nums text-white">
                       {formatNumber(row.temperature)}
                       <span className="ml-0.5 text-[9px] font-normal text-slate-400">
                         °C
@@ -300,11 +300,11 @@ export default function HistoryPage() {
                     </dd>
                   </div>
 
-                  <div className="min-w-0 rounded-xl border border-white/10 bg-slate-900/60 px-2 py-1.5 backdrop-blur-sm">
+                  <div className="min-w-0 rounded-xl border border-white/10 bg-slate-900/60 px-2 py-1.5">
                     <dt className="truncate text-[9px] font-semibold uppercase tracking-wide text-slate-400">
                       Lembap
                     </dt>
-                    <dd className="mt-0.5 truncate text-xs font-semibold tabular-nums text-white">
+                    <dd className="mt-0.5 truncate text-xs font-semibold font-mono tabular-nums text-white">
                       {formatNumber(row.humidity)}
                       <span className="ml-0.5 text-[9px] font-normal text-slate-400">
                         %
@@ -317,7 +317,7 @@ export default function HistoryPage() {
           </div>
 
           {/* PAGINATION */}
-          <div className="flex flex-col gap-3 border-t border-white/10 bg-slate-950/60 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 backdrop-blur-sm">
+          <div className="flex flex-col gap-3 border-t border-white/10 bg-slate-950/60 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <p className="text-xs text-slate-400">
               Menampilkan{" "}
               <span className="font-semibold text-white">
@@ -377,7 +377,7 @@ function SummaryCard({
   detail: string;
 }) {
   return (
-    <article className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 shadow-xl backdrop-blur-md transition hover:-translate-y-0.5 hover:shadow-2xl">
+    <article className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 transition hover:-translate-y-0.5">
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs font-medium text-slate-400">{label}</p>
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/30 shadow-sm">
@@ -394,17 +394,17 @@ function SummaryCard({
 
 function formatCell(row: KonsentrasiGas, key: string) {
   const value = Number(row[key as keyof KonsentrasiGas]);
-  if (!Number.isFinite(value)) return "—";
+  if (!Number.isFinite(value)) return "-";
   return value.toLocaleString("id-ID", {
     maximumFractionDigits: 3,
   });
 }
 
 function formatNumber(value: unknown) {
-  if (value === null || value === undefined || value === "") return "—";
+  if (value === null || value === undefined || value === "") return "-";
 
   const number = Number(value);
-  if (!Number.isFinite(number)) return "—";
+  if (!Number.isFinite(number)) return "-";
 
   return number.toLocaleString("id-ID", {
     maximumFractionDigits: 1,

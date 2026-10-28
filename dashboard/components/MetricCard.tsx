@@ -130,7 +130,7 @@ export function MetricCard({
 }
 
 function formatValue(v: number) {
-  if (!Number.isFinite(v)) return "—";
+  if (!Number.isFinite(v)) return "-";
   if (Math.abs(v) >= 1000) return Math.round(v).toLocaleString("id-ID");
   if (Math.abs(v) >= 100) return v.toFixed(0);
   return v.toFixed(1);

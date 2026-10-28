@@ -99,7 +99,7 @@ export function SensorProvider({ children }: { children: ReactNode }) {
     }
 
     // Data Supabase ada tetapi sudah lama (alat mati): jangan
-    // tutupi dengan data demo — tampilkan data asli terakhir
+    // tutupi dengan data demo, tampilkan data asli terakhir
     // agar status perangkat & pembacaan tetap jujur.
     if (liveOk) {
       try {

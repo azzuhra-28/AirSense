@@ -2,7 +2,7 @@
 // Status kesehatan perangkat.
 //
 // Sensor mengirim data tiap 1 menit. Status diturunkan dari
-// usia pembacaan terakhir — bukan dari ping langsung ke alat —
+// usia pembacaan terakhir, bukan dari ping langsung ke alat,
 // sehingga bekerja untuk semua topologi jaringan.
 // ============================================================
 

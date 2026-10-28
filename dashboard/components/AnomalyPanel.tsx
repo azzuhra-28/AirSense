@@ -33,7 +33,7 @@ const LEVEL_STYLE = {
 const KEYS = POLLUTANTS.map((p) => p.key as string);
 
 function fmt(v: number) {
-  if (!Number.isFinite(v)) return "—";
+  if (!Number.isFinite(v)) return "-";
   if (Math.abs(v) >= 100) return v.toFixed(0);
   return v.toFixed(1);
 }
@@ -104,7 +104,7 @@ export function AnomalyPanel({
     POLLUTANTS.find((p) => p.key === key) ?? POLLUTANTS[0];
 
   return (
-    <section className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 shadow-xl backdrop-blur-md sm:p-6 text-slate-100">
+    <section className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 sm:p-6 text-slate-100">
       <header className="flex items-center gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/30">
           <Activity className="h-5 w-5" />
@@ -123,7 +123,7 @@ export function AnomalyPanel({
       </header>
 
       {!enough ? (
-        <p className="mt-5 rounded-xl border border-sky-400/20 bg-slate-950/40 px-4 py-6 text-center text-xs text-slate-400 backdrop-blur-sm">
+        <p className="mt-5 rounded-xl border border-sky-400/20 bg-slate-950/40 px-4 py-6 text-center text-xs text-slate-400">
           Data belum cukup. Deteksi anomali membutuhkan lebih dari{" "}
           {Z_WINDOW} pembacaan.
         </p>
@@ -141,7 +141,7 @@ export function AnomalyPanel({
                   onClick={() => onSelect(c.key)}
                   className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition ${
                     on
-                      ? "border-sky-400/50 bg-sky-500/20 text-white shadow-md backdrop-blur-sm"
+                      ? "border-sky-400/50 bg-sky-500/20 text-white shadow-md"
                       : "border-white/10 bg-slate-950/40 text-slate-300 hover:bg-slate-800 hover:text-white"
                   }`}
                 >
@@ -165,7 +165,7 @@ export function AnomalyPanel({
           </div>
 
           {/* GRAFIK DENGAN PENANDA */}
-          <div className="mt-4 h-64 w-full rounded-xl border border-white/10 bg-slate-950/40 p-2 sm:p-3 backdrop-blur-sm">
+          <div className="mt-4 h-64 w-full rounded-xl border border-white/10 bg-slate-950/40 p-2 sm:p-3">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart
                 data={chartData}
@@ -281,7 +281,7 @@ export function AnomalyPanel({
                   return (
                     <li
                       key={`${p.reason}-${p.start}`}
-                      className="flex items-start gap-3 rounded-xl border border-white/10 bg-slate-950/40 p-3 backdrop-blur-sm"
+                      className="flex items-start gap-3 rounded-xl border border-white/10 bg-slate-950/40 p-3"
                     >
                       <WifiOff className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />
 
@@ -319,7 +319,7 @@ export function AnomalyPanel({
             </p>
 
             {result.events.length === 0 ? (
-              <div className="mt-2 rounded-xl border border-white/10 bg-slate-950/40 py-7 text-center backdrop-blur-sm">
+              <div className="mt-2 rounded-xl border border-white/10 bg-slate-950/40 py-7 text-center">
                 <CheckCircle2 className="mx-auto h-6 w-6 text-sky-400" />
 
                 <p className="mt-2 text-xs font-semibold text-slate-200">
@@ -340,7 +340,7 @@ export function AnomalyPanel({
                       <button
                         type="button"
                         onClick={() => onSelect(e.key)}
-                        className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left transition backdrop-blur-sm ${
+                        className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left transition ${
                           e.key === active
                             ? "border-sky-400/50 bg-sky-500/20 shadow-md"
                             : "border-white/10 bg-slate-950/40 hover:bg-slate-800"
@@ -378,7 +378,7 @@ export function AnomalyPanel({
                       </button>
 
                       {e.key === active && (
-                        <div className="mt-1 rounded-xl border border-sky-400/30 bg-slate-950/60 p-3 backdrop-blur-sm">
+                        <div className="mt-1 rounded-xl border border-sky-400/30 bg-slate-950/60 p-3">
                           <p className="text-xs text-slate-200">
                             {ex.summary}
                           </p>

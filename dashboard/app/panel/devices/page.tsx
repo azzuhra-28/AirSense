@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo } from "react";
 import {
@@ -117,11 +117,11 @@ export default function DevicesPage() {
       />
 
       {/* STATUS NODE */}
-      <section className="overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70 shadow-xl backdrop-blur-md">
+      <section className="overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70">
         <div className="grid gap-6 p-5 sm:p-7 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-lg border border-white/10 bg-slate-950/40 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-300 backdrop-blur-sm">
+              <span className="rounded-lg border border-white/10 bg-slate-950/40 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-300">
                 Device monitoring
               </span>
 
@@ -142,7 +142,7 @@ export default function DevicesPage() {
             </div>
 
             <h2 className="mt-4 text-2xl font-bold tracking-tight text-white sm:text-3xl">
-              Node 01 — PENS
+              Node 01 - PENS
             </h2>
 
             <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">
@@ -151,19 +151,19 @@ export default function DevicesPage() {
             </p>
 
             <div className="mt-5 flex flex-wrap gap-3 text-xs text-slate-300">
-              <span className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 backdrop-blur-sm">
+              <span className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2">
                 <Clock3 size={14} className="text-sky-400" />
                 {formatAge(lastSeenMinutes)}
               </span>
 
-              <span className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 backdrop-blur-sm">
+              <span className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2">
                 <Database size={14} className="text-sky-400" />
                 Sumber: {sourceLabel(source)}
               </span>
             </div>
           </div>
 
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-sky-400/30 bg-slate-950/50 p-6 text-center sm:min-w-48 backdrop-blur-md">
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-sky-400/30 bg-slate-950/50 p-6 text-center sm:min-w-48">
             <div
               className={`flex h-16 w-16 items-center justify-center rounded-2xl border ${
                 status === "online"
@@ -197,7 +197,7 @@ export default function DevicesPage() {
           </div>
         </div>
 
-        <div className="grid border-t border-white/10 sm:grid-cols-3 bg-slate-950/40 backdrop-blur-sm">
+        <div className="grid border-t border-white/10 sm:grid-cols-3 bg-slate-950/40">
           <StatusItem
             icon={<Radio size={17} />}
             label="Koneksi node"
@@ -218,7 +218,7 @@ export default function DevicesPage() {
       </section>
 
       {/* AKTIVITAS PEMBACAAN */}
-      <section className="rounded-3xl border border-sky-400/30 bg-slate-900/70 p-5 shadow-xl sm:p-6 backdrop-blur-md">
+      <section className="rounded-3xl border border-sky-400/30 bg-slate-900/70 p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 text-sky-300">
@@ -237,7 +237,7 @@ export default function DevicesPage() {
             </p>
           </div>
 
-          <span className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-xs font-semibold text-slate-300 backdrop-blur-sm">
+          <span className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-xs font-semibold text-slate-300">
             6 jam terakhir
           </span>
         </div>
@@ -249,7 +249,7 @@ export default function DevicesPage() {
 
             return (
               <div key={`${item.label}-${index}`} className="min-w-0 text-center">
-                <div className="flex h-32 items-end justify-center rounded-xl border border-white/10 bg-slate-950/40 p-2 backdrop-blur-sm">
+                <div className="flex h-32 items-end justify-center rounded-xl border border-white/10 bg-slate-950/40 p-2">
                   <div
                     title={`${item.count} rekaman`}
                     className={`w-full max-w-10 rounded-t-lg transition-all ${
@@ -263,7 +263,7 @@ export default function DevicesPage() {
                   {item.label}
                 </p>
 
-                <p className="mt-1 text-xs font-bold tabular-nums text-white">
+                <p className="mt-1 text-xs font-bold font-mono tabular-nums text-white">
                   {item.count}
                 </p>
               </div>
@@ -298,14 +298,14 @@ export default function DevicesPage() {
             return (
               <article
                 key={sensor.name}
-                className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 shadow-xl backdrop-blur-md transition hover:-translate-y-0.5 hover:shadow-2xl"
+                className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 transition hover:-translate-y-0.5"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/30 shadow-sm">
                     <Icon size={21} />
                   </div>
 
-                  <span className="rounded-lg border border-white/10 bg-slate-950/40 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-slate-300 backdrop-blur-sm">
+                  <span className="rounded-lg border border-white/10 bg-slate-950/40 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-slate-300">
                     Hardware
                   </span>
                 </div>
@@ -328,7 +328,7 @@ export default function DevicesPage() {
       </section>
 
       {/* PEMBACAAN TERBARU */}
-      <section className="overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70 shadow-xl backdrop-blur-md">
+      <section className="overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70">
         <div className="flex items-center gap-3 p-5 sm:p-6 border-b border-white/10">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-500/20 text-sky-300 border border-sky-400/30">
             <Gauge size={21} />
@@ -343,7 +343,7 @@ export default function DevicesPage() {
           </div>
         </div>
 
-        <div className="grid gap-3 border-t border-white/10 bg-slate-950/40 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-3 backdrop-blur-sm">
+        <div className="grid gap-3 border-t border-white/10 bg-slate-950/40 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-3">
           {POLLUTANTS.map((p) => {
             const value = latest
               ? Number(latest[p.key as keyof typeof latest])
@@ -352,7 +352,7 @@ export default function DevicesPage() {
             return (
               <div
                 key={p.key}
-                className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-900/60 p-4 backdrop-blur-sm"
+                className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-900/60 p-4"
               >
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-white">{p.label}</p>
@@ -362,12 +362,12 @@ export default function DevicesPage() {
                 </div>
 
                 <div className="text-right">
-                  <p className="text-lg font-bold tabular-nums text-white">
+                  <p className="text-lg font-bold font-mono tabular-nums text-white">
                     {Number.isFinite(value)
                       ? value.toLocaleString("id-ID", {
                           maximumFractionDigits: 3,
                         })
-                      : "—"}
+                      : "-"}
                   </p>
                   <p className="text-[10px] text-slate-400">{p.unit}</p>
                 </div>
@@ -391,7 +391,7 @@ export default function DevicesPage() {
         </div>
 
         {failed && (
-          <div className="flex items-start gap-2 border-t border-amber-500/30 bg-amber-500/10 p-4 text-xs leading-5 text-amber-200 backdrop-blur-sm">
+          <div className="flex items-start gap-2 border-t border-amber-500/30 bg-amber-500/10 p-4 text-xs leading-5 text-amber-200">
             <WifiOff size={15} className="mt-0.5 shrink-0 text-amber-400" />
             Data mungkin belum diperbarui. Coba segarkan atau periksa koneksi
             sumber data.
@@ -455,11 +455,11 @@ function ReadingCard({
   const number = Number(value);
   const display =
     value === null || value === undefined || value === "" || !Number.isFinite(number)
-      ? "—"
+      ? "-"
       : number.toLocaleString("id-ID", { maximumFractionDigits: 1 });
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-900/60 p-4 backdrop-blur-sm">
+    <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-900/60 p-4">
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/30 shadow-sm">
           {icon}
@@ -471,7 +471,7 @@ function ReadingCard({
       </div>
 
       <div className="text-right">
-        <p className="text-lg font-bold tabular-nums text-white">{display}</p>
+        <p className="text-lg font-bold font-mono tabular-nums text-white">{display}</p>
         <p className="text-[10px] text-slate-400">{unit}</p>
       </div>
     </div>

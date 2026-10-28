@@ -4,7 +4,7 @@ import type { ForecastRow, KonsentrasiGas } from "./types";
 /**
  * Ambil pembacaan sensor dari Supabase.
  *
- * @param minutes Rentang waktu ke belakang (detik? tidak — menit).
+ * @param minutes Rentang waktu ke belakang (menit).
  * @param limit   Batas jumlah baris untuk keamanan.
  */
 export async function fetchRecentReadings(

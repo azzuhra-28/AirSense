@@ -26,7 +26,7 @@ export default function PanelLayout({
         <Sidebar />
 
         <main className="min-w-0 flex-1 relative z-10">
-          <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8 text-slate-100">
+          <div className="mx-auto max-w-6xl px-4 py-6 pb-24 sm:px-6 sm:py-8 sm:pb-24 lg:pb-8 text-slate-100">
             {children}
           </div>
         </main>

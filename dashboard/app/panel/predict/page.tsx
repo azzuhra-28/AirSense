@@ -147,7 +147,7 @@ export default function PredictPage() {
       { k: "PM2.5", v: Number(last.pm25_ispu_pred ?? -1) },
       { k: "PM10", v: Number(last.pm10_ispu_pred ?? -1) },
       { k: "CO", v: Number(last.co_ispu_pred ?? -1) },
-    ].sort((a, b) => b.v - a.v)[0]?.k ?? "—";
+    ].sort((a, b) => b.v - a.v)[0]?.k ?? "-";
 
     return {
       total: Math.round(total),
@@ -355,7 +355,7 @@ export default function PredictPage() {
 
   if (error && !forecast.length) {
     return (
-      <div className="overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70 shadow-xl backdrop-blur-md text-slate-100">
+      <div className="overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70 text-slate-100">
         <div className="bg-slate-950/40 p-6 sm:p-8 border-b border-white/10">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-500/20 text-rose-300 border border-rose-500/30">
             <ShieldAlert size={24} />
@@ -386,7 +386,7 @@ export default function PredictPage() {
 
   if (!forecast.length) {
     return (
-      <div className="overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70 shadow-xl backdrop-blur-md text-slate-100">
+      <div className="overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70 text-slate-100">
         <div className="bg-slate-950/40 p-7 sm:p-10 border-b border-white/10">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/20 text-sky-300 border border-sky-400/30">
             <Activity size={24} />
@@ -419,7 +419,7 @@ export default function PredictPage() {
   return (
     <div className="min-w-0 space-y-6 text-slate-100 pb-8">
       {/* HEADER UTAMA */}
-      <section className="relative isolate overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70 shadow-xl backdrop-blur-md">
+      <section className="relative isolate overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70">
         <div className="pointer-events-none absolute -right-16 -top-24 -z-10 h-72 w-72 rounded-full bg-sky-500/10 blur-3xl" />
 
         <div className="grid gap-7 p-5 sm:p-7 lg:grid-cols-[1fr_auto] lg:items-end lg:p-9">
@@ -442,15 +442,15 @@ export default function PredictPage() {
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-3 text-xs">
-              <span className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-slate-300 backdrop-blur-sm">
+              <span className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-slate-300">
                 <Clock3 size={14} className="text-sky-400" />
                 {formatGenerated(summary?.generated)}
               </span>
-              <span className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-slate-300 backdrop-blur-sm">
+              <span className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-slate-300">
                 <Activity size={14} className="text-sky-400" />
                 {summary?.horizon ?? 0} titik forecast
               </span>
-              <span className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-slate-300 backdrop-blur-sm">
+              <span className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-slate-300">
                 <Cloud size={14} className="text-sky-400" />
                 Pembaruan otomatis
               </span>
@@ -458,7 +458,7 @@ export default function PredictPage() {
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-stretch">
-            <div className="min-w-40 rounded-2xl border border-sky-400/30 bg-slate-950/50 p-4 shadow-xl backdrop-blur-md">
+            <div className="min-w-40 rounded-2xl border border-sky-400/30 bg-slate-950/50 p-4">
               <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">
                 Indeks puncak proyeksi
               </p>
@@ -467,7 +467,7 @@ export default function PredictPage() {
                   className="text-5xl font-bold tracking-tight"
                   style={{ color: summary?.tone.text ?? "#FFFFFF" }}
                 >
-                  {summary?.total ?? "—"}
+                  {summary?.total ?? "-"}
                 </span>
                 <span
                   className="mb-1 rounded-lg px-2.5 py-1 text-[11px] font-semibold border border-white/10"
@@ -495,21 +495,21 @@ export default function PredictPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-sky-400/20 bg-slate-950/40 px-5 py-3 text-[11px] sm:px-9 backdrop-blur-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-sky-400/20 bg-slate-950/40 px-5 py-3 text-[11px] sm:px-9">
           <span className="flex items-center gap-2 text-slate-300">
             <span className="h-2 w-2 rounded-full bg-emerald-400" />
             Data forecast berhasil dimuat
           </span>
           <span className="text-slate-400">
             Polutan dominan:{" "}
-            <strong className="text-white">{summary?.dominant ?? "—"}</strong>
+            <strong className="text-white">{summary?.dominant ?? "-"}</strong>
           </span>
         </div>
       </section>
 
       {/* PESAN ERROR PEMBARUAN */}
       {error && forecast.length > 0 && (
-        <section className="flex flex-col gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 sm:flex-row sm:items-center sm:justify-between backdrop-blur-md">
+        <section className="flex flex-col gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
             <TriangleAlert className="mt-0.5 shrink-0 text-amber-400" size={19} />
             <div>
@@ -532,7 +532,7 @@ export default function PredictPage() {
 
       {/* PERINGATAN DRIFT */}
       {unreliableLabels.length > 0 && (
-        <section className="overflow-hidden rounded-2xl border border-amber-500/30 bg-slate-900/70 shadow-xl backdrop-blur-md">
+        <section className="overflow-hidden rounded-2xl border border-amber-500/30 bg-slate-900/70">
           <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start sm:p-5">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-300 border border-amber-500/30">
               <ShieldAlert size={21} />
@@ -570,7 +570,7 @@ export default function PredictPage() {
                     return (
                       <div
                         key={s.key}
-                        className="rounded-xl border border-white/10 bg-slate-950/40 p-3 backdrop-blur-sm"
+                        className="rounded-xl border border-white/10 bg-slate-950/40 p-3"
                       >
                         <p className="text-xs font-bold text-white">{s.label}</p>
                         <p className="mt-2 text-xl font-bold text-white">
@@ -600,7 +600,7 @@ export default function PredictPage() {
 
       {/* INSIGHT */}
       {summary?.insight && (
-        <section className="relative overflow-hidden rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 sm:p-6 shadow-xl backdrop-blur-md">
+        <section className="relative overflow-hidden rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 sm:p-6">
           <div className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-sky-500/10 blur-2xl" />
           <div className="relative flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/30 shadow-sm">
@@ -632,7 +632,7 @@ export default function PredictPage() {
               Perubahan dari titik pertama ke titik terakhir pada horizon prediksi.
             </p>
           </div>
-          <span className="rounded-xl border border-white/10 bg-slate-900/70 px-3 py-2 text-[11px] font-semibold text-slate-300 backdrop-blur-md">
+          <span className="rounded-xl border border-white/10 bg-slate-900/70 px-3 py-2 text-[11px] font-semibold text-slate-300">
             {viewMode === "ispu" ? "Mode indeks ISPU" : "Mode konsentrasi"}
           </span>
         </div>
@@ -648,7 +648,7 @@ export default function PredictPage() {
             return (
               <article
                 key={stat.key}
-                className="group relative overflow-hidden rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 shadow-xl backdrop-blur-md transition duration-300 hover:-translate-y-1 hover:shadow-2xl"
+                className="group relative overflow-hidden rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 transition duration-300 hover:-translate-y-1"
               >
                 <div
                   className="absolute inset-x-0 top-0 h-1"
@@ -743,7 +743,7 @@ export default function PredictPage() {
       </section>
 
       {/* GRAFIK UTAMA */}
-      <section className="overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70 shadow-xl backdrop-blur-md">
+      <section className="overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70">
         <div className="p-5 sm:p-7 border-b border-white/10">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
             <div>
@@ -764,7 +764,7 @@ export default function PredictPage() {
               </p>
             </div>
 
-            <div className="flex rounded-xl border border-sky-400/30 bg-slate-950/40 p-1 backdrop-blur-sm">
+            <div className="flex rounded-xl border border-sky-400/30 bg-slate-950/40 p-1">
               <button
                 type="button"
                 onClick={() => setViewMode("ispu")}
@@ -799,7 +799,7 @@ export default function PredictPage() {
                   type="button"
                   onClick={() => toggleSeries(s.key)}
                   aria-pressed={selected}
-                  className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition cursor-pointer backdrop-blur-sm ${
+                  className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition cursor-pointer ${
                     selected
                       ? "border-sky-400/40 bg-sky-500/20 text-white shadow-sm"
                       : "border-white/10 bg-slate-950/40 text-slate-400 hover:bg-slate-800 hover:text-white"
@@ -819,7 +819,7 @@ export default function PredictPage() {
           </div>
         </div>
 
-        <div className="bg-slate-950/40 p-3 sm:p-6 backdrop-blur-sm">
+        <div className="bg-slate-950/40 p-3 sm:p-6">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-2 pt-2">
             <div>
               <p className="text-xs font-bold text-white">
@@ -1057,7 +1057,7 @@ export default function PredictPage() {
               number="03"
               title="Kelompok sensitif"
               metricLabel="Polutan dominan"
-              metric={summary?.dominant ?? "—"}
+              metric={summary?.dominant ?? "-"}
               description={actionPlan.sensitiveAdvice}
             />
           </div>
@@ -1065,7 +1065,7 @@ export default function PredictPage() {
       )}
 
       {/* DETAIL MODEL */}
-      <section className="overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70 shadow-xl backdrop-blur-md">
+      <section className="overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70">
         <button
           type="button"
           onClick={() => setShowModelDetails((v) => !v)}
@@ -1094,7 +1094,7 @@ export default function PredictPage() {
         </button>
 
         {showModelDetails && (
-          <div className="grid gap-3 border-t border-white/10 bg-slate-950/40 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-3 backdrop-blur-sm">
+          <div className="grid gap-3 border-t border-white/10 bg-slate-950/40 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-3">
             <ModelInfo
               icon={<Activity size={17} />}
               label="Arsitektur"
@@ -1116,7 +1116,7 @@ export default function PredictPage() {
           </div>
         )}
 
-        <div className="flex items-start gap-2.5 border-t border-white/10 bg-amber-500/10 px-5 py-4 sm:px-6 backdrop-blur-sm">
+        <div className="flex items-start gap-2.5 border-t border-white/10 bg-amber-500/10 px-5 py-4 sm:px-6">
           <TriangleAlert size={16} className="mt-0.5 shrink-0 text-amber-400" />
           <p className="text-[11px] leading-5 text-amber-200">
             Hasil forecast adalah estimasi model, bukan jaminan kondisi aktual.
@@ -1154,7 +1154,7 @@ function AdviceCard({
   description: string;
 }) {
   return (
-    <article className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 shadow-xl backdrop-blur-md transition hover:-translate-y-0.5 hover:shadow-2xl">
+    <article className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 transition hover:-translate-y-0.5">
       <div className="flex items-center justify-between">
         <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/30">
           {icon}
@@ -1162,7 +1162,7 @@ function AdviceCard({
         <span className="text-xs font-bold text-sky-300">{number}</span>
       </div>
       <h3 className="mt-4 text-sm font-bold text-white">{title}</h3>
-      <div className="mt-3 rounded-xl border border-white/10 bg-slate-950/40 p-3 backdrop-blur-sm">
+      <div className="mt-3 rounded-xl border border-white/10 bg-slate-950/40 p-3">
         <p className="text-[10px] text-slate-400">{metricLabel}</p>
         <p className="mt-1 break-words text-xs font-bold leading-5 text-slate-200">
           {metric}
@@ -1185,7 +1185,7 @@ function ModelInfo({
   detail: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 backdrop-blur-sm">
+    <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
       <div className="flex items-center gap-2 text-sky-300">
         {icon}
         <span className="text-xs font-medium text-slate-300">{label}</span>
