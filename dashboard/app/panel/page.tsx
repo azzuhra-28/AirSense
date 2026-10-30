@@ -218,7 +218,7 @@ export default function SummaryPage() {
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-[15px] font-bold text-white">
-              Proyeksi 60 menit
+              Forecast 60 menit
             </h2>
             <p className="mt-0.5 text-[11px] text-slate-400">
               {forecastLoading
@@ -309,7 +309,7 @@ export default function SummaryPage() {
                     labelStyle={{ color: "#e2e8f0", fontWeight: 600 }}
                     formatter={(value, name, item) => {
                       const s = SERIES.find((x) => x.key === name);
-                      const phase = item?.payload?.isForecast ? "proyeksi" : "aktual";
+                      const phase = item?.payload?.isForecast ? "Forecast" : "aktual";
                       return [
                         `${Number(value).toFixed(2)} ${s?.unit ?? ""} (${phase})`,
                         s?.label ?? name,
@@ -333,7 +333,7 @@ export default function SummaryPage() {
                       connectNulls={false}
                       isAnimationActive={false}
                     />,
-                    // Area transparan: proyeksi model, jelas dibedakan.
+                    // Area transparan: Forecast model, jelas dibedakan.
                     <Area
                       key={`fc-${s.key}`}
                       type="monotone"
@@ -368,7 +368,7 @@ export default function SummaryPage() {
                       "repeating-linear-gradient(90deg, #94a3b8 0 5px, transparent 5px 9px)",
                   }}
                 />
-                Proyeksi 60 menit ke depan
+                Forecast 60 menit ke depan
               </span>
             </div>
 
@@ -379,7 +379,7 @@ export default function SummaryPage() {
               if (!missing.length) return null;
               return (
                 <p className="mt-3 rounded-lg border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-200">
-                  {missing.join(", ")} tidak diproyeksikan: model belum lebih akurat
+                  {missing.join(", ")} tidak memiliki forecast: model belum lebih akurat
                   dari sekadar mengulang nilai terakhir pada data yang tersedia.
                   Garis aktualnya tetap ditampilkan.
                 </p>
@@ -470,7 +470,7 @@ export default function SummaryPage() {
       })()}
 
       <p className="px-1 text-[10px] leading-5 text-slate-400">
-        Proyeksi dihitung model LSTM/GRU dan bersifat indikatif, bukan ISPU
+        Forecast dihitung model LSTM/GRU dan bersifat indikatif, bukan ISPU
         resmi. Angka berubah setiap siklus pipeline.
       </p>
     </div>

@@ -262,17 +262,17 @@ export default function PredictPage() {
       peakTone,
       outdoorAdvice:
         overallPeak <= 50
-          ? "Proyeksi berada dalam kategori Baik. Aktivitas luar ruangan dapat dipertimbangkan sesuai kondisi tubuh dan lingkungan."
+          ? "Forecast berada dalam kategori Baik. Aktivitas luar ruangan dapat dipertimbangkan sesuai kondisi tubuh dan lingkungan."
           : overallPeak <= 100
-            ? "Udara diproyeksikan dalam kategori Sedang. Kelompok sensitif sebaiknya mempertimbangkan untuk mengurangi aktivitas berat di luar."
+            ? "Forecast udara berada dalam kategori Sedang. Kelompok sensitif sebaiknya mempertimbangkan untuk mengurangi aktivitas berat di luar."
             : "Pertimbangkan mengurangi aktivitas berat di luar ruangan dan pantau perkembangan kualitas udara.",
       ventilationAdvice:
         overallPeak <= 50
-          ? "Kondisi yang diproyeksikan relatif baik. Ventilasi alami dapat dipertimbangkan jika kondisi sekitar mendukung."
+          ? "Kondisi forecast relatif baik. Ventilasi alami dapat dipertimbangkan jika kondisi sekitar mendukung."
           : "Pertimbangkan mengurangi masuknya udara luar yang tercemar. Gunakan penyaring udara jika tersedia.",
       sensitiveAdvice:
         summary?.dominant === "PM2.5"
-          ? "Partikel PM2.5 menjadi polutan dominan dalam proyeksi. Kelompok sensitif perlu memperhatikan gejala pernapasan dan membatasi paparan bila diperlukan."
+          ? "Partikel PM2.5 menjadi polutan dominan dalam Forecast. Kelompok sensitif perlu memperhatikan gejala pernapasan dan membatasi paparan bila diperlukan."
           : "Kelompok sensitif seperti anak-anak, lansia, dan orang dengan gangguan pernapasan sebaiknya terus memantau kualitas udara.",
     };
   }, [forecast, summary]);
@@ -437,7 +437,7 @@ export default function PredictPage() {
             </h1>
 
             <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300 sm:text-base">
-              Proyeksi kualitas udara 60 menit ke depan berdasarkan hasil model
+              Forecast kualitas udara 60 menit ke depan berdasarkan hasil model
               prediksi dan data sensor yang tersedia.
             </p>
 
@@ -460,7 +460,7 @@ export default function PredictPage() {
           <div className="flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-stretch">
             <div className="min-w-40 rounded-2xl border border-sky-400/30 bg-slate-950/50 p-4">
               <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">
-                Indeks puncak proyeksi
+                Indeks puncak forecast
               </p>
               <div className="mt-3 flex items-end gap-3">
                 <span
@@ -480,7 +480,7 @@ export default function PredictPage() {
                 </span>
               </div>
               <p className="mt-2 text-[11px] leading-5 text-slate-400">
-                Berdasarkan nilai maksimum proyeksi pada titik akhir.
+                Berdasarkan nilai maksimum Forecast pada titik akhir.
               </p>
             </div>
 
@@ -549,7 +549,7 @@ export default function PredictPage() {
               </div>
 
               <p className="mt-1.5 text-sm leading-6 text-slate-300">
-                Proyeksi {unreliableLabels.join(", ")} memiliki selisih rata-rata
+                Forecast {unreliableLabels.join(", ")} memiliki selisih rata-rata
                 yang besar terhadap pembacaan sensor terkini. Hasil ini perlu
                 ditinjau sebelum dijadikan dasar keputusan.
               </p>
@@ -684,7 +684,7 @@ export default function PredictPage() {
                 <div className="relative mt-6 flex items-end justify-between gap-3">
                   <div>
                     <p className="text-[11px] font-medium text-slate-400">
-                      Proyeksi akhir
+                      Forecast akhir
                     </p>
                     <p className="mt-1 text-3xl font-bold tracking-tight text-white">
                       {finalVal.toFixed(1)}
@@ -726,7 +726,7 @@ export default function PredictPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-slate-400">Puncak proyeksi</p>
+                    <p className="text-[10px] text-slate-400">Puncak forecast</p>
                     <p className="mt-1 text-sm font-semibold text-slate-200">
                       {peakVal.toFixed(1)}
                       <span className="ml-1 text-[10px] font-normal text-slate-400">
@@ -1027,7 +1027,7 @@ export default function PredictPage() {
               Suggested actions
             </p>
             <h2 className="mt-1 text-xl font-bold tracking-tight text-white sm:text-2xl">
-              Panduan berdasarkan proyeksi
+              Panduan berdasarkan forecast
             </h2>
             <p className="mt-1 text-xs leading-5 text-slate-400">
               Rekomendasi indikatif untuk membantu memahami hasil prediksi.
@@ -1048,7 +1048,7 @@ export default function PredictPage() {
               icon={<Wind size={19} />}
               number="02"
               title="Ventilasi ruangan"
-              metricLabel="Puncak proyeksi"
+              metricLabel="Puncak forecast"
               metric={`ISPU ${actionPlan.overallPeak} · ${actionPlan.peakTone.label}`}
               description={actionPlan.ventilationAdvice}
             />

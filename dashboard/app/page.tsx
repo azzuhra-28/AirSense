@@ -136,7 +136,7 @@ export default function LandingPage() {
               </h3>
             </div>
             <p className="mt-2 text-xs leading-relaxed text-slate-300">
-              LSTM dan GRU memproyeksikan tren per menit ke depan.
+              LSTM dan GRU memperkirakan tren per menit ke depan.
             </p>
           </div>
 
