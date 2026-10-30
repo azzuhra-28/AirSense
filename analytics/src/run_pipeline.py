@@ -921,6 +921,7 @@ def run_from_dataframe(
     raw_df,
     metadata=None,
     models=None,
+    alerts_only=False,
 ):
     """
     Execute the complete analytics pipeline from an in-memory
@@ -1047,50 +1048,75 @@ def run_from_dataframe(
     # Forecast models
     # --------------------------------------------------------
 
-    if metadata is None:
+    if alerts_only:
 
-        metadata = (
-            load_forecast_metadata()
-        )
+        # Mode alert saja: forecast sudah ditangani run_forecast_rnn,
+        # jadi model forecast tidak perlu dimuat. Kolom indikator
+        # diisi NA agar alert_logic tahu forecast tidak tersedia.
+        forecast = {
+            "created_at": sensor_df["created_at"].iloc[-1],
+            "forecast_at": sensor_df["created_at"].iloc[-1],
+            "horizon_minutes": HORIZON_MINUTES,
+            "forecast_indicator_total": None,
+            "forecast_indicator_category": None,
+            "forecast_indicator_dominant": None,
+        }
 
-    if models is None:
+        for pollutant in POLLUTANTS:
+            forecast[f"{pollutant}_forecast_t60"] = None
+            forecast[f"{pollutant}_model"] = None
 
-        models = (
-            load_forecast_models(
-                metadata
-            )
-        )
-
-    # --------------------------------------------------------
-    # Direct forecast t+60
-    # --------------------------------------------------------
-
-    forecast = forecast_t60(
-        sensor_df,
-        metadata,
-        models,
-    )
-
-    # --------------------------------------------------------
-    # Experimental forecast indicator
-    # --------------------------------------------------------
-
-    forecast = (
-        add_forecast_indicator(
-            forecast
-        )
-    )
-
-    # --------------------------------------------------------
-    # Attach latest forecast
-    # --------------------------------------------------------
-
-    sensor_df = (
-        attach_forecast_to_latest_row(
+        sensor_df = attach_forecast_to_latest_row(
             sensor_df,
             forecast,
         )
-    )
+
+    else:
+
+        if metadata is None:
+
+            metadata = (
+                load_forecast_metadata()
+            )
+
+        if models is None:
+
+            models = (
+                load_forecast_models(
+                    metadata
+                )
+            )
+
+        # ----------------------------------------------------
+        # Direct forecast t+60
+        # ----------------------------------------------------
+
+        forecast = forecast_t60(
+            sensor_df,
+            metadata,
+            models,
+        )
+
+        # ----------------------------------------------------
+        # Experimental forecast indicator
+        # ----------------------------------------------------
+
+        forecast = (
+            add_forecast_indicator(
+                forecast
+            )
+        )
+
+        # ----------------------------------------------------
+        # Attach latest forecast
+        # ----------------------------------------------------
+
+        sensor_df = (
+            attach_forecast_to_latest_row(
+                sensor_df,
+                forecast,
+            )
+        )
 
     # --------------------------------------------------------
     # Unified alert logic
@@ -1400,6 +1426,10 @@ def save_results_to_supabase(
 # Production Entry Point
 # ============================================================
 
+# Diisi dari argumen CLI --alerts-only.
+ALERTS_ONLY = False
+
+
 def run():
     """
     Fetch sensor data from Supabase, run the analytics
@@ -1430,7 +1460,8 @@ def run():
 
     try:
         result = run_from_dataframe(
-            raw_df
+            raw_df,
+            alerts_only=ALERTS_ONLY,
         )
 
     except InsufficientHistoryError as error:
@@ -1539,4 +1570,18 @@ def run():
 # ============================================================
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Pipeline analytics AirSense."
+    )
+    parser.add_argument(
+        "--alerts-only",
+        action="store_true",
+        help=(
+            "Lewati model forecast dan hanya jalankan deteksi anomali "
+            "serta alert. Dipakai saat forecast ditangani run_forecast_rnn."
+        ),
+    )
+    ALERTS_ONLY = parser.parse_args().alerts_only
     run()

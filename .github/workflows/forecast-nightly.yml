@@ -1,9 +1,11 @@
-name: AirSense Automated Forecast & Analytics Pipeline
+name: AirSense Forecast Pipeline
 
 on:
   schedule:
-    # Setiap 30 menit. GitHub bisa menunda beberapa menit saat ramai.
-    - cron: "*/30 * * * *"
+    # Setiap 10 menit. GitHub menunda cron saat ramai (biasanya 5-20
+    # menit), jadi jangan berharap presisi. Repo ini publik, sehingga
+    # menit Actions tidak dihitung terhadap kuota.
+    - cron: "*/10 * * * *"
   workflow_dispatch:
     inputs:
       retrain:
@@ -11,38 +13,74 @@ on:
         type: boolean
         default: false
 
+# Satu run pada satu waktu. Run yang menunggu dibatalkan kalau sudah
+# ada yang lebih baru, supaya tidak menumpuk siklus basi.
 concurrency:
   group: airsense-forecast
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   forecast:
-    name: Run Forecast and Alert Pipeline
+    name: Forecast + Alert
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
 
+      # torch CPU saja: runner tidak punya GPU, dan versi CUDA
+      # menambah ~2 GB unduhan tanpa manfaat.
       - name: Install dependencies
-        run: pip install -r analytics/requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install --index-url https://download.pytorch.org/whl/cpu torch
+          pip install -r analytics/requirements.txt
 
-      # Tanpa cache, setiap run melatih 3 model RNN dari nol (menit-an).
-      # Dengan cache, run hanya melakukan inferensi (~1 menit).
       - name: Restore model cache
         uses: actions/cache@v4
         with:
           path: analytics/models
-          key: airsense-models-${{ github.run_id }}
+          key: airsense-models-v2
           restore-keys: airsense-models-
 
-      - name: Jalankan RNN Multi-step Forecast (60 Menit ke Depan)
+      - name: Lewati kalau alat offline
+        id: gate
+        working-directory: analytics
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          python - <<'PY'
+          import os, sys
+          sys.path.insert(0, ".")
+          import pandas as pd
+          from src.supabase_client import SUPABASE_URL, supabase_session
+
+          s = supabase_session()
+          r = s.get(
+              f"{SUPABASE_URL}/rest/v1/tb_konsentrasi_gas",
+              params={"select": "created_at", "order": "created_at.desc", "limit": 1},
+              timeout=30,
+          ).json()
+          if not r:
+              print("::warning::Belum ada data sensor.")
+              open(os.environ["GITHUB_OUTPUT"], "a").write("run=false\n")
+              sys.exit(0)
+
+          last = pd.to_datetime(r[0]["created_at"], utc=True, format="ISO8601")
+          age = (pd.Timestamp.now(tz="UTC") - last).total_seconds() / 60
+          print(f"Data sensor terakhir {age:.0f} menit lalu.")
+          # Forecast dari data basi hanya mengulang angka lama.
+          run = "true" if age <= 10 else "false"
+          open(os.environ["GITHUB_OUTPUT"], "a").write(f"run={run}\n")
+          PY
+
+      - name: Jalankan forecast RNN
+        if: steps.gate.outputs.run == 'true'
         working-directory: analytics
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -52,16 +90,14 @@ jobs:
           if [ "${{ inputs.retrain }}" = "true" ]; then
             EXTRA="--retrain"
           fi
-          # CPU dipakai karena inferensi dengan model tersimpan jauh
-          # lebih cepat daripada memuat CUDA, dan runner GitHub tidak
-          # punya GPU.
           python -m src.run_forecast_rnn --device cpu --epochs 40 $EXTRA
 
-      - name: Jalankan Anomaly Detection & Alert Pipeline
+      - name: Jalankan deteksi anomali dan alert
+        if: steps.gate.outputs.run == 'true'
         working-directory: analytics
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
           python ensure_models.py || true
-          python -m src.run_pipeline || true
+          python -m src.run_pipeline --alerts-only || true
