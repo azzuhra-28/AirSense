@@ -57,13 +57,20 @@ BATCH_SIZE = 500
 # Muat data
 # ============================================================
 
-def load_data(days: int | None, limit: int = 12000) -> pd.DataFrame:
+def load_data(
+    days: int | None,
+    limit: int = 12000,
+    real_only: bool = True,
+) -> pd.DataFrame:
     """
     Ambil data sensor terbaru dari Supabase (diurutkan kronologis).
 
     Nilai sentinel -999 (sensor gagal baca) dibuang supaya tidak
-    masuk sebagai fitur, dan baris yang menyisakan terlalu banyak
-    kolom kosong ikut dibuang.
+    masuk sebagai fitur.
+
+    real_only membuang baris hasil generator dummy. Penandanya
+    timestamp: dummy selalu jatuh di detik bulat, sedangkan sensor
+    nyata selalu membawa mikrodetik.
     """
     sess = supabase_session()
     rows = fetch_rows(
@@ -93,6 +100,13 @@ def load_data(days: int | None, limit: int = 12000) -> pd.DataFrame:
             df[col] = pd.to_numeric(df[col], errors="coerce")
             df.loc[df[col] <= -900, col] = pd.NA
 
+    if real_only:
+        at_whole_second = (
+            (df["created_at"].dt.microsecond == 0)
+            & (df["created_at"].dt.second == 0)
+        )
+        df = df[~at_whole_second].reset_index(drop=True)
+
     if days is not None:
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         df = df[df["created_at"] >= cutoff].reset_index(drop=True)
@@ -111,10 +125,14 @@ def forecast_target(
     steps: int,
     verbose: bool = True,
     retrain: bool = False,
-) -> list[float]:
+) -> tuple[list[float], dict]:
     """
-    Latih model RNN untuk satu polutan, lalu hasilkan prediksi
-    t+1..t+steps menit dari titik data terakhir.
+    Latih (atau muat) model RNN untuk satu polutan, lalu hasilkan
+    prediksi t+1..t+steps menit dari titik data terakhir.
+
+    Mengembalikan (prediksi, hasil gate kualitas). Pemanggil wajib
+    memeriksa gate sebelum menulis ke tb_forecast: model yang kalah
+    dari baseline tidak layak ditampilkan sebagai forecast.
 
     Model direct t+60 dijalankan berulang pada jendela yang
     digeser mundur: prediksi untuk t+k memakai data historis
@@ -188,6 +206,18 @@ def forecast_target(
         )
         save_lstm_bundle(bundle, target)
 
+    # Gate kualitas dijalankan sebelum prediksi ditulis. Model yang
+    # kalah dari "nilai terakhir diulang" tidak menghasilkan forecast.
+    gate = quality_gate(bundle, df_train, target, target_column)
+    if verbose:
+        if gate["mae"] is not None:
+            print(
+                f"  [{target}] gate: MAE={gate['mae']:.2f} vs baseline={gate['baseline']:.2f}"
+                f" -> {'LULUS' if gate['ok'] else 'GAGAL'}"
+            )
+        else:
+            print(f"  [{target}] gate: {gate['reason']}")
+
     # --------------------------------------------------------
     # Prediksi direct t+60 dengan jendela bergeser.
     #
@@ -225,7 +255,47 @@ def forecast_target(
 
         predictions.append(float(pred[-1]))
 
-    return predictions
+    return predictions, gate
+
+
+# ============================================================
+# Gate kualitas: bandingkan model dengan tebakan sederhana
+# ============================================================
+
+def quality_gate(bundle, df_train, target: str, target_column: str) -> dict:
+    """
+    Ukur MAE model pada data validasi dan bandingkan dengan baseline
+    persistence (nilai sekarang diulang).
+
+    Model yang tidak lebih baik dari "nilai terakhir diulang" tidak
+    layak ditampilkan; kurvanya akan terlihat meyakinkan padahal
+    tidak membawa informasi.
+    """
+    eval_df = df_train.dropna(subset=[target_column]).tail(300)
+    if len(eval_df) < 60:
+        return {"ok": False, "reason": "data validasi kurang", "mae": None, "baseline": None}
+
+    preds = predict_lstm(bundle, eval_df)
+    actual = eval_df[target_column].to_numpy(dtype=float)[-len(preds):]
+    now = eval_df[target].to_numpy(dtype=float)[-len(preds):]
+
+    n = min(len(preds), len(actual), len(now))
+    if n < 30:
+        return {"ok": False, "reason": "prediksi validasi kurang", "mae": None, "baseline": None}
+
+    mae = float(np.mean(np.abs(preds[-n:] - actual[-n:])))
+    mae_baseline = float(np.mean(np.abs(now[-n:] - actual[-n:])))
+
+    # Model harus menang minimal 10% agar disebut lebih baik; selisih
+    # lebih kecil dari itu tidak bisa dibedakan dari derau.
+    ok = mae < mae_baseline * 0.90
+
+    return {
+        "ok": ok,
+        "mae": mae,
+        "baseline": mae_baseline,
+        "reason": None if ok else "kalah/tidak lebih baik dari baseline persistence",
+    }
 
 
 # ============================================================
@@ -474,13 +544,20 @@ def main():
             f"h={config.hidden_size}, L={config.num_layers})..."
         )
 
-        preds = forecast_target(
+        preds, gate = forecast_target(
             raw_df,
             target,
             config,
             steps=args.steps,
             retrain=args.retrain,
         )
+
+        if not gate["ok"]:
+            print(
+                f"  [{target}] dilewati: {gate['reason']} "
+                f"(MAE={gate['mae']}, baseline={gate['baseline']})"
+            )
+            continue
 
         if not preds:
             print(f"  [{target}] tidak menghasilkan prediksi.")
@@ -507,9 +584,15 @@ def main():
         )
 
     if not per_target_rows:
-        raise RuntimeError(
-            "Tidak ada polutan yang berhasil diprediksi."
+        # Semua polutan gagal gate. Ini bukan error sistem, jadi keluar
+        # dengan pesan jelas tanpa menulis forecast menyesatkan.
+        print(
+            "\nTidak ada polutan yang lolos gate kualitas. "
+            "Forecast tidak ditulis; dashboard akan menampilkan status."
         )
+        sys.stdout.flush()
+        sys.stderr.flush()
+        return
 
     rows = merge_rows(per_target_rows)
 

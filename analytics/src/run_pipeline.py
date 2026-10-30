@@ -1359,25 +1359,16 @@ def save_results_to_supabase(
       sudah dibuat dalam ALERT_COOLDOWN_HOURS terakhir.
     """
 
-    forecast_rows = build_forecast_rows(
-        sensor_df,
-        forecast,
-        insight,
-    )
-
-    forecast_saved = False
-
-    last_forecast_at = forecast_rows[-1]["forecast_at"]
-
-    if not forecast_exists(session, last_forecast_at):
-
-        insert_rows(
-            session,
-            TABLE_FORECAST,
-            forecast_rows,
-        )
-
-        forecast_saved = True
+    # Forecast TIDAK ditulis dari sini.
+    #
+    # build_forecast_curve() hanya punya satu nilai model (t+60) dan
+    # mengisi t+1..t+59 dengan interpolasi linear. Hasilnya garis lurus
+    # sempurna yang terlihat seperti forecast padahal bukan. Penulis
+    # tb_forecast satu-satunya sekarang run_forecast_rnn.py, yang
+    # menghasilkan prediksi asli per menit.
+    #
+    # Alert tetap ditulis dari sini karena alert butuh baris sensor
+    # terbaru, bukan forecast.
 
     alert_saved = False
 
@@ -1400,7 +1391,7 @@ def save_results_to_supabase(
             alert_saved = True
 
     return {
-        "forecast_saved": forecast_saved,
+        "forecast_saved": False,
         "alert_saved": alert_saved,
     }
 

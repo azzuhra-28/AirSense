@@ -105,6 +105,30 @@ export default function SummaryPage() {
     return { value: data.ispu, ...tone };
   }, [data.ispu]);
 
+  // Gabungan riwayat aktual dan forecast dalam satu deret waktu.
+  // Aktual = garis padat di kiri, forecast = area transparan di kanan.
+  const combined = useMemo(() => {
+    const actualRows = data.rows.slice(-60);
+    const actual = actualRows.map((r) => ({
+      t: toWIB(r.created_at),
+      pm25: r.pm25_ugm3,
+      pm10: r.pm10_ugm3,
+      co: r.co_ugm3 != null ? r.co_ugm3 / 1000 : null,
+      isForecast: false,
+    }));
+
+    const fc = forecast.map((r) => ({
+      t: toWIB(r.forecast_at),
+      pm25: r.pm25_ugm3_pred,
+      pm10: r.pm10_ugm3_pred,
+      co: r.co_ugm3_pred != null ? r.co_ugm3_pred / 1000 : null,
+      isForecast: true,
+    }));
+
+    return [...actual, ...fc];
+  }, [data.rows, forecast]);
+
+  const hasActual = data.rows.length > 0;
   const toggleSeries = (key: string) => {
     setActiveSeries((prev) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
@@ -224,22 +248,20 @@ export default function SummaryPage() {
           </div>
         ) : forecastLoading ? (
           <div className="mt-4 h-64 animate-pulse rounded-lg bg-slate-800/60" />
-        ) : !forecast.length ? (
-          <div className="mt-4 flex flex-col items-center justify-center rounded-lg border border-dashed border-white/15 px-5 py-12 text-center">
-            <Database className="h-6 w-6 text-slate-400" />
-            <p className="mt-3 text-[13px] font-semibold text-slate-200">
-              Belum ada siklus forecast
-            </p>
-            <p className="mt-1 max-w-sm text-[11px] leading-relaxed text-slate-400">
-              Siklus muncul setelah pipeline analytics menulis ke tb_forecast.
-              Pipeline berjalan otomatis tiap 30 menit selama alat mengirim data.
-            </p>
-          </div>
         ) : (
           <>
             <div className="mt-4 h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chart} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
+                <AreaChart data={combined} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
+                  <defs>
+                    {SERIES.map((s) => (
+                      <linearGradient key={s.key} id={`fc-${s.key}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={s.color} stopOpacity={0.22} />
+                        <stop offset="100%" stopColor={s.color} stopOpacity={0} />
+                      </linearGradient>
+                    ))}
+                  </defs>
+
                   <CartesianGrid strokeDasharray="2 6" stroke="#1e293b" vertical={false} />
                   <XAxis
                     dataKey="t"
@@ -262,26 +284,84 @@ export default function SummaryPage() {
                       fontSize: 12,
                     }}
                     labelStyle={{ color: "#e2e8f0", fontWeight: 600 }}
-                    formatter={(value, name) => {
+                    formatter={(value, name, item) => {
                       const s = SERIES.find((x) => x.key === name);
-                      return [`${Number(value).toFixed(2)} ${s?.unit ?? ""}`, s?.label ?? name];
+                      const phase = item?.payload?.isForecast ? "proyeksi" : "aktual";
+                      return [
+                        `${Number(value).toFixed(2)} ${s?.unit ?? ""} (${phase})`,
+                        s?.label ?? name,
+                      ];
                     }}
                   />
-                  {SERIES.filter((s) => activeSeries.includes(s.key)).map((s) => (
+
+                  {SERIES.filter((s) => activeSeries.includes(s.key)).flatMap((s) => [
+                    // Garis padat: pembacaan sensor nyata.
                     <Area
-                      key={s.key}
+                      key={`actual-${s.key}`}
                       type="monotone"
-                      dataKey={s.key}
+                      dataKey={(d: (typeof combined)[number]) =>
+                        d.isForecast ? null : d[s.key]
+                      }
+                      name={s.key}
                       stroke={s.color}
                       strokeWidth={2}
                       fill="none"
                       dot={false}
+                      connectNulls={false}
+                      isAnimationActive={false}
+                    />,
+                    // Area transparan: proyeksi model, jelas dibedakan.
+                    <Area
+                      key={`fc-${s.key}`}
+                      type="monotone"
+                      dataKey={(d: (typeof combined)[number]) =>
+                        d.isForecast ? d[s.key] : null
+                      }
+                      name={s.key}
+                      stroke={s.color}
+                      strokeWidth={2}
+                      strokeDasharray="5 4"
+                      fill={`url(#fc-${s.key})`}
+                      dot={false}
                       connectNulls
-                    />
-                  ))}
+                      isAnimationActive={false}
+                    />,
+                  ])}
                 </AreaChart>
               </ResponsiveContainer>
             </div>
+
+            {/* Legenda fase: garis padat vs putus-putus */}
+            <div className="mt-3 flex flex-wrap items-center gap-4 text-[10px] text-slate-400">
+              <span className="flex items-center gap-1.5">
+                <span className="h-0.5 w-6 rounded bg-slate-300" />
+                Aktual (60 menit terakhir)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span
+                  className="h-0.5 w-6 rounded"
+                  style={{
+                    backgroundImage:
+                      "repeating-linear-gradient(90deg, #94a3b8 0 5px, transparent 5px 9px)",
+                  }}
+                />
+                Proyeksi 60 menit ke depan
+              </span>
+            </div>
+
+            {(() => {
+              const missing = SERIES.filter(
+                (s) => !forecast.some((r) => r[`${s.key}_ugm3_pred` as keyof ForecastRow] != null)
+              ).map((s) => s.label);
+              if (!missing.length) return null;
+              return (
+                <p className="mt-3 rounded-lg border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-200">
+                  {missing.join(", ")} tidak diproyeksikan: model belum lebih akurat
+                  dari sekadar mengulang nilai terakhir pada data yang tersedia.
+                  Garis aktualnya tetap ditampilkan.
+                </p>
+              );
+            })()}
 
             <dl className="mt-4 grid gap-3 sm:grid-cols-3">
               <div className="rounded-lg border border-white/10 px-3 py-2">
