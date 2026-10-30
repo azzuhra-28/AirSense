@@ -100,8 +100,7 @@ const unsigned long messageDisplayDuration = 3000;
 
 void readDHT22Sensor();
 void readMQ131Sensor();
-void readPM25();
-void readPM10();
+void readDustSensors();
 void readNO2();
 void readCO();
 void displayDHT22onLCD_NonBlocking();
@@ -172,8 +171,7 @@ void loop() {
       Serial.println("MEMBACA SEMUA SENSOR...");
       readDHT22Sensor();
       readMQ131Sensor();
-      readPM25();
-      readPM10();
+      readDustSensors();
       readNO2();
       readCO();
       lastSensorReadTime = currentTime;

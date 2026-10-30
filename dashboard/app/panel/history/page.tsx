@@ -393,8 +393,13 @@ function SummaryCard({
 }
 
 function formatCell(row: KonsentrasiGas, key: string) {
-  const value = Number(row[key as keyof KonsentrasiGas]);
-  if (!Number.isFinite(value)) return "-";
+  const raw = Number(row[key as keyof KonsentrasiGas]);
+  if (!Number.isFinite(raw)) return "-";
+
+  // Konsentrasi negatif tidak mungkin secara fisik; itu artefak sensor
+  // yang berarti "di bawah ambang deteksi". Ditampilkan sebagai 0.
+  const value = Math.max(0, raw);
+
   return value.toLocaleString("id-ID", {
     maximumFractionDigits: 3,
   });

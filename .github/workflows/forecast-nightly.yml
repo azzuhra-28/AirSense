@@ -2,14 +2,24 @@ name: AirSense Automated Forecast & Analytics Pipeline
 
 on:
   schedule:
-    # Berjalan otomatis setiap 30 menit
+    # Setiap 30 menit. GitHub bisa menunda beberapa menit saat ramai.
     - cron: "*/30 * * * *"
-  workflow_dispatch: {}   # Tombol pemicu manual langsung di tab Actions GitHub
+  workflow_dispatch:
+    inputs:
+      retrain:
+        description: "Latih ulang model dari nol (lebih lambat)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: airsense-forecast
+  cancel-in-progress: false
 
 jobs:
   forecast:
     name: Run Forecast and Alert Pipeline
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,13 +33,29 @@ jobs:
       - name: Install dependencies
         run: pip install -r analytics/requirements.txt
 
+      # Tanpa cache, setiap run melatih 3 model RNN dari nol (menit-an).
+      # Dengan cache, run hanya melakukan inferensi (~1 menit).
+      - name: Restore model cache
+        uses: actions/cache@v4
+        with:
+          path: analytics/models
+          key: airsense-models-${{ github.run_id }}
+          restore-keys: airsense-models-
+
       - name: Jalankan RNN Multi-step Forecast (60 Menit ke Depan)
         working-directory: analytics
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          python -m src.run_forecast_rnn --epochs 40
+          EXTRA=""
+          if [ "${{ inputs.retrain }}" = "true" ]; then
+            EXTRA="--retrain"
+          fi
+          # CPU dipakai karena inferensi dengan model tersimpan jauh
+          # lebih cepat daripada memuat CUDA, dan runner GitHub tidak
+          # punya GPU.
+          python -m src.run_forecast_rnn --device cpu --epochs 40 $EXTRA
 
       - name: Jalankan Anomaly Detection & Alert Pipeline
         working-directory: analytics

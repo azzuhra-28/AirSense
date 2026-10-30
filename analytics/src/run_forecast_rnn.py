@@ -18,6 +18,8 @@
 # ============================================================
 
 import argparse
+import os
+import sys
 from datetime import datetime, timedelta, timezone
 
 import numpy as np
@@ -26,8 +28,11 @@ import pandas as pd
 from .compare_models import load_best_configs
 from .ispu import category_of, ispu_value
 from .model_lstm import (
+    MODEL_DIR,
     LSTMConfig,
+    load_lstm_bundle,
     predict_lstm,
+    save_lstm_bundle,
     train_lstm_for_target,
 )
 from .preprocess import (
@@ -52,8 +57,14 @@ BATCH_SIZE = 500
 # Muat data
 # ============================================================
 
-def load_data(days: int | None, limit: int = 1500) -> pd.DataFrame:
-    """Ambil data sensor terbaru dari Supabase (diurutkan secara kronologis)."""
+def load_data(days: int | None, limit: int = 12000) -> pd.DataFrame:
+    """
+    Ambil data sensor terbaru dari Supabase (diurutkan kronologis).
+
+    Nilai sentinel -999 (sensor gagal baca) dibuang supaya tidak
+    masuk sebagai fitur, dan baris yang menyisakan terlalu banyak
+    kolom kosong ikut dibuang.
+    """
     sess = supabase_session()
     rows = fetch_rows(
         sess,
@@ -72,6 +83,16 @@ def load_data(days: int | None, limit: int = 1500) -> pd.DataFrame:
     df["created_at"] = pd.to_datetime(df["created_at"], utc=True, format="mixed")
     df = df.sort_values("created_at").reset_index(drop=True)
 
+    # -999 adalah penanda "sensor tidak membaca", bukan konsentrasi.
+    sensor_cols = [
+        "pm25_ugm3", "pm10_ugm3", "co_ugm3",
+        "no2_ugm3", "o3_ugm3", "temperature", "humidity",
+    ]
+    for col in sensor_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+            df.loc[df[col] <= -900, col] = pd.NA
+
     if days is not None:
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         df = df[df["created_at"] >= cutoff].reset_index(drop=True)
@@ -89,6 +110,7 @@ def forecast_target(
     config: LSTMConfig,
     steps: int,
     verbose: bool = True,
+    retrain: bool = False,
 ) -> list[float]:
     """
     Latih model RNN untuk satu polutan, lalu hasilkan prediksi
@@ -131,15 +153,40 @@ def forecast_target(
     train_df = df_train.iloc[:train_end]
     val_df = df_train.iloc[train_end:val_end]
 
-    bundle = train_lstm_for_target(
-        train_df,
-        val_df,
-        feature_columns,
-        target_column,
-        target,
-        config=config,
-        verbose=verbose,
-    )
+    # Latih ulang hanya kalau bobot tersimpan tidak cocok dengan
+    # konfigurasi/data saat ini. Tanpa ini setiap siklus 30 menit
+    # melatih dari nol dan hasilnya berubah-ubah tanpa alasan.
+    bundle = None
+    cache_path = os.path.join(MODEL_DIR, f"lstm_{target}.pt")
+
+    if os.path.exists(cache_path) and not retrain:
+        try:
+            cached = load_lstm_bundle(target)
+            same_shape = (
+                cached["features"] == feature_columns
+                and cached["window"] == config.window
+                and cached["config"]["hidden_size"] == config.hidden_size
+                and cached["config"]["arch"] == config.arch
+            )
+            if same_shape:
+                bundle = cached
+                if verbose:
+                    print(f"  [{target}] pakai model tersimpan")
+        except Exception as exc:  # cache rusak: latih ulang
+            if verbose:
+                print(f"  [{target}] cache tidak terbaca ({exc}), latih ulang")
+
+    if bundle is None:
+        bundle = train_lstm_for_target(
+            train_df,
+            val_df,
+            feature_columns,
+            target_column,
+            target,
+            config=config,
+            verbose=verbose,
+        )
+        save_lstm_bundle(bundle, target)
 
     # --------------------------------------------------------
     # Prediksi direct t+60 dengan jendela bergeser.
@@ -378,6 +425,11 @@ def parse_args():
         default=80,
         help="Maksimum epoch training (early stop tetap aktif).",
     )
+    parser.add_argument(
+        "--retrain",
+        action="store_true",
+        help="Paksa latih ulang walau model tersimpan masih cocok.",
+    )
     return parser.parse_args()
 
 
@@ -427,6 +479,7 @@ def main():
             target,
             config,
             steps=args.steps,
+            retrain=args.retrain,
         )
 
         if not preds:
@@ -474,3 +527,10 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+    # PyTorch di Windows kadang crash saat interpreter keluar setelah
+    # memakai CUDA (exit code 0xC0000409) padahal pekerjaan sudah
+    # selesai. Keluar eksplisit supaya CI tidak menganggapnya gagal.
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(0)
