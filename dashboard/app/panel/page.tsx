@@ -108,35 +108,48 @@ export default function SummaryPage() {
   // Gabungan riwayat aktual dan forecast dalam satu deret waktu.
   // Aktual = garis padat di kiri, forecast = area transparan di kanan.
   const combined = useMemo(() => {
-    // Konsentrasi negatif tidak mungkin secara fisik; itu artefak sensor
-    // di bawah ambang deteksi. Dijutkan ke 0 agar garis tidak melompat.
-    const clamp = (v: number | null): number | null =>
-      v == null ? null : Math.max(0, v);
+    // Nilai negatif berarti sensor membaca di bawah ambang deteksi,
+    // bukan nol. Dibiarkan kosong supaya garis terputus, bukan
+    // digambar rata di 0 yang menyesatkan.
+    const valid = (v: number | null): number | null =>
+      v == null || v < 0 ? null : v;
 
     const coMg = (v: number | null): number | null => {
-      const c = clamp(v);
+      const c = valid(v);
       return c == null ? null : c / 1000;
     };
 
     const actualRows = data.rows.slice(-60);
     const actual = actualRows.map((r) => ({
       t: toWIB(r.created_at),
-      pm25: clamp(r.pm25_ugm3),
-      pm10: clamp(r.pm10_ugm3),
+      pm25: valid(r.pm25_ugm3),
+      pm10: valid(r.pm10_ugm3),
       co: coMg(r.co_ugm3),
       isForecast: false,
     }));
 
     const fc = forecast.map((r) => ({
       t: toWIB(r.forecast_at),
-      pm25: clamp(r.pm25_ugm3_pred),
-      pm10: clamp(r.pm10_ugm3_pred),
+      pm25: valid(r.pm25_ugm3_pred),
+      pm10: valid(r.pm10_ugm3_pred),
       co: coMg(r.co_ugm3_pred),
       isForecast: true,
     }));
 
     return [...actual, ...fc];
   }, [data.rows, forecast]);
+
+  // Berapa banyak pembacaan terakhir yang di bawah ambang deteksi.
+  const belowDetection = useMemo(() => {
+    const recent = data.rows.slice(-30);
+    if (!recent.length) return null;
+    const count = (key: "pm25_ugm3" | "pm10_ugm3") =>
+      recent.filter((r) => {
+        const v = Number(r[key]);
+        return Number.isFinite(v) && v < 0;
+      }).length;
+    return { pm25: count("pm25_ugm3"), pm10: count("pm10_ugm3"), total: recent.length };
+  }, [data.rows]);
 
   const hasActual = data.rows.length > 0;
   const toggleSeries = (key: string) => {
@@ -372,6 +385,18 @@ export default function SummaryPage() {
                 </p>
               );
             })()}
+
+            {belowDetection && belowDetection.pm25 + belowDetection.pm10 > 0 && (
+              <p className="mt-3 rounded-lg border border-rose-400/25 bg-rose-500/10 px-3 py-2 text-[11px] leading-relaxed text-rose-200">
+                Sensor debu membaca di bawah ambang deteksi pada{" "}
+                {belowDetection.total} pembacaan terakhir
+                {belowDetection.pm25 > 0 && ` (PM2.5: ${belowDetection.pm25}x`}
+                {belowDetection.pm10 > 0 && `, PM10: ${belowDetection.pm10}x`}
+                {belowDetection.pm25 + belowDetection.pm10 > 0 && ")"}.
+                Garis aktualnya terputus karena nilainya tidak valid, bukan karena
+                udaranya nol.
+              </p>
+            )}
 
             <dl className="mt-4 grid gap-3 sm:grid-cols-3">
               <div className="rounded-lg border border-white/10 px-3 py-2">

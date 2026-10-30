@@ -358,8 +358,10 @@ export default function HistoryPage() {
       </section>
 
       <p className="px-1 text-[10px] leading-5 text-slate-400">
-        AirSense · Riwayat pembacaan sensor. Nilai ditampilkan sesuai data yang
-        diterima dari sumber pembacaan.
+        AirSense · Riwayat pembacaan sensor. Tanda{" "}
+        <span className="font-semibold text-slate-300">-</span> berarti sensor
+        membaca di bawah ambang deteksi atau data tidak terbaca, bukan
+        konsentrasi nol.
       </p>
     </div>
   );
@@ -396,11 +398,12 @@ function formatCell(row: KonsentrasiGas, key: string) {
   const raw = Number(row[key as keyof KonsentrasiGas]);
   if (!Number.isFinite(raw)) return "-";
 
-  // Konsentrasi negatif tidak mungkin secara fisik; itu artefak sensor
-  // yang berarti "di bawah ambang deteksi". Ditampilkan sebagai 0.
-  const value = Math.max(0, raw);
+  // Nilai negatif bukan konsentrasi nol. Itu tanda sensor membaca di
+  // bawah ambang deteksi, jadi ditampilkan sebagai "-" agar tidak
+  // disalahartikan sebagai udara bersih sempurna.
+  if (raw < 0) return "-";
 
-  return value.toLocaleString("id-ID", {
+  return raw.toLocaleString("id-ID", {
     maximumFractionDigits: 3,
   });
 }
