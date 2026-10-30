@@ -44,8 +44,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: analytics/models
-          key: airsense-models-v2
-          restore-keys: airsense-models-
+          # v3: kunci baru karena versi sebelumnya menyimpan model yang
+          # dilatih dengan data dummy. restore-keys sengaja tidak dipakai
+          # agar tidak mewarisi artefak lama.
+          key: airsense-models-v3
 
       - name: Lewati kalau alat offline
         id: gate

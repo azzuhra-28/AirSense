@@ -115,6 +115,38 @@ def load_data(
 
 
 # ============================================================
+# Pemisahan segmen kontinu
+# ============================================================
+
+# Jeda lebih dari ini dianggap alat mati, bukan satu deret waktu.
+MAX_GAP_MINUTES = 3.0
+
+
+def split_segments(df: pd.DataFrame, max_gap_minutes: float = MAX_GAP_MINUTES):
+    """
+    Pecah data menjadi segmen kontinu.
+
+    Fitur lag dibuat dengan df.shift(), yang mengasumsikan baris
+    berurutan tiap menit. Kalau ada jeda berhari-hari, lag_1 akan
+    mengambil nilai dari beberapa hari lalu dan model belajar pola
+    palsu. Karena itu training hanya boleh memakai potongan yang
+    benar-benar bersambung.
+    """
+    if df.empty:
+        return []
+
+    gap = df["created_at"].diff().dt.total_seconds() / 60
+    seg_id = ((gap > max_gap_minutes) | gap.isna()).cumsum()
+
+    return [g.reset_index(drop=True) for _, g in df.groupby(seg_id)]
+
+
+def contiguous_frames(df: pd.DataFrame, min_rows: int):
+    """Segmen yang cukup panjang untuk dipakai sebagai deret utuh."""
+    return [s for s in split_segments(df) if len(s) >= min_rows]
+
+
+# ============================================================
 # Latih + prediksi satu polutan
 # ============================================================
 
@@ -142,18 +174,38 @@ def forecast_target(
     """
     df = load_to_df(raw_df.to_dict(orient="records"))
 
-    # Fitur TRAINING: memuat target t+60 sehingga 60 baris
-    # terakhir terbuang (tidak punya nilai masa depan).
+    # Training hanya dari segmen yang bersambung. Jeda berhari-hari
+    # membuat fitur lag mengambil nilai dari masa lalu yang jauh.
+    min_len = config.window + HORIZON_MINUTES + 40
+    segments = contiguous_frames(df, min_len)
+
+    if not segments:
+        raise RuntimeError(
+            f"Tidak ada segmen kontinu >= {min_len} baris untuk {target}."
+        )
+
+    # Buang tepi tiap segmen: awal tidak punya lag lengkap, akhir tidak
+    # punya nilai t+60. Dengan begitu tidak ada baris yang lagnya
+    # melompati batas segmen.
+    trimmed = [
+        s.iloc[config.window: len(s) - HORIZON_MINUTES]
+        for s in segments
+        if len(s) > config.window + HORIZON_MINUTES
+    ]
+    train_pool = pd.concat(trimmed, ignore_index=True) if trimmed else df.iloc[0:0]
+
+    # Fitur TRAINING dari data yang sudah bersih dari batas segmen.
     df_train, feature_columns = build_features(
-        df,
+        train_pool,
         horizon_minutes=HORIZON_MINUTES,
         include_targets=True,
     )
 
-    # Fitur INFERENSI: tanpa target, baris terakhir tetap
-    # tersedia sehingga jendela bisa berakhir di data terbaru.
+    # Fitur INFERENSI dari segmen terbaru saja, tanpa target, agar
+    # baris terakhir tetap tersedia untuk jendela prediksi.
+    latest_segment = segments[-1]
     df_inf, _ = build_features(
-        df,
+        latest_segment,
         horizon_minutes=HORIZON_MINUTES,
         include_targets=False,
     )
@@ -194,6 +246,8 @@ def forecast_target(
             if verbose:
                 print(f"  [{target}] cache tidak terbaca ({exc}), latih ulang")
 
+    from_cache = bundle is not None
+
     if bundle is None:
         bundle = train_lstm_for_target(
             train_df,
@@ -209,6 +263,7 @@ def forecast_target(
     # Gate kualitas dijalankan sebelum prediksi ditulis. Model yang
     # kalah dari "nilai terakhir diulang" tidak menghasilkan forecast.
     gate = quality_gate(bundle, df_train, target, target_column)
+
     if verbose:
         if gate["mae"] is not None:
             print(
@@ -217,6 +272,30 @@ def forecast_target(
             )
         else:
             print(f"  [{target}] gate: {gate['reason']}")
+
+    # Model dari cache bisa berasal dari data lama (mis. sebelum dummy
+    # dibuang). Kalau gagal gate, latih ulang sekali dengan data
+    # sekarang sebelum menyerah.
+    if not gate["ok"] and from_cache:
+        if verbose:
+            print(f"  [{target}] cache gagal gate, latih ulang dengan data terkini...")
+        bundle = train_lstm_for_target(
+            train_df,
+            val_df,
+            feature_columns,
+            target_column,
+            target,
+            config=config,
+            verbose=verbose,
+        )
+        save_lstm_bundle(bundle, target)
+        gate = quality_gate(bundle, df_train, target, target_column)
+        if verbose and gate["mae"] is not None:
+            print(
+                f"  [{target}] gate setelah latih ulang: "
+                f"MAE={gate['mae']:.2f} vs baseline={gate['baseline']:.2f}"
+                f" -> {'LULUS' if gate['ok'] else 'GAGAL'}"
+            )
 
     # --------------------------------------------------------
     # Prediksi direct t+60 dengan jendela bergeser.

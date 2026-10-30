@@ -17,17 +17,21 @@ export async function fetchRecentReadings(
     Date.now() - minutes * 60_000
   ).toISOString();
 
+  // Supabase/PostgREST membatasi jumlah baris per permintaan (1000).
+  // Dengan urutan naik, batas itu memotong baris TERBARU dan dashboard
+  // menampilkan data berjam-jam lalu. Jadi ambil dari yang terbaru,
+  // lalu balik urutannya untuk kebutuhan grafik.
   const { data, error } = await supabase
     .from("tb_konsentrasi_gas")
     .select(
       "id, created_at, pm25_ugm3, pm10_ugm3, co_ugm3, no2_ugm3, o3_ugm3, temperature, humidity"
     )
     .gte("created_at", since)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(limit);
 
   if (error) throw new Error(error.message);
-  return (data ?? []) as KonsentrasiGas[];
+  return ((data ?? []) as KonsentrasiGas[]).slice().reverse();
 }
 
 export async function getLatestGas() {

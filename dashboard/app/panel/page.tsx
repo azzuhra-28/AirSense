@@ -108,20 +108,30 @@ export default function SummaryPage() {
   // Gabungan riwayat aktual dan forecast dalam satu deret waktu.
   // Aktual = garis padat di kiri, forecast = area transparan di kanan.
   const combined = useMemo(() => {
+    // Konsentrasi negatif tidak mungkin secara fisik; itu artefak sensor
+    // di bawah ambang deteksi. Dijutkan ke 0 agar garis tidak melompat.
+    const clamp = (v: number | null): number | null =>
+      v == null ? null : Math.max(0, v);
+
+    const coMg = (v: number | null): number | null => {
+      const c = clamp(v);
+      return c == null ? null : c / 1000;
+    };
+
     const actualRows = data.rows.slice(-60);
     const actual = actualRows.map((r) => ({
       t: toWIB(r.created_at),
-      pm25: r.pm25_ugm3,
-      pm10: r.pm10_ugm3,
-      co: r.co_ugm3 != null ? r.co_ugm3 / 1000 : null,
+      pm25: clamp(r.pm25_ugm3),
+      pm10: clamp(r.pm10_ugm3),
+      co: coMg(r.co_ugm3),
       isForecast: false,
     }));
 
     const fc = forecast.map((r) => ({
       t: toWIB(r.forecast_at),
-      pm25: r.pm25_ugm3_pred,
-      pm10: r.pm10_ugm3_pred,
-      co: r.co_ugm3_pred != null ? r.co_ugm3_pred / 1000 : null,
+      pm25: clamp(r.pm25_ugm3_pred),
+      pm10: clamp(r.pm10_ugm3_pred),
+      co: coMg(r.co_ugm3_pred),
       isForecast: true,
     }));
 
