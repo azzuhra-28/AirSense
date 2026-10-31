@@ -65,6 +65,21 @@ export default function SummaryPage() {
     return unsubscribe;
   }, [loadForecast]);
 
+  // Pilih seri yang benar-benar punya data, supaya grafik tidak kosong
+  // hanya karena polutan default kebetulan tidak diproyeksikan.
+  useEffect(() => {
+    if (!forecast.length) return;
+    const available: string[] = SERIES.filter((s) =>
+      forecast.some((r) => r[`${s.key}_ugm3_pred` as keyof ForecastRow] != null)
+    ).map((s) => s.key);
+    if (!available.length) return;
+
+    setActiveSeries((prev) => {
+      const masihAda = prev.filter((k) => available.includes(k));
+      return masihAda.length ? masihAda : [available[0]];
+    });
+  }, [forecast]);
+
   const chart = useMemo(
     () =>
       forecast.map((r) => ({
@@ -76,29 +91,38 @@ export default function SummaryPage() {
     [forecast]
   );
 
+  // Seri utama untuk ringkasan: yang pertama aktif dan punya data.
+  const primaryKey = useMemo<"pm25" | "pm10" | "co">(() => {
+    const first = SERIES.find((s) => activeSeries.includes(s.key));
+    return (first?.key ?? "pm25") as "pm25" | "pm10" | "co";
+  }, [activeSeries]);
+
+  const primaryLabel = useMemo(
+    () => SERIES.find((s) => s.key === primaryKey)?.label ?? "-",
+    [primaryKey]
+  );
+
   // Arah tren dihitung dari titik awal vs akhir siklus, bukan dikarang.
   const trend = useMemo(() => {
     if (chart.length < 2) return null;
-    const first = chart[0];
-    const last = chart[chart.length - 1];
-    const a = Number(first.pm25);
-    const b = Number(last.pm25);
+    const a = Number(chart[0][primaryKey]);
+    const b = Number(chart[chart.length - 1][primaryKey]);
     if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
     const delta = b - a;
     return {
       delta,
       direction: delta > 0.5 ? "naik" : delta < -0.5 ? "turun" : "stabil",
     };
-  }, [chart]);
+  }, [chart, primaryKey]);
 
   const peak = useMemo(() => {
     if (!chart.length) return null;
     const values = chart
-      .map((p) => ({ t: p.t, v: Number(p.pm25) }))
+      .map((p) => ({ t: p.t, v: Number((p as Record<string, unknown>)[primaryKey]) }))
       .filter((p) => Number.isFinite(p.v));
     if (!values.length) return null;
     return values.reduce((a, b) => (b.v > a.v ? b : a));
-  }, [chart]);
+  }, [chart, primaryKey]);
 
   const currentIspu = useMemo(() => {
     const tone = aqiOf(data.ispu);
@@ -375,13 +399,32 @@ export default function SummaryPage() {
             {(() => {
               const missing = SERIES.filter(
                 (s) => !forecast.some((r) => r[`${s.key}_ugm3_pred` as keyof ForecastRow] != null)
-              ).map((s) => s.label);
+              );
               if (!missing.length) return null;
+
+              const lastActual = data.latest;
+              const sensorDead = missing.filter((s) => {
+                const key = `${s.key}_ugm3` as keyof typeof lastActual;
+                const v = Number(lastActual?.[key]);
+                return Number.isFinite(v) && v < 0;
+              });
+              const modelWeak = missing.filter((s) => !sensorDead.includes(s));
+
               return (
                 <p className="mt-3 rounded-lg border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-200">
-                  {missing.join(", ")} tidak memiliki forecast: model belum lebih akurat
-                  dari sekadar mengulang nilai terakhir pada data yang tersedia.
-                  Garis aktualnya tetap ditampilkan.
+                  {sensorDead.length > 0 && (
+                    <>
+                      {sensorDead.map((s) => s.label).join(", ")} tidak memiliki
+                      forecast karena sensor tidak menghasilkan nilai valid.{" "}
+                    </>
+                  )}
+                  {modelWeak.length > 0 && (
+                    <>
+                      {modelWeak.map((s) => s.label).join(", ")} tidak memiliki
+                      forecast karena model belum lebih akurat dari sekadar
+                      mengulang nilai terakhir.
+                    </>
+                  )}
                 </p>
               );
             })()}
@@ -400,7 +443,7 @@ export default function SummaryPage() {
 
             <dl className="mt-4 grid gap-3 sm:grid-cols-3">
               <div className="rounded-lg border border-white/10 px-3 py-2">
-                <dt className="text-[10px] text-slate-400">Arah PM2.5</dt>
+                <dt className="text-[10px] text-slate-400">Arah {primaryLabel}</dt>
                 <dd className="mt-0.5 flex items-center gap-1.5 text-[13px] font-semibold text-white">
                   {trend ? (
                     <>
@@ -424,7 +467,7 @@ export default function SummaryPage() {
               </div>
 
               <div className="rounded-lg border border-white/10 px-3 py-2">
-                <dt className="text-[10px] text-slate-400">Puncak PM2.5</dt>
+                <dt className="text-[10px] text-slate-400">Puncak {primaryLabel}</dt>
                 <dd className="mt-0.5 text-[13px] font-semibold font-mono tabular-nums text-white">
                   {peak ? `${peak.v.toFixed(2)} µg/m³` : "-"}
                   {peak && (

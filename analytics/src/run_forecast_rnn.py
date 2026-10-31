@@ -599,6 +599,19 @@ def main():
     per_target_rows: dict[str, list[dict]] = {}
 
     for target in TARGETS:
+
+        # Kalau pembacaan terakhir polutan ini tidak valid (negatif =
+        # di bawah ambang deteksi, atau kosong), forecast-nya tidak akan
+        # nyambung dengan kenyataan. Lebih jujur tidak menerbitkan angka
+        # daripada menerbitkan kurva dari sensor yang tidak mengukur.
+        last_value = raw_df[target].iloc[-1] if target in raw_df.columns else None
+        if last_value is None or pd.isna(last_value) or float(last_value) < 0:
+            print(
+                f"  [{target}] dilewati: pembacaan terakhir tidak valid "
+                f"({last_value}). Sensor kemungkinan tidak mengukur."
+            )
+            continue
+
         if target not in configs:
             print(
                 f"  [{target}] dilewati — tidak ada konfigurasi "
