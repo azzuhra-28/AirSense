@@ -1,0 +1,16 @@
+[Unit]
+Description=AirSense forecast loop
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=airsense
+WorkingDirectory=/opt/airsense/analytics
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/airsense/analytics/.venv/bin/python forecast_loop.py --interval 5 --device cpu
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
