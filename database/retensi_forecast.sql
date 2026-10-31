@@ -5,16 +5,22 @@
 -- 1 menit itu berarti ~86.400 baris/hari (~33 MB/hari), sehingga
 -- database Supabase gratis (500 MB) penuh dalam ~2 minggu.
 --
--- Jalankan file ini sekali di SQL Editor Supabase. Setelah itu
--- pembersihan berjalan otomatis tiap hari.
+-- CARA PAKAI (3 langkah, sekali saja):
+--   1. Aktifkan pg_cron di menu Database > Extensions
+--   2. Buka SQL Editor, tempel seluruh isi file ini, klik Run
+--   3. Cek hasil query terakhir: harus muncul satu baris jadwal
 -- ============================================================
 
--- 1. Bersihkan baris uji yang tertinggal dari diagnosa.
---    Baris ini bertanggal 2020 dan tidak dipakai apa pun.
+-- ------------------------------------------------------------
+-- LANGKAH 1: bersihkan baris uji yang tertinggal dari diagnosa.
+-- Baris ini bertanggal 2020 dan tidak dipakai apa pun.
+-- ------------------------------------------------------------
 DELETE FROM tb_forecast
 WHERE generated_at = '2020-01-01T00:00:00+00:00';
 
--- 2. Fungsi pembersihan: simpan hanya N hari terakhir.
+-- ------------------------------------------------------------
+-- LANGKAH 2: fungsi pembersihan, simpan N hari terakhir.
+-- ------------------------------------------------------------
 CREATE OR REPLACE FUNCTION hapus_forecast_lama(hari integer DEFAULT 7)
 RETURNS bigint
 LANGUAGE plpgsql
@@ -30,18 +36,22 @@ BEGIN
 END;
 $$;
 
--- 3. Jadwalkan tiap hari pukul 03:00 WIB (20:00 UTC).
---    pg_cron sudah tersedia di semua paket Supabase.
+-- ------------------------------------------------------------
+-- LANGKAH 3: jadwalkan tiap hari 03:00 WIB (20:00 UTC).
+--
+-- Kalau langkah ini error "schema cron does not exist", berarti
+-- pg_cron belum aktif. Buka Database > Extensions > cari "pg_cron"
+-- > aktifkan, lalu jalankan ulang blok ini saja.
+-- ------------------------------------------------------------
 SELECT cron.schedule(
   'airsense-retensi-forecast',
   '0 20 * * *',
   $$SELECT hapus_forecast_lama(7)$$
 );
 
--- 4. Cek jadwal terpasang.
-SELECT jobname, schedule, command
+-- ------------------------------------------------------------
+-- VERIFIKASI: harus muncul satu baris dengan jadwal '0 20 * * *'.
+-- ------------------------------------------------------------
+SELECT jobid, jobname, schedule, command, active
 FROM cron.job
 WHERE jobname = 'airsense-retensi-forecast';
-
--- 5. (Opsional) jalankan sekali sekarang untuk melihat berapa baris terhapus.
--- SELECT hapus_forecast_lama(7);
