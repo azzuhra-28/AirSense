@@ -36,9 +36,9 @@ from .model_lstm import (
     train_lstm_for_target,
 )
 from .preprocess import (
-    BASE_FEATURES,
     HORIZON_MINUTES,
     build_features,
+    live_features,
     load_to_df,
 )
 from .supabase_client import (
@@ -58,6 +58,13 @@ BATCH_SIZE = 500
 # lama berasal dari rezim yang berbeda (level dan derau berubah), jadi
 # angkanya tidak nyambung dengan pembacaan sekarang.
 MAX_STALE_MINUTES = 30
+
+# Model memprediksi langsung t+60 lalu digeser mundur untuk t+k. Untuk k
+# kecil, jendela masukannya masih (60-k) menit lebih tua daripada titik
+# target, sehingga hasilnya lebih buruk daripada sekadar mengulang nilai
+# terakhir (terukur: CO MAE 361 vs 108, PM2.5 2.81 vs 1.19). Langkah
+# awal ini diisi nilai aktual terakhir.
+NEAR_TERM_STEPS = 10
 
 
 # ============================================================
@@ -182,14 +189,9 @@ def forecast_target(
     # Kanal yang tidak melaporkan nilai (mis. NO2 mengirim -999) tidak
     # boleh membuat seluruh baris terbuang. Fitur dibatasi ke kanal yang
     # benar-benar mengirim data pada pembacaan terakhir.
-    live_features = [
-        column
-        for column in BASE_FEATURES
-        if column in raw_df.columns
-        and raw_df[column].tail(30).notna().mean() >= 0.5
-    ]
+    live = live_features(raw_df)
 
-    df = load_to_df(raw_df.to_dict(orient="records"), features=live_features)
+    df = load_to_df(raw_df.to_dict(orient="records"), features=live)
 
     # Training hanya dari segmen yang bersambung. Jeda berhari-hari
     # membuat fitur lag mengambil nilai dari masa lalu yang jauh.
@@ -234,7 +236,7 @@ def forecast_target(
         train_pool,
         horizon_minutes=HORIZON_MINUTES,
         include_targets=True,
-        features=live_features,
+        features=live,
     )
 
     # Fitur INFERENSI dari segmen terbaru saja, tanpa target, agar
@@ -244,7 +246,7 @@ def forecast_target(
         latest_segment,
         horizon_minutes=HORIZON_MINUTES,
         include_targets=False,
-        features=live_features,
+        features=live,
     )
 
     target_column = f"{target}_target_t{HORIZON_MINUTES}"
@@ -370,6 +372,12 @@ def forecast_target(
             break
 
         predictions.append(float(pred[-1]))
+
+    # Langkah awal memakai nilai aktual terakhir (lihat NEAR_TERM_STEPS).
+    if predictions and len(df):
+        last_actual = float(df[target].iloc[-1])
+        for index in range(min(NEAR_TERM_STEPS, len(predictions))):
+            predictions[index] = last_actual
 
     return predictions, gate
 

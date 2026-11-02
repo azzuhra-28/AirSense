@@ -45,6 +45,29 @@
 
 ## 2. STATUS SISTEM SAAT INI (per checkpoint terakhir)
 
+> **Update 2 Nov 2026** — kondisi terbaru, menggantikan catatan di bawah
+> bila bertentangan:
+>
+> - **Firmware baru sudah ter-flash.** PM2.5/PM10 kini membaca wajar
+>   (6-14 ug/m3, tidak lagi negatif). NO2 mengirim sentinel `-999`
+>   (sensor gagal baca), O3 membeku di 19.63 (tidak bervariasi).
+> - **Automasi berjalan dua lapis:** loop lokal `jalankan-forecast.bat`
+>   (`forecast_loop.py --interval 5`) saat laptop menyala, dan
+>   GitHub Actions `*/10 * * * *` sebagai cadangan (praktiknya
+>   di-throttle GitHub jadi tiap 3-7 jam).
+> - **Retensi aktif:** `hapus_forecast_lama(7)` dijadwalkan pg_cron tiap
+>   03:00 WIB. Pemakaian stabil ±48 MB dari batas 500 MB.
+> - **Gate kualitas diperketat:** forecast hanya terbit bila model
+>   menang minimal 10% atas baseline persistence, segmen valid terbaru
+>   tidak lebih tua dari 30 menit, dan pembacaan terakhir valid.
+> - **Akurasi terukur** (`analytics/eval_forecast.py`, uji di luar
+>   sampel): CO menang 27% keseluruhan (68% pada horizon 31-60 menit),
+>   PM2.5/PM10 belum bisa dinilai karena riwayat validnya baru beberapa
+>   jam setelah sensor diperbaiki.
+> - **Deploy VPS siap** (`deploy/setup-vps.sh` + unit systemd), belum
+>   dijalankan karena menunggu biaya. Kebutuhan minimum 2 GB RAM
+>   (puncak satu siklus 894 MB).
+
 - **Hardware/perangkat IoT:** Dikonfirmasi **AMAN dan berfungsi**
   (dikonfirmasi langsung oleh Yusuf).
 - **Yang perlu diganti:** **HOST dan API KEY Supabase** (project Supabase

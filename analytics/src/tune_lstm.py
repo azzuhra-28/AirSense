@@ -37,6 +37,7 @@ from .preprocess import (
     MIN_ROWS_FOR_TRAIN,
     TARGETS,
     build_features,
+    live_features,
     load_to_df,
 )
 
@@ -133,7 +134,7 @@ def tune(
     targets = targets or TARGETS
 
     rows = raw_df.to_dict(orient="records")
-    df = load_to_df(rows)
+    df = load_to_df(rows, features=live_features(raw_df))
     df_features, feature_columns = build_features(
         df,
         horizon_minutes=HORIZON_MINUTES,

@@ -7,6 +7,9 @@ firmware/esp32-airlytics/main/secrets.h
 # ===== Model ML (artefak training, jangan commit = bisa besar) =====
 analytics/models/
 
+# ===== Aset lokal (foto mentah untuk desain, tidak dipakai runtime) =====
+image-background/
+
 # ===== Build artifacts =====
 *.o
 *.obj

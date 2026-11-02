@@ -38,6 +38,7 @@ from .preprocess import (
     MIN_ROWS_FOR_TRAIN,
     TARGETS,
     build_features,
+    live_features,
     load_to_df,
 )
 
@@ -439,7 +440,8 @@ def train_from_dataframe(
     # --------------------------------------------------------
 
     df = load_to_df(
-        rows
+        rows,
+        features=live_features(raw_df),
     )
 
     df_features, feature_columns = (

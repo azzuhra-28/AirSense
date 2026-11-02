@@ -204,6 +204,38 @@ def load_to_df(
     return df
 
 
+def live_features(
+    df: pd.DataFrame,
+    window: int = 30,
+    min_ratio: float = 0.5,
+) -> list[str]:
+    """
+    Kanal dasar yang masih benar-benar melaporkan nilai.
+
+    Sensor yang gagal baca mengirim sentinel (-999) lalu menjadi NaN.
+    Kalau kanal seperti itu tetap diwajibkan, setiap baris terbuang dan
+    pipeline kehilangan seluruh data terbaru. Penilaian memakai `window`
+    pembacaan terakhir, bukan riwayat lama.
+    """
+    if df.empty:
+        return list(BASE_FEATURES)
+
+    recent = df.tail(window)
+    live = []
+
+    for column in BASE_FEATURES:
+        if column not in df.columns:
+            continue
+        values = pd.to_numeric(recent[column], errors="coerce")
+        # -999 adalah penanda gagal baca, bukan nilai; jangan dihitung
+        # sebagai "kanal hidup".
+        values = values.where(values > -900)
+        if values.notna().mean() >= min_ratio:
+            live.append(column)
+
+    return live
+
+
 # ============================================================
 # Forecast Feature Engineering
 # ============================================================

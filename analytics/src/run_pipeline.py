@@ -45,6 +45,7 @@ from .preprocess import (
     HORIZON_MINUTES,
     POLLUTANTS,
     build_features,
+    live_features,
     load_to_df,
 )
 
@@ -171,18 +172,22 @@ def add_current_ispu(
         row,
     ):
 
+        # Polutan yang sensornya tidak terbaca tidak boleh membatalkan
+        # seluruh ISPU. Nilai 24 jam yang kosong dilewati; ISPU dihitung
+        # dari polutan yang benar-benar punya riwayat.
         concentrations = {
             pollutant: row[
                 f"{pollutant}_rolling_24h"
             ]
             for pollutant in POLLUTANTS
+            if pd.notna(
+                row[
+                    f"{pollutant}_rolling_24h"
+                ]
+            )
         }
 
-        if any(
-            pd.isna(value)
-            for value
-            in concentrations.values()
-        ):
+        if not concentrations:
             return np.nan
 
         total, _ = ispu_total_of(
@@ -228,18 +233,21 @@ def add_current_ispu(
         row,
     ):
 
+        # Sama seperti ISPU total: polutan tanpa riwayat 24 jam tidak
+        # boleh membuat polutan dominan hilang.
         concentrations = {
             pollutant: row[
                 f"{pollutant}_rolling_24h"
             ]
             for pollutant in POLLUTANTS
+            if pd.notna(
+                row[
+                    f"{pollutant}_rolling_24h"
+                ]
+            )
         }
 
-        if any(
-            pd.isna(value)
-            for value
-            in concentrations.values()
-        ):
+        if not concentrations:
             return None
 
         return dominant_pollutant_of(
@@ -963,7 +971,8 @@ def run_from_dataframe(
     sensor_df = load_to_df(
         raw_df.to_dict(
             orient="records"
-        )
+        ),
+        features=live_features(raw_df),
     )
 
     if (
