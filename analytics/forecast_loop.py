@@ -47,12 +47,26 @@ def main() -> None:
     args = parser.parse_args()
 
     cycle = 0
-    while True:
+    while not args.max_cycles or cycle < args.max_cycles:
         cycle += 1
         stamp = datetime.now(timezone.utc).astimezone().strftime("%H:%M:%S")
         print(f"\n{'=' * 60}\n[Siklus {cycle}] {stamp}\n{'=' * 60}", flush=True)
 
-        age = sensor_age_minutes()
+        # Gangguan jaringan sesaat (WiFi putus, DNS gagal) tidak boleh
+        # mematikan loop. Cukup lewati siklus ini dan coba lagi nanti.
+        # ponytail: except luas disengaja; apa pun yang gagal di sini
+        # artinya cuma "siklus ini tidak jadi", bukan alasan berhenti.
+        try:
+            age = sensor_age_minutes()
+        except Exception as exc:
+            print(
+                f"Gagal menghubungi Supabase ({type(exc).__name__}). "
+                f"Lewati siklus, coba lagi dalam {args.interval} menit.",
+                flush=True,
+            )
+            time.sleep(args.interval * 60)
+            continue
+
         if age is None:
             print("Tidak ada data sensor. Berhenti.", flush=True)
             return
