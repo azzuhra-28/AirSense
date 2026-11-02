@@ -36,6 +36,7 @@ from .model_lstm import (
     train_lstm_for_target,
 )
 from .preprocess import (
+    BASE_FEATURES,
     HORIZON_MINUTES,
     build_features,
     load_to_df,
@@ -51,6 +52,12 @@ from .supabase_client import (
 TARGETS = ["pm25_ugm3", "pm10_ugm3", "co_ugm3"]
 
 BATCH_SIZE = 500
+
+# Model hanya layak dipakai kalau segmen kontinu terbaru untuk polutan
+# itu masih menyentuh data terkini. Kalau sensor baru hidup lagi, model
+# lama berasal dari rezim yang berbeda (level dan derau berubah), jadi
+# angkanya tidak nyambung dengan pembacaan sekarang.
+MAX_STALE_MINUTES = 30
 
 
 # ============================================================
@@ -172,7 +179,17 @@ def forecast_target(
     yang benar-benar ada; untuk k > 60... tidak terjadi karena
     steps <= 60 dan horizon = 60.
     """
-    df = load_to_df(raw_df.to_dict(orient="records"))
+    # Kanal yang tidak melaporkan nilai (mis. NO2 mengirim -999) tidak
+    # boleh membuat seluruh baris terbuang. Fitur dibatasi ke kanal yang
+    # benar-benar mengirim data pada pembacaan terakhir.
+    live_features = [
+        column
+        for column in BASE_FEATURES
+        if column in raw_df.columns
+        and raw_df[column].tail(30).notna().mean() >= 0.5
+    ]
+
+    df = load_to_df(raw_df.to_dict(orient="records"), features=live_features)
 
     # Training hanya dari segmen yang bersambung. Jeda berhari-hari
     # membuat fitur lag mengambil nilai dari masa lalu yang jauh.
@@ -183,6 +200,24 @@ def forecast_target(
         raise RuntimeError(
             f"Tidak ada segmen kontinu >= {min_len} baris untuk {target}."
         )
+
+    # Segmen terakhir dipakai untuk inferensi. Kalau ujungnya jauh
+    # tertinggal dari data terakhir, artinya polutan ini belum punya
+    # riwayat valid yang cukup sejak sensor hidup lagi; model yang ada
+    # dilatih dari rezim lama dan angkanya tidak nyambung.
+    last_data = pd.to_datetime(df["created_at"]).max()
+    last_seg = pd.to_datetime(segments[-1]["created_at"]).max()
+    stale_minutes = (last_data - last_seg).total_seconds() / 60
+    if stale_minutes > MAX_STALE_MINUTES:
+        return [], {
+            "ok": False,
+            "mae": None,
+            "baseline": None,
+            "reason": (
+                "data valid belum cukup; segmen kontinu terakhir "
+                f"berakhir {stale_minutes:.0f} menit lalu"
+            ),
+        }
 
     # Buang tepi tiap segmen: awal tidak punya lag lengkap, akhir tidak
     # punya nilai t+60. Dengan begitu tidak ada baris yang lagnya
@@ -199,6 +234,7 @@ def forecast_target(
         train_pool,
         horizon_minutes=HORIZON_MINUTES,
         include_targets=True,
+        features=live_features,
     )
 
     # Fitur INFERENSI dari segmen terbaru saja, tanpa target, agar
@@ -208,6 +244,7 @@ def forecast_target(
         latest_segment,
         horizon_minutes=HORIZON_MINUTES,
         include_targets=False,
+        features=live_features,
     )
 
     target_column = f"{target}_target_t{HORIZON_MINUTES}"

@@ -421,8 +421,9 @@ export default function SummaryPage() {
                   {modelWeak.length > 0 && (
                     <>
                       {modelWeak.map((s) => s.label).join(", ")} tidak memiliki
-                      forecast karena model belum lebih akurat dari sekadar
-                      mengulang nilai terakhir.
+                      forecast karena riwayat data validnya belum cukup panjang
+                      atau model belum lebih akurat dari sekadar mengulang nilai
+                      terakhir.
                     </>
                   )}
                 </p>

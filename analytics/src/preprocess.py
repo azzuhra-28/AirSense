@@ -65,9 +65,13 @@ MIN_ROWS_FOR_TRAIN = (
 
 def load_to_df(
     rows: list[dict],
+    features: list[str] | None = None,
 ) -> pd.DataFrame:
     """
     Convert sensor records into a clean chronological DataFrame.
+
+    `features` membatasi kanal mana yang wajib lengkap. Kalau tidak
+    diberikan, seluruh BASE_FEATURES dipakai seperti sebelumnya.
 
     Processing:
     - validate required columns
@@ -82,11 +86,16 @@ def load_to_df(
     extreme values may contain meaningful air-quality information.
     """
 
+    # Kanal yang tidak melaporkan data (mis. NO2 mengirim -999) tidak
+    # boleh membuang seluruh baris. Pemanggil bisa menentukan kanal yang
+    # benar-benar hidup; default tetap seluruh fitur dasar.
+    feat = list(features) if features else list(BASE_FEATURES)
+
     if not rows:
         return pd.DataFrame(
             columns=[
                 "created_at",
-                *BASE_FEATURES,
+                *feat,
             ]
         )
 
@@ -96,7 +105,7 @@ def load_to_df(
 
     required_columns = [
         "created_at",
-        *BASE_FEATURES,
+        *feat,
     ]
 
     missing_columns = [
@@ -130,7 +139,7 @@ def load_to_df(
     # Numeric sensor values
     # --------------------------------------------------------
 
-    for column in BASE_FEATURES:
+    for column in feat:
 
         df[column] = (
             pd.to_numeric(
@@ -171,7 +180,7 @@ def load_to_df(
     # Invalid pollutant concentrations
     # --------------------------------------------------------
 
-    for column in POLLUTANTS:
+    for column in [c for c in POLLUTANTS if c in df.columns]:
 
         df.loc[
             df[column] < 0,
@@ -185,7 +194,7 @@ def load_to_df(
     df = (
         df
         .dropna(
-            subset=BASE_FEATURES
+            subset=feat
         )
         .reset_index(
             drop=True
@@ -203,6 +212,7 @@ def build_features(
     df: pd.DataFrame,
     horizon_minutes: int = HORIZON_MINUTES,
     include_targets: bool = True,
+    features: list[str] | None = None,
 ) -> tuple[pd.DataFrame, list[str]]:
     """
     Build forecasting features.
@@ -236,6 +246,12 @@ def build_features(
             "horizon_minutes harus lebih dari 0."
         )
 
+    # Fitur dibatasi ke kanal yang benar-benar melaporkan data. Kanal
+    # mati (mis. NO2) tidak boleh menyumbang kolom lag yang seluruhnya
+    # kosong, karena barisnya akan terbuang di dropna.
+    feat = list(features) if features else list(BASE_FEATURES)
+    pol = [column for column in feat if column in POLLUTANTS]
+
     df = (
         df
         .sort_values(
@@ -254,14 +270,14 @@ def build_features(
     # ========================================================
 
     feature_columns.extend(
-        BASE_FEATURES
+        feat
     )
 
     # ========================================================
     # Lag features
     # ========================================================
 
-    for column in POLLUTANTS:
+    for column in pol:
 
         for lag in LAGS:
 
@@ -285,7 +301,7 @@ def build_features(
     # observations available before the current timestamp.
     # ========================================================
 
-    for column in POLLUTANTS:
+    for column in pol:
 
         historical = (
             df[column]
