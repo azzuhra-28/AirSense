@@ -44,10 +44,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: analytics/models
-          # v3: kunci baru karena versi sebelumnya menyimpan model yang
-          # dilatih dengan data dummy. restore-keys sengaja tidak dipakai
+          # Kunci memuat hash MODEL_CACHE_VERSION. Selama file itu tidak
+          # berubah, runner selalu memakai model tersimpan sehingga data
+          # terbaru tidak pernah masuk ke bobot. Ganti isi file tersebut
+          # untuk memaksa latih ulang. restore-keys sengaja tidak dipakai
           # agar tidak mewarisi artefak lama.
-          key: airsense-models-v3
+          key: airsense-models-v3-${{ hashFiles('analytics/MODEL_CACHE_VERSION') }}
 
       - name: Lewati kalau alat offline
         id: gate

@@ -1,0 +1,16 @@
+Ubah isi file ini kalau ingin model dilatih ulang dari nol.
+
+Cache model di GitHub Actions memakai hash file ini sebagai bagian
+dari kuncinya. Selama isinya sama, runner selalu memakai model lama
+yang tersimpan di cache, sehingga data terbaru tidak pernah masuk ke
+bobot model.
+
+Cara memakai:
+  1. Ganti angka di bawah (misal 1 menjadi 2)
+  2. Commit dan push
+  3. Jalankan workflow dengan opsi "retrain" dicentang
+
+Tanpa langkah 3, runner akan melatih ulang sendiri karena cache baru
+belum ada, tetapi dengan --retrain hasilnya pasti dilatih ulang penuh.
+
+1

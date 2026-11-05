@@ -41,14 +41,27 @@ def main() -> None:
     print()
 
     # ---------------------------------------------------------
-    # Cakupan per hari. Satu hari penuh = 1440 baris.
+    # Cakupan per hari. Satu hari penuh = 1440 baris. Untuk hari ini,
+    # pembandingnya adalah menit yang sudah berjalan, bukan 1440:
+    # kalau dibandingkan dengan sehari penuh, hari yang baru berjalan
+    # 15 menit akan selalu tampak bocor.
     # ---------------------------------------------------------
+    sekarang = pd.Timestamp.now(tz="Asia/Jakarta")
+    hari_ini = sekarang.date()
+    menit_berjalan = max(1, int((sekarang - sekarang.normalize()).total_seconds() / 60))
+
     per_hari = df.groupby("tanggal").size()
-    print("Baris per hari (ideal 1440):")
+    print("Baris per hari (%):")
     for tanggal, jumlah in per_hari.items():
-        persen = jumlah / 1440 * 100
-        kalau = "ok  " if persen >= 95 else "BOCOR"
-        print(f"  {tanggal}  {jumlah:5d} baris  {persen:5.1f}%  {kalau}")
+        if tanggal == hari_ini:
+            acuan = menit_berjalan
+            persen = jumlah / acuan * 100
+            status = "berjalan" if persen >= 95 else "BOCOR"
+        else:
+            acuan = 1440
+            persen = jumlah / 1440 * 100
+            status = "ok  " if persen >= 95 else "BOCOR"
+        print(f"  {tanggal}  {jumlah:5d} baris  {persen:5.1f}%  {status}")
 
     # ---------------------------------------------------------
     # Lubang: jeda lebih dari MAX_GAP_MINUTES memutus segmen.
@@ -88,14 +101,18 @@ def main() -> None:
         print(f"  {target:10s} butuh {butuh:3d} baris  -> {tanda}")
 
     # ---------------------------------------------------------
-    # Proyeksi: berapa lama lagi sampai seminggu penuh.
+    # Proyeksi: berapa lama lagi sampai seminggu penuh. Hari ini
+    # tidak dihitung karena belum selesai.
     # ---------------------------------------------------------
-    if len(per_hari):
-        penuh = sum(1 for v in per_hari if v >= 1368)
+    selesai = {t: v for t, v in per_hari.items() if t != hari_ini}
+    if selesai:
+        penuh = sum(1 for v in selesai.values() if v >= 1368)
         print()
-        print(f"Hari dengan cakupan >=95%: {penuh} dari {len(per_hari)}")
+        print(f"Hari penuh dengan cakupan >=95%: {penuh} dari {len(selesai)}")
         if penuh < 7:
             print(f"  perlu {7 - penuh} hari lagi tanpa jeda untuk mencapai seminggu")
+        else:
+            print("  target seminggu tercapai.")
 
 
 if __name__ == "__main__":
