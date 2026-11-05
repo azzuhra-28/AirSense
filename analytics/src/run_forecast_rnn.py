@@ -198,17 +198,26 @@ def forecast_target(
     min_len = config.window + HORIZON_MINUTES + 40
     segments = contiguous_frames(df, min_len)
 
-    if not segments:
-        raise RuntimeError(
-            f"Tidak ada segmen kontinu >= {min_len} baris untuk {target}."
-        )
+    # Kalau tidak ada segmen yang cukup panjang, sebutkan apa adanya:
+    # bisa karena belum ada data, atau karena segmen terbaru masih
+    # terlalu pendek setelah alat sempat berhenti.
+    # Segmen terbaru (sebelum filter panjang) dipakai sebagai acuan
+    # kesegaran. Penting: contiguous_frames membuang segmen pendek, jadi
+    # memakai hasil filter saja bisa membuat segmen lama dari beberapa
+    # hari lalu ikut terpilih dan forecast jangkarannya meleset.
+    semua_segmen = split_segments(df)
+    newest = semua_segmen[-1] if semua_segmen else None
 
-    # Segmen terakhir dipakai untuk inferensi. Kalau ujungnya jauh
-    # tertinggal dari data terakhir, artinya polutan ini belum punya
-    # riwayat valid yang cukup sejak sensor hidup lagi; model yang ada
-    # dilatih dari rezim lama dan angkanya tidak nyambung.
+    if newest is None:
+        return [], {
+            "ok": False,
+            "mae": None,
+            "baseline": None,
+            "reason": "tidak ada data yang bisa dipakai",
+        }
+
     last_data = pd.to_datetime(df["created_at"]).max()
-    last_seg = pd.to_datetime(segments[-1]["created_at"]).max()
+    last_seg = pd.to_datetime(newest["created_at"]).max()
     stale_minutes = (last_data - last_seg).total_seconds() / 60
     if stale_minutes > MAX_STALE_MINUTES:
         return [], {
@@ -220,6 +229,22 @@ def forecast_target(
                 f"berakhir {stale_minutes:.0f} menit lalu"
             ),
         }
+
+    # Alat baru menyala lagi: segmennya masih pendek. Sebut jumlah
+    # barisnya supaya jelas bahwa ini soal panjang riwayat, bukan soal
+    # alat mati.
+    if len(newest) < min_len:
+        return [], {
+            "ok": False,
+            "mae": None,
+            "baseline": None,
+            "reason": (
+                f"riwayat valid baru {len(newest)} baris, "
+                f"butuh minimal {min_len}"
+            ),
+        }
+
+    segments = contiguous_frames(df, min_len)
 
     # Buang tepi tiap segmen: awal tidak punya lag lengkap, akhir tidak
     # punya nilai t+60. Dengan begitu tidak ada baris yang lagnya
@@ -699,6 +724,31 @@ def main():
         if not preds:
             print(f"  [{target}] tidak menghasilkan prediksi.")
             continue
+
+        # ------------------------------------------------------
+        # Adaptive weight blending: XGBoost + pola rata-rata
+        # historis per jam. Dipakai kalau menyediakan hasil; bila
+        # artifact tidak ada atau datanya kurang, prediksi LSTM
+        # tetap dipakai apa adanya.
+        # ------------------------------------------------------
+        blended = None
+        try:
+            from .blending import blend_forecast
+
+            blended = blend_forecast(raw_df, target, steps=len(preds))
+        except Exception as exc:  # artefak rusak tidak boleh mematikan pipeline
+            print(f"  [{target}] blending gagal ({type(exc).__name__}): {exc}")
+
+        if blended is not None:
+            preds = blended["predictions"]
+            print(
+                f"  [{target}] blending: XGBoost {blended['weight_xgb'] * 100:.0f}% "
+                f"+ historis {blended['weight_history'] * 100:.0f}% "
+                f"(MAE XGB={blended['mae_xgb']:.2f}, "
+                f"historis={blended['mae_history']:.2f})"
+            )
+        else:
+            print(f"  [{target}] blending tidak tersedia, memakai keluaran model")
 
         print(
             f"  [{target}] {len(preds)} langkah, "
