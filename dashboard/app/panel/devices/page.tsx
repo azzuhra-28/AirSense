@@ -23,8 +23,55 @@ import { POLLUTANTS } from "@/lib/brand";
 import { toWIB } from "@/lib/ispu";
 import { DEVICE_STATUS_META } from "@/lib/device";
 
-const SENSORS = [
-  {
+const CHANNELS = [
+  { key: "pm25_ugm3", label: "PM2.5", unit: "µg/m³", sensor: "GP2Y1010AU0F" },
+  { key: "pm10_ugm3", label: "PM10", unit: "µg/m³", sensor: "GP2Y1010AU0F" },
+  { key: "co_ugm3", label: "CO", unit: "µg/m³", sensor: "MiCS-6814" },
+  { key: "no2_ugm3", label: "NO₂", unit: "µg/m³", sensor: "MiCS-6814" },
+  { key: "o3_ugm3", label: "O₃", unit: "µg/m³", sensor: "MQ-131" },
+  { key: "temperature", label: "Suhu", unit: "°C", sensor: "DHT22" },
+  { key: "humidity", label: "Kelembapan", unit: "%RH", sensor: "DHT22" },
+] as const;
+
+const CHANNEL_META = {
+  ok: {
+    label: "Terbaca",
+    color: "text-emerald-300",
+    dot: "bg-emerald-400",
+    ring: "border-emerald-400/30",
+    soft: "bg-emerald-500/10",
+  },
+  sticky: {
+    label: "Tidak wajar",
+    color: "text-amber-300",
+    dot: "bg-amber-400",
+    ring: "border-amber-400/30",
+    soft: "bg-amber-500/10",
+  },
+  stuck: {
+    label: "Konstan",
+    color: "text-amber-300",
+    dot: "bg-amber-400",
+    ring: "border-amber-400/30",
+    soft: "bg-amber-500/10",
+  },
+  invalid: {
+    label: "Tidak valid",
+    color: "text-rose-300",
+    dot: "bg-rose-400",
+    ring: "border-rose-400/30",
+    soft: "bg-rose-500/10",
+  },
+  missing: {
+    label: "Tidak ada data",
+    color: "text-slate-300",
+    dot: "bg-slate-500",
+    ring: "border-white/10",
+    soft: "bg-slate-800/40",
+  },
+} as const;
+
+const SENSORS = [  {
     name: "ESP32",
     type: "Mikrokontroler",
     description: "Memproses dan mengirimkan data dari perangkat sensor.",
@@ -91,6 +138,66 @@ export default function DevicesPage() {
 
   const maxCount = Math.max(...activity.map((item) => item.count), 1);
   const latest = rows.length ? rows[rows.length - 1] : null;
+
+  /**
+   * Kesehatan tiap kanal sensor, dinilai dari data mentah.
+   *
+   * Tujuannya memisahkan "udara memang baik" dari "sensor tidak
+   * mengirim data". Nilai nol yang berasal dari sensor mati akan
+   * terlihat seperti udara bersih kalau tidak dibedakan.
+   */
+  const channels = useMemo(() => {
+    const tail = rows.slice(-60);
+
+    return CHANNELS.map((channel) => {
+      const values = tail
+        .map((row) => Number((row as unknown as Record<string, unknown>)[channel.key]))
+        .filter((v) => Number.isFinite(v) && v > -900);
+
+      if (!values.length) {
+        return {
+          ...channel,
+          state: "missing" as const,
+          detail: "tidak ada nilai terbaca",
+        };
+      }
+
+      const negatives = values.filter((v) => v < 0).length;
+      const unique = new Set(values.map((v) => v.toFixed(2))).size;
+
+      if (negatives > values.length * 0.3) {
+        return {
+          ...channel,
+          state: "invalid" as const,
+          detail: `${negatives} dari ${values.length} pembacaan negatif`,
+        };
+      }
+
+      if (unique <= 1 && values.length >= 10) {
+        return {
+          ...channel,
+          state: "stuck" as const,
+          detail: `nilai tidak berubah (${values[0].toFixed(2)})`,
+        };
+      }
+
+      if (unique <= 2 && values.length >= 10) {
+        return {
+          ...channel,
+          state: "stuck" as const,
+          detail: `hampir konstan (${values[0].toFixed(2)})`,
+        };
+      }
+
+      return {
+        ...channel,
+        state: "ok" as const,
+        detail: `${values.length} pembacaan, rentang ${Math.min(
+          ...values
+        ).toFixed(1)}-${Math.max(...values).toFixed(1)}`,
+      };
+    });
+  }, [rows]);
 
   if (loading) {
     return (
@@ -274,6 +381,52 @@ export default function DevicesPage() {
         <div className="mt-4 flex items-center gap-2 text-[10px] text-slate-400">
           <span className="h-2 w-2 rounded-full bg-sky-400" />
           Jumlah rekaman per jam, berdasarkan data yang tersedia di aplikasi.
+        </div>
+      </section>
+
+      {/* STATUS KANAL SENSOR */}
+      <section className="rounded-3xl border border-sky-400/30 bg-slate-900/70 p-5 sm:p-6">
+        <div className="flex items-center gap-2 text-sky-300">
+          <Gauge size={18} />
+          <span className="text-[10px] font-bold uppercase tracking-[0.18em]">
+            Data quality
+          </span>
+        </div>
+
+        <h2 className="mt-2 text-lg font-bold text-white">Status kanal sensor</h2>
+        <p className="mt-1 text-xs leading-5 text-slate-300">
+          Dinilai dari 60 pembacaan terakhir. Kanal yang konstan atau tidak
+          valid tidak bisa dipakai untuk menyimpulkan kualitas udara, meskipun
+          angkanya terlihat wajar.
+        </p>
+
+        <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {channels.map((channel) => {
+            const meta = CHANNEL_META[channel.state];
+
+            return (
+              <div
+                key={channel.key}
+                className={`rounded-xl border ${meta.ring} ${meta.soft} px-3 py-2.5`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold text-white">
+                    {channel.label}
+                  </span>
+                  <span className={`flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide ${meta.color}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
+                    {meta.label}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-[9px] text-slate-400">
+                  {channel.sensor} · {channel.unit}
+                </p>
+                <p className="mt-1 text-[10px] leading-snug text-slate-400">
+                  {channel.detail}
+                </p>
+              </div>
+            );
+          })}
         </div>
       </section>
 
