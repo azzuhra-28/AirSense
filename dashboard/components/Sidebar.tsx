@@ -13,12 +13,14 @@ import {
   Bell,
   PanelLeftClose,
   PanelLeftOpen,
+  Target,
 } from "lucide-react";
 
 const navItems = [
   { name: "Ringkasan", href: "/panel", icon: LayoutDashboard },
   { name: "Analitik", href: "/panel/analytics", icon: LineChart },
   { name: "Prediksi", href: "/panel/predict", icon: BrainCircuit },
+  { name: "Evaluasi", href: "/panel/evaluasi", icon: Target },
   { name: "Riwayat", href: "/panel/history", icon: History },
   { name: "Perangkat", href: "/panel/devices", icon: Cpu },
   { name: "Peringatan", href: "/panel/alerts", icon: Bell },

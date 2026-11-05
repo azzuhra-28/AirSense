@@ -32,6 +32,7 @@ import pandas as pd
 
 from .alert_logic import apply_alert_logic
 from .anomaly import add_rf_robustness_check, detect_anomalies
+from .robustness_rf import RF_FEATURES
 from .insight import build_insight
 
 from .ispu import (
@@ -82,9 +83,11 @@ FORECAST_METADATA_PATH = os.path.join(
     "forecast_models_meta.json",
 )
 
+# Artifact menyimpan model, daftar fitur, dan kelas. add_rf_robustness_check
+# butuh `.predict` mentah, jadi pembungkusnya dibuka di sini.
 RF_MODEL_PATH = os.path.join(
     MODEL_DIR,
-    "robustness_rf.joblib",
+    "random_forest_ispu.joblib",
 )
 
 
@@ -1039,13 +1042,18 @@ def run_from_dataframe(
     # RF Robustness Cross-Check (opsional, jalan kalau model ada)
     # --------------------------------------------------------
 
-    rf_model = load_rf_model(RF_MODEL_PATH)
+    rf_artifact = load_rf_model(RF_MODEL_PATH)
 
-    if rf_model is not None:
+    # Artifact berbentuk dict {"model", "features", "classes"}; yang
+    # dipakai di sini estimator-nya saja.
+    if isinstance(rf_artifact, dict):
+        rf_artifact = rf_artifact.get("model")
+
+    if rf_artifact is not None:
 
         sensor_df = add_rf_robustness_check(
             sensor_df,
-            rf_model,
+            rf_artifact,
         )
 
     else:
@@ -1535,6 +1543,21 @@ def run():
         "RF predicted category:",
         latest["rf_predicted_category"],
     )
+
+    # Random Forest dilatih dari 5 polutan mentah. Selama salah satu
+    # kanal tidak melaporkan nilai (mis. NO2 mengirim -999), model tidak
+    # bisa memprediksi. Sebutkan alasannya supaya tidak terbaca sebagai
+    # "model tidak ada".
+    if pd.isna(latest["rf_predicted_category"]):
+        missing_rf = [
+            column
+            for column in RF_FEATURES
+            if pd.isna(latest[column])
+        ]
+        print(
+            "  -> RF tidak bisa memprediksi: kanal kosong:",
+            ", ".join(missing_rf) or "(tidak diketahui)",
+        )
 
     print(
         "RF mismatch:",
