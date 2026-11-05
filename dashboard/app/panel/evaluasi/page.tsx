@@ -291,7 +291,7 @@ export default function EvaluasiPage() {
       )}
 
       {!loading && !evaluation && !error && (
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+        <div className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-4">
           <p className="text-sm font-medium text-white">
             Belum ada pasangan prediksi dan aktual yang bisa dinilai.
           </p>
@@ -318,7 +318,7 @@ export default function EvaluasiPage() {
             ].map((m) => (
               <div
                 key={m.label}
-                className="rounded-xl border border-white/10 bg-white/[0.03] p-3"
+                className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-4"
               >
                 <p className="text-[10px] uppercase tracking-wide text-slate-400">
                   {m.label}
@@ -326,12 +326,12 @@ export default function EvaluasiPage() {
                 <p className="mt-1 font-mono text-xl font-semibold tabular-nums text-white">
                   {m.value}
                 </p>
-                <p className="mt-0.5 text-[10px] text-slate-500">{m.hint}</p>
+                <p className="mt-0.5 text-[10px] text-slate-400">{m.hint}</p>
               </div>
             ))}
           </section>
 
-          <section className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+          <section className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-4">
             <h2 className="text-sm font-semibold text-white">
               Per horizon waktu
             </h2>
@@ -398,7 +398,7 @@ export default function EvaluasiPage() {
           </section>
 
           {evaluation.curve.length > 2 && (
-            <section className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <section className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-4">
               <h2 className="text-sm font-semibold text-white">
                 Aktual vs prediksi, siklus terakhir
               </h2>

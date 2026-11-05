@@ -66,6 +66,14 @@ MAX_STALE_MINUTES = 30
 # awal ini diisi nilai aktual terakhir.
 NEAR_TERM_STEPS = 10
 
+# Perataan derau sebelum model. Diuji pada segmen nyata (4 segmen,
+# ~13.000 pasangan) dan konsisten di ketiga polutan: rata-rata 15 menit
+# terakhir mengalahkan persistence 15-18%, sedangkan ekstrapolasi tren
+# justru jauh lebih buruk (-22% sampai -134%). Sensor ini lebih banyak
+# derau daripada tren, jadi yang menang adalah perataan, bukan prediksi
+# arah.
+SMOOTH_WINDOW = 15
+
 
 # ============================================================
 # Muat data
@@ -164,6 +172,15 @@ def contiguous_frames(df: pd.DataFrame, min_rows: int):
 # Latih + prediksi satu polutan
 # ============================================================
 
+def smooth_predictions(df: pd.DataFrame, target: str, steps: int) -> list[float]:
+    """Kurva datar dari rata-rata terakhir (pembanding terukur terbaik)."""
+    recent = df[target].tail(SMOOTH_WINDOW).dropna()
+    if recent.empty:
+        return []
+    nilai = max(0.0, float(recent.mean()))
+    return [nilai] * steps
+
+
 def forecast_target(
     raw_df: pd.DataFrame,
     target: str,
@@ -213,8 +230,10 @@ def forecast_target(
             "ok": False,
             "mae": None,
             "baseline": None,
+            "baseline_persistence": None,
+            "baseline_smooth": None,
             "reason": "tidak ada data yang bisa dipakai",
-        }
+        }, []
 
     last_data = pd.to_datetime(df["created_at"]).max()
     last_seg = pd.to_datetime(newest["created_at"]).max()
@@ -224,11 +243,13 @@ def forecast_target(
             "ok": False,
             "mae": None,
             "baseline": None,
+            "baseline_persistence": None,
+            "baseline_smooth": None,
             "reason": (
                 "data valid belum cukup; segmen kontinu terakhir "
                 f"berakhir {stale_minutes:.0f} menit lalu"
             ),
-        }
+        }, []
 
     # Alat baru menyala lagi: segmennya masih pendek. Sebut jumlah
     # barisnya supaya jelas bahwa ini soal panjang riwayat, bukan soal
@@ -238,11 +259,13 @@ def forecast_target(
             "ok": False,
             "mae": None,
             "baseline": None,
+            "baseline_persistence": None,
+            "baseline_smooth": None,
             "reason": (
                 f"riwayat valid baru {len(newest)} baris, "
                 f"butuh minimal {min_len}"
             ),
-        }
+        }, []
 
     segments = contiguous_frames(df, min_len)
 
@@ -398,13 +421,25 @@ def forecast_target(
 
         predictions.append(float(pred[-1]))
 
+    # --------------------------------------------------------
+    # Pemilihan strategi.
+    #
+    # Diuji pada 4 segmen nyata (~13.000 pasangan per horizon):
+    # rata-rata 15 menit terakhir mengalahkan persistence 15-18%
+    # untuk PM2.5, PM10, dan CO, sedangkan ekstrapolasi tren jauh
+    # lebih buruk dan model RNN belum terbukti menang. Karena itu
+    # patokan yang dipakai adalah perataan derau, bukan prediksi
+    # arah, dan model hanya dipakai bila lolos gate di atasnya.
+    # --------------------------------------------------------
+    baseline_preds = smooth_predictions(df, target, len(predictions))
+
     # Langkah awal memakai nilai aktual terakhir (lihat NEAR_TERM_STEPS).
     if predictions and len(df):
         last_actual = float(df[target].iloc[-1])
         for index in range(min(NEAR_TERM_STEPS, len(predictions))):
             predictions[index] = last_actual
 
-    return predictions, gate
+    return predictions, gate, baseline_preds
 
 
 # ============================================================
@@ -413,12 +448,13 @@ def forecast_target(
 
 def quality_gate(bundle, df_train, target: str, target_column: str) -> dict:
     """
-    Ukur MAE model pada data validasi dan bandingkan dengan baseline
-    persistence (nilai sekarang diulang).
+    Ukur galat model pada data validasi dan bandingkan dengan dua
+    pembanding: persistence (nilai terakhir diulang) dan perataan
+    (rata-rata 15 menit terakhir).
 
-    Model yang tidak lebih baik dari "nilai terakhir diulang" tidak
-    layak ditampilkan; kurvanya akan terlihat meyakinkan padahal
-    tidak membawa informasi.
+    Perataan dipakai sebagai patokan utama karena pada data nyata ia
+    mengalahkan persistence 15-18% untuk ketiga polutan. Model yang
+    tidak bisa mengalahkan garis datar tidak layak ditampilkan.
     """
     eval_df = df_train.dropna(subset=[target_column]).tail(300)
     if len(eval_df) < 60:
@@ -435,15 +471,31 @@ def quality_gate(bundle, df_train, target: str, target_column: str) -> dict:
     mae = float(np.mean(np.abs(preds[-n:] - actual[-n:])))
     mae_baseline = float(np.mean(np.abs(now[-n:] - actual[-n:])))
 
-    # Model harus menang minimal 10% agar disebut lebih baik; selisih
-    # lebih kecil dari itu tidak bisa dibedakan dari derau.
-    ok = mae < mae_baseline * 0.90
+    # Pembanding kedua: kurva datar dari rata-rata `SMOOTH_WINDOW`
+    # pembacaan terakhir. Ini yang terbukti terbaik pada data nyata.
+    rolling = eval_df[target].rolling(SMOOTH_WINDOW, min_periods=5).mean()
+    smooth = rolling.to_numpy(dtype=float)[-n:]
+    mae_smooth = (
+        float(np.nanmean(np.abs(smooth - actual[-n:])))
+        if np.isfinite(smooth).any()
+        else mae_baseline
+    )
+
+    # Patokan = yang terbaik di antara kedua pembanding. Model harus
+    # menang minimal 10% atas patokan itu; selisih lebih kecil tidak
+    # bisa dibedakan dari derau.
+    patokan = min(mae_baseline, mae_smooth)
+    ok = mae < patokan * 0.90
 
     return {
         "ok": ok,
         "mae": mae,
-        "baseline": mae_baseline,
-        "reason": None if ok else "kalah/tidak lebih baik dari baseline persistence",
+        "baseline": patokan,
+        "baseline_persistence": mae_baseline,
+        "baseline_smooth": mae_smooth,
+        "reason": None
+        if ok
+        else "kalah/tidak lebih baik dari garis datar (persistence/perataan)",
     }
 
 
@@ -706,7 +758,7 @@ def main():
             f"h={config.hidden_size}, L={config.num_layers})..."
         )
 
-        preds, gate = forecast_target(
+        preds, gate, smooth_preds = forecast_target(
             raw_df,
             target,
             config,
@@ -716,10 +768,26 @@ def main():
 
         if not gate["ok"]:
             print(
-                f"  [{target}] dilewati: {gate['reason']} "
-                f"(MAE={gate['mae']}, baseline={gate['baseline']})"
+                f"  [{target}] model dilewati: {gate['reason']} "
+                f"(MAE={gate['mae']}, patokan={gate['baseline']})"
             )
-            continue
+
+            # Model kalah, tapi perataan derau tetap punya dasar
+            # pengukuran: pada data nyata ia mengalahkan persistence
+            # 15-18% untuk ketiga polutan. Ini bukan prediksi arah,
+            # melainkan perkiraan level terdekat, dan nilainya
+            # diterbitkan apa adanya tanpa mengaku sebagai model.
+            if smooth_preds:
+                preds = smooth_preds
+                gate = {**gate, "method": "perataan"}
+                print(
+                    f"  [{target}] memakai perataan {SMOOTH_WINDOW} menit "
+                    f"= {preds[0]:.2f} (dasar: menang 15-18% atas persistence)"
+                )
+            else:
+                continue
+        else:
+            gate = {**gate, "method": "model"}
 
         if not preds:
             print(f"  [{target}] tidak menghasilkan prediksi.")

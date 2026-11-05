@@ -65,7 +65,7 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-4 sm:p-5">
+    <section className="rounded-2xl border border-sky-400/30 bg-slate-900/80 p-4 sm:p-5">
       <div className="flex items-center gap-2 text-sky-300">
         {icon}
         <h2 className="text-sm font-bold text-white">{judul}</h2>
