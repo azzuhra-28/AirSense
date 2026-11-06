@@ -54,11 +54,18 @@ def main() -> None:
     print("Baris per hari (%):")
     for tanggal, jumlah in per_hari.items():
         if tanggal == hari_ini:
-            acuan = menit_berjalan
-            persen = jumlah / acuan * 100
-            status = "berjalan" if persen >= 95 else "BOCOR"
+            # Hari berjalan: bandingkan dengan menit yang sudah lewat.
+            # Toleransi 10 menit dipakai supaya satu jeda pendek tidak
+            # langsung dicap bocor padahal hari belum selesai.
+            hilang = menit_berjalan - jumlah
+            persen = jumlah / menit_berjalan * 100
+            status = "berjalan" if hilang <= 10 else "BOCOR"
+        elif tanggal == per_hari.index[0]:
+            # Hari pertama jendela biasanya terpotong: data baru dimulai
+            # di tengah hari, jadi tidak adil dibandingkan 1440.
+            persen = jumlah / 1440 * 100
+            status = "terpotong"
         else:
-            acuan = 1440
             persen = jumlah / 1440 * 100
             status = "ok  " if persen >= 95 else "BOCOR"
         print(f"  {tanggal}  {jumlah:5d} baris  {persen:5.1f}%  {status}")
@@ -101,10 +108,14 @@ def main() -> None:
         print(f"  {target:10s} butuh {butuh:3d} baris  -> {tanda}")
 
     # ---------------------------------------------------------
-    # Proyeksi: berapa lama lagi sampai seminggu penuh. Hari ini
-    # tidak dihitung karena belum selesai.
+    # Proyeksi: berapa lama lagi sampai seminggu penuh. Hari ini dan
+    # hari pertama yang terpotong tidak dihitung.
     # ---------------------------------------------------------
-    selesai = {t: v for t, v in per_hari.items() if t != hari_ini}
+    selesai = {
+        t: v
+        for t, v in per_hari.items()
+        if t != hari_ini and t != per_hari.index[0]
+    }
     if selesai:
         penuh = sum(1 for v in selesai.values() if v >= 1368)
         print()
