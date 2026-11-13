@@ -149,24 +149,50 @@ export default function SummaryPage() {
     };
   }, [chart, primaryKey]);
 
-  const peak = useMemo(() => {
-    if (!chart.length) return null;
-    const values = chart
-      .map((p) => ({ t: p.t, v: Number((p as Record<string, unknown>)[primaryKey]) }))
-      .filter((p) => Number.isFinite(p.v));
-    if (!values.length) return null;
-    return values.reduce((a, b) => (b.v > a.v ? b : a));
-  }, [chart, primaryKey]);
+  /** ISPU puncak sepanjang horizon forecast. */
+  const peakIspu = useMemo(() => {
+    let max = 0;
+    for (const r of forecast) {
+      for (const k of ["pm25_ispu_pred", "pm10_ispu_pred", "co_ispu_pred"] as const) {
+        const v = Number(r[k]);
+        if (Number.isFinite(v) && v > max) max = v;
+      }
+    }
+    return max > 0 ? Math.round(max) : null;
+  }, [forecast]);
 
-  /** Jumlah titik forecast yang masih di masa depan. */
-  const futurePoints = useMemo(() => {
-    const terakhir = data.rows.length
-      ? new Date(data.rows[data.rows.length - 1].created_at).getTime()
-      : 0;
-    return forecast.filter(
-      (r) => new Date(r.forecast_at).getTime() > terakhir
-    ).length;
-  }, [forecast, data.rows]);
+  /** Level perkiraan dan selisihnya terhadap pembacaan terakhir. */
+  const levelInfo = useMemo(() => {
+    const vals = chart
+      .map((p) => Number((p as Record<string, unknown>)[primaryKey]))
+      .filter((v) => Number.isFinite(v));
+    if (!vals.length) return null;
+
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const level = vals[0];
+
+    const kunci = `${primaryKey}_ugm3` as "pm25_ugm3" | "pm10_ugm3" | "co_ugm3";
+    const mentah = Number(data.latest?.[kunci]);
+    const aktual = Number.isFinite(mentah)
+      ? primaryKey === "co"
+        ? mentah / 1000
+        : mentah
+      : null;
+
+    return {
+      level,
+      min,
+      max,
+      datar: Math.abs(max - min) < 0.05,
+      delta: aktual == null ? null : level - aktual,
+    };
+  }, [chart, primaryKey, data.latest]);
+
+  const primaryUnit = useMemo(
+    () => SERIES.find((s) => s.key === primaryKey)?.unit ?? "µg/m³",
+    [primaryKey]
+  );
 
   const currentIspu = useMemo(() => {
     const tone = aqiOf(data.ispu);
@@ -205,34 +231,32 @@ export default function SummaryPage() {
     };
 
     const actualRows = data.rows.slice(-60);
-    const actual = actualRows.map((r) => {
-      const nilai = valid(r.pm25_ugm3);
-      return {
-        iso: r.created_at,
-        t: toWIB(r.created_at),
-        pm25: nilai,
-        pm10: valid(r.pm10_ugm3),
-        co: coMg(r.co_ugm3),
-        isForecast: false,
-        // Pita nol pada bagian aktual supaya tidak ada isian palsu,
-        // tetapi tumpukan Recharts tetap punya nilai numerik.
-        bandLow: nilai,
-        bandSpan: nilai == null ? null : 0,
-      };
-    });
+    const actual = actualRows.map((r) => ({
+      iso: r.created_at,
+      ts: new Date(r.created_at).getTime(),
+      t: toWIB(r.created_at),
+      pm25: valid(r.pm25_ugm3),
+      pm10: valid(r.pm10_ugm3),
+      co: coMg(r.co_ugm3),
+      isForecast: false,
+      // Pita hanya digambar pada bagian forecast. Nilai null di sini
+      // mencegah pita menanjak dari garis aktual (efek "tangga").
+      bandLow: null as number | null,
+      bandSpan: null as number | null,
+    }));
+
+    const terakhirMs = actualRows.length
+      ? new Date(actualRows[actualRows.length - 1].created_at).getTime()
+      : 0;
 
     const fc = forecast
       // Hanya titik yang benar-benar di masa depan. Kalau siklus sudah
       // basi, sebagian forecast-nya jatuh di belakang pembacaan terakhir
       // dan akan tergambar menumpuk dengan garis aktual.
-      .filter((r) => {
-        const terakhir = actualRows.length
-          ? new Date(actualRows[actualRows.length - 1].created_at).getTime()
-          : 0;
-        return new Date(r.forecast_at).getTime() > terakhir;
-      })
+      .filter((r) => new Date(r.forecast_at).getTime() > terakhirMs)
       .map((r) => ({
         iso: r.forecast_at,
+        ts: new Date(r.forecast_at).getTime(),
         t: toWIB(r.forecast_at),
         pm25: valid(r.pm25_ugm3_pred),
         pm10: valid(r.pm10_ugm3_pred),
@@ -240,7 +264,7 @@ export default function SummaryPage() {
         isForecast: true,
         bandLow: null as number | null,
         bandSpan: null as number | null,
-      }));
+        }));
 
     // Pita ketidakpastian untuk seri utama. Batasnya galat nyata dari
     // evaluasi 3 hari terakhir; kalau belum tersedia, dipakai ±1,0
@@ -249,21 +273,33 @@ export default function SummaryPage() {
     for (const row of fc) {
       const nilai = row[primaryKey];
       if (nilai == null) continue;
-      const bawah = Math.max(0, nilai - galat);
-      const atas = nilai + galat;
-      row.bandLow = bawah;
-      row.bandSpan = atas - bawah;
+      row.bandLow = Math.max(0, nilai - galat);
+      row.bandSpan = 2 * galat;
     }
+
+    // Titik batas tidak ditambahkan: pita dan garis forecast sama-sama
+    // mulai dari titik forecast pertama, tepat setelah garis "Sekarang".
+    // Lompatan dari pembacaan terakhir ditampilkan oleh garis
+    // penghubung tipis, bukan dengan menanjakkan pita.
+    const semua = [...actual, ...fc];
 
     // Urutkan menurut waktu asli; label "HH.mm" tidak bisa dipakai
     // mengurutkan karena tidak membawa tanggal.
-    return [...actual, ...fc].sort(
+    return semua.sort(
       (a, b) => new Date(a.iso).getTime() - new Date(b.iso).getTime()
     );
   }, [data.rows, forecast, skill, primaryKey]);
 
   /** Batas sumbu Y mengikuti data, bukan 0-24 tetap. */
-  const yDomain = useMemo(() => {
+  /**
+   * Skala Y adaptif dengan tick bulat dan berjarak rata.
+   *
+   * Recharts memilih tick sendiri kalau hanya diberi domain, dan
+   * hasilnya bisa 14,1 / 17,1 / 22,2 — tidak rata dan sulit dibaca.
+   * Di sini langkah tick dibulatkan ke 1, 2, 5, atau 10 kali pangkat
+   * sepuluh terdekat.
+   */
+  const yScale = useMemo(() => {
     const nilai: number[] = [];
     for (const row of combined) {
       for (const s of SERIES) {
@@ -276,24 +312,72 @@ export default function SummaryPage() {
         nilai.push(row.bandLow + row.bandSpan);
       }
     }
-    if (!nilai.length) return [0, 10] as [number, number];
+    if (!nilai.length) return { domain: [0, 10] as [number, number], ticks: [0, 2, 4, 6, 8, 10] };
 
     const min = Math.min(...nilai);
     const max = Math.max(...nilai);
     const rentang = Math.max(max - min, 1);
-    const pad = rentang * 0.15;
-    return [
-      Math.max(0, Math.floor((min - pad) * 10) / 10),
-      Math.ceil((max + pad) * 10) / 10,
-    ] as [number, number];
+    const pad = rentang * 0.12;
+
+    const bawah = Math.max(0, min - pad);
+    const atas = max + pad;
+
+    const langkahKasar = (atas - bawah) / 5;
+    const pangkat = Math.pow(10, Math.floor(Math.log10(langkahKasar)));
+    const sisa = langkahKasar / pangkat;
+    const langkah = (sisa <= 1 ? 1 : sisa <= 2 ? 2 : sisa <= 5 ? 5 : 10) * pangkat;
+
+    const lo = Math.floor(bawah / langkah) * langkah;
+    const hi = Math.ceil(atas / langkah) * langkah;
+
+    const ticks: number[] = [];
+    for (let v = lo; v <= hi + langkah * 0.5; v += langkah) {
+      ticks.push(Number(v.toFixed(6)));
+    }
+
+    return { domain: [lo, hi] as [number, number], ticks };
   }, [combined, activeSeries]);
 
-  /** Titik "sekarang": akhir data aktual, awal forecast. */
-  const nowLabel = useMemo(() => {
+  const yDomain = yScale.domain;
+
+  /** Garis penghubung saat ada lompatan nyata ke level forecast. */
+  const connectorSegment = useMemo(() => {
     const aktual = combined.filter((r) => !r.isForecast);
-    if (aktual.length) return aktual[aktual.length - 1].t;
+    const fc = combined.filter((r) => r.isForecast);
+    if (!aktual.length || !fc.length) return null;
+
+    const a = aktual[aktual.length - 1];
+    const f = fc[0];
+    const ya = a[primaryKey];
+    const yf = f[primaryKey];
+    if (typeof ya !== "number" || typeof yf !== "number") return null;
+    if (Math.abs(ya - yf) < 0.05) return null;
+
+    return [
+      { x: a.ts, y: ya },
+      { x: f.ts, y: yf },
+    ];
+  }, [combined, primaryKey]);
+
+  /** Titik "sekarang" dalam epoch ms: akhir data aktual. */
+  const nowTs = useMemo(() => {
+    const aktual = combined.filter((r) => !r.isForecast);
+    if (aktual.length) return aktual[aktual.length - 1].ts;
     const fc = combined.find((r) => r.isForecast);
-    return fc ? fc.t : null;
+    return fc ? fc.ts : null;
+  }, [combined]);
+
+  /** Tick sumbu X tiap 15 menit, dalam epoch ms. */
+  const xTicks = useMemo(() => {
+    if (!combined.length) return [];
+    const awal = combined[0].ts;
+    const akhir = combined[combined.length - 1].ts;
+    const langkah = 15 * 60_000;
+    const ticks: number[] = [];
+    for (let v = Math.ceil(awal / langkah) * langkah; v <= akhir; v += langkah) {
+      ticks.push(v);
+    }
+    return ticks;
   }, [combined]);
 
   /** Ambang ISPU yang masuk rentang sumbu, maksimal satu garis. */
@@ -391,9 +475,7 @@ export default function SummaryPage() {
                 ? "Memuat siklus forecast"
                 : !forecast.length
                   ? "Belum ada siklus forecast"
-                  : futurePoints === 0
-                    ? `Siklus ${toWIB(forecast[0].generated_at)} sudah lewat; menunggu siklus baru`
-                    : `${futurePoints} titik ke depan dari siklus ${toWIB(forecast[0].generated_at)}`}
+                  : `Perkiraan 60 menit ke depan · diperbarui ${toWIB(forecast[0].generated_at)}`}
             </p>
             {(() => {
               // Horizon forecast hanya 60 menit. Kalau siklusnya lebih
@@ -460,7 +542,7 @@ export default function SummaryPage() {
           <>
             <div className="mt-4 h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={combined} margin={{ top: 12, right: 12, bottom: 0, left: -14 }}>
+                <AreaChart data={combined} margin={{ top: 26, right: 12, bottom: 0, left: -14 }}>
                   <defs>
                     {SERIES.map((s) => (
                       <linearGradient key={s.key} id={`fc-${s.key}`} x1="0" y1="0" x2="0" y2="1">
@@ -472,14 +554,20 @@ export default function SummaryPage() {
 
                   <CartesianGrid strokeDasharray="2 6" stroke="#1e293b" vertical={false} />
                   <XAxis
-                    dataKey="t"
+                    dataKey="ts"
+                    type="number"
+                    domain={["dataMin", "dataMax"]}
+                    ticks={xTicks}
+                    tickFormatter={(v: number) =>
+                      toWIB(new Date(v).toISOString())
+                    }
                     tick={{ fontSize: 12, fill: "#cbd5e1" }}
                     axisLine={false}
                     tickLine={false}
-                    interval={14}
                   />
                   <YAxis
-                    domain={yDomain}
+                    domain={yScale.domain}
+                    ticks={yScale.ticks}
                     tick={{ fontSize: 12, fill: "#cbd5e1" }}
                     axisLine={false}
                     tickLine={false}
@@ -512,26 +600,36 @@ export default function SummaryPage() {
                       strokeDasharray="4 4"
                       strokeOpacity={0.55}
                       label={{
-                        value: `${thresholdLine.label} ≥ ${thresholdLine.value}`,
-                        position: "insideTopRight",
+                        value: `Ambang ${thresholdLine.label} ${thresholdLine.value}`,
+                        position: "insideBottomRight",
                         fill: "#fbbf24",
                         fontSize: 11,
                       }}
                     />
                   )}
 
-                  {/* Batas antara data aktual dan forecast. */}
-                  {nowLabel && (
+                  {/* Penanda "Sekarang" dan garis penghubung lompatan.
+                      Sumbu X kini numerik, jadi ReferenceLine bekerja. */}
+                  {nowTs != null && (
                     <ReferenceLine
-                      x={nowLabel}
+                      x={nowTs}
                       stroke="#94a3b8"
                       strokeOpacity={0.7}
                       label={{
                         value: "Sekarang",
-                        position: "insideTopLeft",
-                        fill: "#cbd5e1",
+                        position: "top",
+                        fill: "#e2e8f0",
                         fontSize: 11,
                       }}
+                    />
+                  )}
+
+                  {connectorSegment && (
+                    <ReferenceLine
+                      segment={connectorSegment}
+                      stroke="#94a3b8"
+                      strokeWidth={1}
+                      strokeDasharray="2 2"
                     />
                   )}
 
@@ -548,6 +646,8 @@ export default function SummaryPage() {
                     isAnimationActive={false}
                     activeDot={false}
                   />
+
+                  {/* Garis penghubung digambar bersama penanda "Sekarang". */}
 
                   {SERIES.filter((s) => activeSeries.includes(s.key)).flatMap((s) => [
                     // Garis padat: pembacaan sensor nyata.
@@ -712,13 +812,19 @@ export default function SummaryPage() {
 
               <div className="rounded-lg border border-white/10 px-3 py-2.5">
                 <dt className="text-[12px] font-medium text-slate-300">
-                  Puncak {primaryLabel}
+                  Level perkiraan
                 </dt>
                 <dd className="mt-1 text-[15px] font-semibold font-mono tabular-nums text-white">
-                  {peak ? `${peak.v.toFixed(2)} µg/m³` : "-"}
+                  {levelInfo
+                    ? levelInfo.datar
+                      ? `${levelInfo.level.toFixed(2)} ${primaryUnit}`
+                      : `${levelInfo.min.toFixed(2)}–${levelInfo.max.toFixed(2)} ${primaryUnit}`
+                    : "-"}
                 </dd>
                 <p className="mt-1 text-[12px] text-slate-300">
-                  {peak ? `pukul ${peak.t}` : "belum ada nilai"}
+                  {levelInfo?.delta != null
+                    ? `${levelInfo.delta > 0 ? "+" : ""}${levelInfo.delta.toFixed(2)} dari sekarang`
+                    : "belum ada pembanding"}
                 </p>
               </div>
 
@@ -738,11 +844,11 @@ export default function SummaryPage() {
         )}
       </section>
 
-      {/* Insight dari pipeline + saran tindakan per kategori. */}
+      {/* Saran tindakan + disclaimer. Kalimat yang mengulang kartu lain
+          dihapus supaya tidak bertele-tele. */}
       {(() => {
-        const insight = forecast.find((r) => r.insight?.trim())?.insight;
         const saran = SARAN_KATEGORI[currentIspu.label] ?? null;
-        if (!insight && !saran) return null;
+        if (!saran) return null;
 
         return (
           <motion.section
@@ -752,20 +858,11 @@ export default function SummaryPage() {
           >
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />
             <div className="space-y-1">
-              <p className="text-[12px] font-semibold text-sky-200">
-                Catatan pipeline
-              </p>
-              {saran && (
-                <p className="text-[13px] leading-relaxed text-white">
-                  {saran}
-                </p>
-              )}
-              {insight && (
-                <p className="text-[12px] leading-relaxed text-slate-300">
-                  {insight}
-                </p>
-              )}
-              <p className="text-[12px] leading-relaxed text-slate-400">
+              <p className="text-[13px] leading-relaxed text-white">{saran}</p>
+              <p className="text-[12px] leading-relaxed text-slate-300">
+                {data.dominant?.label
+                  ? `Polutan dominan ${data.dominant.label}${peakIspu ? ` · ISPU puncak ${peakIspu}` : ""}. `
+                  : ""}
                 Forecast bersifat indikatif, bukan ISPU resmi.
               </p>
             </div>
