@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import { fetchSkill, type Skill } from "@/lib/forecast-skill";
 import {
   Area,
   AreaChart,
@@ -130,6 +131,23 @@ export default function SummaryPage() {
   }, [data.ispu]);
 
   // Gabungan riwayat aktual dan forecast dalam satu deret waktu.
+  // Ketidakpastian terukur, dipakai sebagai pita di sekitar forecast.
+  const [skill, setSkill] = useState<Record<string, Skill>>({});
+
+  useEffect(() => {
+    let batal = false;
+    fetchSkill(3)
+      .then((s) => {
+        if (!batal) setSkill(s);
+      })
+      .catch(() => {
+        // Tanpa data evaluasi, pita tidak digambar. Garis tetap tampil.
+      });
+    return () => {
+      batal = true;
+    };
+  }, []);
+
   // Aktual = garis padat di kiri, forecast = area transparan di kanan.
   const combined = useMemo(() => {
     // Nilai negatif berarti sensor membaca di bawah ambang deteksi,
@@ -412,6 +430,24 @@ export default function SummaryPage() {
                 Forecast 60 menit ke depan
               </span>
             </div>
+
+            {(() => {
+              // Garis datar tanpa keterangan terlihat seperti sistem
+              // rusak. Sebutkan bahwa yang diterbitkan adalah perkiraan
+              // level, beserta galat nyatanya.
+              const galat = skill[primaryKey]?.mae;
+              if (galat == null) return null;
+              return (
+                <p className="mt-2 text-[10px] leading-relaxed text-slate-400">
+                  Garis putus-putus adalah <strong className="text-slate-300">perkiraan level</strong>,
+                  bukan ramalan naik-turun. Galat nyata 3 hari terakhir
+                  {" "}±{galat.toFixed(1)} µg/m³, jadi nilainya diperkirakan
+                  bertahan di sekitar {forecast[0]?.[`${primaryKey}_ugm3_pred` as keyof ForecastRow] != null
+                    ? Number(forecast[0][`${primaryKey}_ugm3_pred` as keyof ForecastRow]).toFixed(1)
+                    : "-"} µg/m³.
+                </p>
+              );
+            })()}
 
             {(() => {
               const missing = SERIES.filter(
