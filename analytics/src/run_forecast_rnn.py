@@ -20,6 +20,7 @@
 import argparse
 import os
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 
 import numpy as np
@@ -74,6 +75,19 @@ NEAR_TERM_STEPS = 10
 # Selisih antar jendela hanya 1-2%, jadi dipakai gabungan tiga skala
 # waktu supaya tidak bergantung pada satu angka yang kebetulan bagus.
 ENSEMBLE_WINDOWS = (10, 15, 30)
+
+# Kalau model konsisten kalah dari garis datar, latih ulang tidak akan
+# mengubah apa pun. Tanpa batas ini setiap siklus 5 menit membuang
+# puluhan detik CPU untuk hasil yang sama.
+LATIH_ULANG_MAKS_HARI = 1.0
+
+
+def _boleh_latih_ulang(cache_path: str) -> bool:
+    """True kalau cache model belum pernah dicoba dilatih ulang hari ini."""
+    if not os.path.exists(cache_path):
+        return True
+    umur_jam = (time.time() - os.path.getmtime(cache_path)) / 3600
+    return umur_jam >= LATIH_ULANG_MAKS_HARI
 
 
 # ============================================================
@@ -375,7 +389,17 @@ def forecast_target(
     # Model dari cache bisa berasal dari data lama (mis. sebelum dummy
     # dibuang). Kalau gagal gate, latih ulang sekali dengan data
     # sekarang sebelum menyerah.
-    if not gate["ok"] and from_cache:
+    #
+    # Catatan: kalau model memang secara konsisten kalah, blok ini
+    # melatih ulang SETIAP siklus karena hasil latih ulang tetap
+    # disimpan dan tetap gagal. Artinya ~40 detik CPU terbuang tiap
+    # putaran tanpa mengubah hasil. LATIH_ULANG_MAKS_HARI membatasi
+    # agar percobaan itu dilakukan paling sering sekali sehari.
+    if (
+        not gate["ok"]
+        and from_cache
+        and _boleh_latih_ulang(cache_path)
+    ):
         if verbose:
             print(f"  [{target}] cache gagal gate, latih ulang dengan data terkini...")
         bundle = train_lstm_for_target(
@@ -395,6 +419,11 @@ def forecast_target(
                 f"MAE={gate['mae']:.2f} vs baseline={gate['baseline']:.2f}"
                 f" -> {'LULUS' if gate['ok'] else 'GAGAL'}"
             )
+    elif not gate["ok"] and from_cache and verbose:
+        print(
+            f"  [{target}] latih ulang dilewati: sudah dicoba dalam "
+            f"{LATIH_ULANG_MAKS_HARI} hari terakhir"
+        )
 
     # --------------------------------------------------------
     # Prediksi direct t+60 dengan jendela bergeser.
