@@ -276,10 +276,17 @@ def forecast_target(
             ),
         }, []
 
-    # Alat baru menyala lagi: segmennya masih pendek. Sebut jumlah
-    # barisnya supaya jelas bahwa ini soal panjang riwayat, bukan soal
-    # alat mati.
+    # Alat baru menyala lagi atau baru saja terputus sebentar: segmennya
+    # masih pendek. Model tidak bisa dipakai karena riwayatnya belum
+    # cukup untuk divalidasi, TETAPI perataan hanya butuh beberapa
+    # pembacaan terakhir. Tanpa cadangan ini, satu jeda 5 menit
+    # menghapus sekitar dua jam forecast.
     if len(newest) < min_len:
+        cadangan = (
+            smooth_predictions(newest, target, steps)
+            if len(newest) >= max(ENSEMBLE_WINDOWS) + 5
+            else []
+        )
         return [], {
             "ok": False,
             "mae": None,
@@ -288,9 +295,9 @@ def forecast_target(
             "baseline_smooth": None,
             "reason": (
                 f"riwayat valid baru {len(newest)} baris, "
-                f"butuh minimal {min_len}"
+                f"butuh minimal {min_len} untuk model"
             ),
-        }, []
+        }, cadangan
 
     segments = contiguous_frames(df, min_len)
 

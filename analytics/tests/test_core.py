@@ -107,6 +107,17 @@ class TestSmoothPredictions(unittest.TestCase):
         self.assertEqual(len(hasil), 60)
         self.assertEqual(len(set(hasil)), 1)
 
+    def test_segmen_pendek_tetap_bisa_diramal(self):
+        # Jeda beberapa menit memutus deret. Perataan hanya butuh
+        # beberapa pembacaan terakhir, jadi forecast tetap bisa terbit
+        # walau riwayat belum cukup untuk model.
+        df = frame(40)
+
+        hasil = smooth_predictions(df, "pm25_ugm3", steps=60)
+
+        self.assertEqual(len(hasil), 60)
+        self.assertTrue(all(v >= 0 for v in hasil))
+
     def test_nilai_berasal_dari_jendela_ensemble(self):
         df = frame(120)
         seri = df["pm25_ugm3"]
