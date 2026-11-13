@@ -13,4 +13,4 @@ Cara memakai:
 Tanpa langkah 3, runner akan melatih ulang sendiri karena cache baru
 belum ada, tetapi dengan --retrain hasilnya pasti dilatih ulang penuh.
 
-1
+2
