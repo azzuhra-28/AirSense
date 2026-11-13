@@ -28,6 +28,10 @@ mkdir -p "$APP"
 if [ ! -d "$APP/.git" ]; then
   git clone https://github.com/azzuhra-28/AirSense.git "$APP"
 fi
+
+# Folder dimiliki user `airsense`, sedangkan skrip dijalankan sebagai
+# root. Tanpa ini git menolak bekerja ("dubious ownership").
+git config --global --add safe.directory "$APP"
 cd "$APP"
 git pull --ff-only
 
