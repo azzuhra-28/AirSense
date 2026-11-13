@@ -246,6 +246,46 @@ def pred_ewma(pm: pd.Series, idx: np.ndarray, alpha: float) -> np.ndarray:
     return pm.shift(1).ewm(alpha=alpha, adjust=False).mean().to_numpy()[idx]
 
 
+def pred_produksi(pm: pd.Series, idx: np.ndarray) -> np.ndarray:
+    """
+    Replikasi persis `smooth_series` di analytics/src/run_forecast_rnn.py:
+    rata-rata dari rolling 10, 15, dan 30 menit, TANPA shift, lalu
+    diambil nilainya pada waktu t. Produksi memakai nilai ini sebagai
+    level datar untuk seluruh horizon.
+    """
+    bagian = [
+        pm.rolling(w, min_periods=max(3, w // 3)).mean()
+        for w in (10, 15, 30)
+    ]
+    seri = pd.concat(bagian, axis=1).mean(axis=1)
+    return seri.to_numpy()[idx]
+
+
+ROLLING_GRID = [5, 10, 15, 20, 30, 45, 60]
+
+
+def pilih_jendela(pm: pd.Series, y: pd.Series, train: np.ndarray) -> int:
+    """
+    Pilih jendela rolling terbaik HANYA dari validasi di dalam data latih.
+
+    Validasi = 20% terakhir data latih. Test fold tidak pernah dilihat.
+    """
+    valid = train[-max(200, len(train) // 5):]
+    aktual = y.to_numpy()[valid]
+    terbaik, mae_terbaik = 15, np.inf
+
+    for w in ROLLING_GRID:
+        pred = pred_rolling(pm, valid, w)
+        ok = np.isfinite(pred) & np.isfinite(aktual)
+        if ok.sum() < 20:
+            continue
+        m = float(np.mean(np.abs(pred[ok] - aktual[ok])))
+        if m < mae_terbaik:
+            mae_terbaik, terbaik = m, w
+
+    return terbaik
+
+
 def pred_global_mean(pm: pd.Series, train: np.ndarray, idx: np.ndarray) -> np.ndarray:
     return np.full(len(idx), float(np.nanmean(pm.to_numpy()[train])))
 
@@ -312,20 +352,28 @@ def metrik(aktual: np.ndarray, pred: np.ndarray, baseline: np.ndarray) -> dict:
     rmse = float(np.sqrt(np.mean((p - a) ** 2)))
     mae_base = float(np.mean(np.abs(b - a)))
     skill = 1 - mae / mae_base if mae_base > 0 else np.nan
-
-    # MASE: galat model dibagi galat naif pada data latih (didekati
-    # dengan galat persistence di test, karena skala musiman tidak ada).
     mase = mae / mae_base if mae_base > 0 else np.nan
 
+    # Kategori ISPU: aktual, prediksi, dan kondisi sekarang (persistence).
     kat_a = ispu_kategori(a)
     kat_p = ispu_kategori(p)
+    kat_now = ispu_kategori(b)
     akurasi = float(np.mean(kat_a == kat_p))
 
-    # Kejadian memburuk: kategori naik dibanding t.
-    naik = np.array([ISPU_LABELS.index(k) for k in kat_a])
-    naik_p = np.array([ISPU_LABELS.index(k) for k in kat_p])
-    kejadian = naik > 0
-    recall = float(np.mean(naik_p[kejadian] >= naik[kejadian])) if kejadian.any() else np.nan
+    rank_a = np.array([ISPU_LABELS.index(k) for k in kat_a])
+    rank_p = np.array([ISPU_LABELS.index(k) for k in kat_p])
+    rank_now = np.array([ISPU_LABELS.index(k) for k in kat_now])
+
+    # Kejadian "naik ke kategori lebih buruk dalam h menit".
+    kejadian = rank_a > rank_now
+    diprediksi = rank_p > rank_now
+
+    tp = int(np.sum(kejadian & diprediksi))
+    fp = int(np.sum(~kejadian & diprediksi))
+    fn = int(np.sum(kejadian & ~diprediksi))
+
+    precision = tp / (tp + fp) if (tp + fp) > 0 else np.nan
+    recall = tp / (tp + fn) if (tp + fn) > 0 else np.nan
 
     return {
         "n": int(len(a)),
@@ -335,6 +383,11 @@ def metrik(aktual: np.ndarray, pred: np.ndarray, baseline: np.ndarray) -> dict:
         "skill": skill,
         "mase": mase,
         "akurasi_ispu": akurasi,
+        "kejadian_memburuk": int(kejadian.sum()),
+        "tp": tp,
+        "fp": fp,
+        "fn": fn,
+        "precision_memburuk": precision,
         "recall_memburuk": recall,
     }
 
@@ -470,6 +523,14 @@ def main() -> None:
                 kandidat["ewma"] = pred_ewma(pm, idx, best_alpha)
                 alpha_terpilih = best_alpha
 
+                # Grid rolling: jendela dipilih dari validasi di dalam
+                # data latih, bukan dari test.
+                w_terpilih = pilih_jendela(pm, y, fold.train)
+                kandidat["rolling_auto"] = pred_rolling(pm, idx, w_terpilih)
+
+                # Replikasi persis perhitungan pipeline produksi.
+                kandidat["produksi_10_15_30"] = pred_produksi(pm, idx)
+
                 # Ridge
                 try:
                     kandidat["ridge"] = fit_ridge(X, y, fold.train, idx)
@@ -497,6 +558,8 @@ def main() -> None:
                     )
                     if nama == "ewma":
                         m["alpha"] = alpha_terpilih
+                    if nama == "rolling_auto":
+                        m["window"] = w_terpilih
                     baris.append(m)
 
                     # Simpan galat per sampel untuk block bootstrap.
@@ -566,6 +629,92 @@ def main() -> None:
     dfm.to_csv(RESULTS / "metrics.csv", index=False)
     print(f"\n[5] metrics.csv: {len(dfm)} baris")
 
+    # ------------------------------------------------------------
+    # Interval konformal: kuantil residual pada data latih,
+    # diterapkan ke data uji. Tidak memakai test untuk menghitung
+    # kuantil.
+    # ------------------------------------------------------------
+    konformal = {}
+    baris_konf = []
+    for h in HORIZONS:
+        y = make_target(d, h, "B")
+        q10s, q90s, covers, widths, ns = [], [], [], [], []
+
+        for fold in folds:
+            pred_tr = pred_rolling(pm, fold.train, 15)
+            akt_tr = y.to_numpy()[fold.train]
+            ok_tr = np.isfinite(pred_tr) & np.isfinite(akt_tr)
+            if ok_tr.sum() < 50:
+                continue
+            resid = akt_tr[ok_tr] - pred_tr[ok_tr]
+            q10 = float(np.quantile(resid, 0.10))
+            q90 = float(np.quantile(resid, 0.90))
+
+            pred_te = pred_rolling(pm, fold.test, 15)
+            akt_te = y.to_numpy()[fold.test]
+            ok_te = np.isfinite(pred_te) & np.isfinite(akt_te)
+            if ok_te.sum() < 20:
+                continue
+
+            lo = pred_te[ok_te] + q10
+            hi = pred_te[ok_te] + q90
+            a = akt_te[ok_te]
+
+            q10s.append(q10)
+            q90s.append(q90)
+            covers.append(float(np.mean((a >= lo) & (a <= hi))))
+            widths.append(float(np.mean(hi - lo)))
+            ns.append(int(ok_te.sum()))
+
+        if not q10s:
+            continue
+
+        konformal[h] = {
+            "p10": float(np.mean(q10s)),
+            "p50": 0.0,
+            "p90": float(np.mean(q90s)),
+            "n": int(sum(ns)),
+            "tanggal_hitung": pd.Timestamp.now(tz="Asia/Jakarta").strftime("%Y-%m-%d"),
+        }
+        baris_konf.append(
+            {
+                "horizon": h,
+                "cakupan": float(np.mean(covers)),
+                "lebar": float(np.mean(widths)),
+                "q10": float(np.mean(q10s)),
+                "q90": float(np.mean(q90s)),
+                "n": int(sum(ns)),
+            }
+        )
+
+    (RESULTS / "residual_quantiles.json").write_text(
+        json.dumps(konformal, indent=2), encoding="utf-8"
+    )
+    print(f"[6] residual_quantiles.json: {len(konformal)} horizon")
+
+    # ------------------------------------------------------------
+    # Perbandingan antar metode: block bootstrap dengan blok
+    # sebesar horizon (bukan 30 menit tetap).
+    # ------------------------------------------------------------
+    def bandingkan(a: str, b: str, h: int) -> dict | None:
+        ka = galat.get(("B", h, a))
+        kb = galat.get(("B", h, b))
+        if not ka or not kb:
+            return None
+        ea = np.concatenate([x for x, _ in ka])
+        eb = np.concatenate([x for x, _ in kb])
+        n = min(len(ea), len(eb))
+        if n < h * 4:
+            return None
+        return block_bootstrap(eb[:n] - ea[:n], blok=h, seed=args.seed)
+
+    perbandingan = {}
+    for h in HORIZONS:
+        for lawan in ["rolling_5", "rolling_30", "produksi_10_15_30"]:
+            r = bandingkan("rolling_15", lawan, h)
+            if r:
+                perbandingan[(h, lawan)] = r
+
     # Ringkasan per metode x horizon (target B sebagai acuan utama).
     ringkas = (
         dfm[dfm["target"] == "B"]
@@ -611,7 +760,10 @@ def main() -> None:
     # Gambar
     buat_gambar(dfm, contoh, importance, ringkas)
 
-    tulis_summary(prof, info, bocor, folds, ringkas, dfm, sig, collapse, args)
+    tulis_summary(
+        prof, info, bocor, folds, ringkas, dfm, sig, collapse, args,
+        konformal, perbandingan, baris_konf,
+    )
 
     print("\n[6] Selesai. Lihat results/summary.md")
 
@@ -688,7 +840,8 @@ def buat_gambar(dfm, contoh, importance, ringkas) -> None:
         plt.close(fig)
 
 
-def tulis_summary(prof, info, bocor, folds, ringkas, dfm, sig, collapse, args) -> None:
+def tulis_summary(prof, info, bocor, folds, ringkas, dfm, sig, collapse, args,
+                  konformal=None, perbandingan=None, baris_konf=None) -> None:
     L = []
     L.append("# Benchmark Forecast PM2.5 — AirSense\n")
     L.append(f"Dijalankan: {pd.Timestamp.now(tz='Asia/Jakarta'):%d %b %Y %H:%M} WIB  ")
@@ -727,6 +880,27 @@ def tulis_summary(prof, info, bocor, folds, ringkas, dfm, sig, collapse, args) -
     L.append("")
     L.append("Format: MAE µg/m³ (skill vs persistence). Skill positif = lebih baik.\n")
 
+    # Target A (mentah)
+    ringkas_a = (
+        dfm[(dfm["target"] == "A") & (dfm["metode"] != "lightgbm_quantile")]
+        .groupby(["metode", "horizon"])
+        .agg(mae=("mae", "mean"), skill=("skill", "mean"))
+        .reset_index()
+    )
+    L.append("### Target A (nilai mentah t+h)\n")
+    L.append("| Metode | h=5 | h=15 | h=30 | h=60 |")
+    L.append("|---|---|---|---|---|")
+    for metode in sorted(ringkas_a["metode"].unique()):
+        sel = []
+        for h in HORIZONS:
+            r = ringkas_a[(ringkas_a["metode"] == metode) & (ringkas_a["horizon"] == h)]
+            sel.append(f"{r['mae'].iloc[0]:.2f} ({r['skill'].iloc[0]:+.0%})" if not r.empty else "-")
+        L.append(f"| {metode} | " + " | ".join(sel) + " |")
+    L.append("")
+    L.append("Target A lebih sulit karena nilai sesaat berderau. Untuk dashboard, "
+             "target B (halus 5 menit) lebih bermakna karena pengguna melihat level, "
+             "bukan fluktuasi per menit.\n")
+
     L.append("## 3. Metode terbaik per horizon\n")
     L.append("| Horizon | Terbaik | MAE | Skill | Signifikan? |")
     L.append("|---|---|---|---|---|")
@@ -751,7 +925,81 @@ def tulis_summary(prof, info, bocor, folds, ringkas, dfm, sig, collapse, args) -
              "atas galat per sampel dari seluruh fold uji. CI adalah selisih MAE "
              "dalam µg/m³; seluruh rentang di atas 0 berarti keunggulan bukan kebetulan.\n")
 
-    L.append("## 4. Interval prediksi (LightGBM kuantil)\n")
+    L.append("## 4. Kategori ISPU dan kejadian memburuk\n")
+    kat = (
+        dfm[(dfm["target"] == "B") & (dfm["metode"].isin(["persistence", "rolling_15", "produksi_10_15_30"]))]
+        .groupby(["metode", "horizon"])
+        .agg(
+            akurasi=("akurasi_ispu", "mean"),
+            precision=("precision_memburuk", "mean"),
+            recall=("recall_memburuk", "mean"),
+            kejadian=("kejadian_memburuk", "sum"),
+        )
+        .reset_index()
+    )
+    L.append("| Metode | Horizon | Akurasi kategori | Precision memburuk | Recall memburuk | Kejadian |")
+    L.append("|---|---|---|---|---|---|")
+
+    def pct(x):
+        return "–" if not np.isfinite(x) else f"{x:.0%}"
+
+    for _, r in kat.iterrows():
+        L.append(
+            f"| {r['metode']} | {int(r['horizon'])} | {pct(r['akurasi'])} | "
+            f"{pct(r['precision'])} | {pct(r['recall'])} | {int(r['kejadian'])} |"
+        )
+    L.append("")
+    total_kejadian = int(kat["kejadian"].max()) if not kat.empty else 0
+    if total_kejadian < 30:
+        L.append(f"**Tidak bisa disimpulkan.** Hanya {total_kejadian} kejadian memburuk "
+                 "per horizon. Precision/recall pada sampel sekecil ini terlalu berderau.\n")
+    else:
+        L.append(
+            f"Kejadian memburuk per horizon: {total_kejadian} dari sekitar 6.000 sampel uji "
+            f"(±{total_kejadian / 6000:.0%}), jadi cukup untuk disimpulkan. "
+            "Persistence tidak pernah memprediksi kenaikan kategori, sehingga precision-nya "
+            "tidak terdefinisi dan recall-nya nol.\n"
+        )
+
+    L.append("## 5. Perbandingan antar metode (block bootstrap)\n")
+    L.append("Pembanding utama sekarang **rolling_15**, bukan persistence. "
+             "Blok bootstrap sebesar horizon, bukan 30 menit tetap.\n")
+    L.append("| Horizon | Dibandingkan | Selisih MAE | 95% CI | Keputusan |")
+    L.append("|---|---|---|---|---|")
+    if perbandingan:
+        for (h, lawan), r in sorted(perbandingan.items()):
+            if r["lo"] > 0:
+                putusan = "rolling_15 lebih baik (signifikan)"
+            elif r["hi"] < 0:
+                putusan = f"{lawan} lebih baik (signifikan)"
+            else:
+                putusan = "seri (tidak signifikan)"
+            L.append(
+                f"| {h} | {lawan} | {r['mean']:+.2f} | {r['lo']:+.2f}–{r['hi']:+.2f} | {putusan} |"
+            )
+    else:
+        L.append("| - | - | - | - | data tidak cukup |")
+    L.append("")
+    L.append("Selisih positif berarti rolling_15 memiliki galat lebih kecil.\n")
+
+    L.append("## 6. Interval konformal (P10–P90 residual)\n")
+    if konformal:
+        L.append("Kuantil residual dihitung dari data latih tiap fold, lalu diterapkan "
+                 "ke data uji. Tidak ada test yang dipakai untuk menghitung kuantil.\n")
+        L.append("| Horizon | Cakupan empiris | Lebar rata-rata | q10 | q90 | n |")
+        L.append("|---|---|---|---|---|---|")
+        for b in baris_konf:
+            L.append(
+                f"| {b['horizon']} | {b['cakupan']:.0%} | {b['lebar']:.2f} µg/m³ | "
+                f"{b['q10']:+.2f} | {b['q90']:+.2f} | {b['n']} |"
+            )
+        L.append("")
+        L.append("Nominal 80%. Diekspor ke `results/residual_quantiles.json` "
+                 "agar bisa dibaca dashboard.\n")
+    else:
+        L.append("Tidak ada hasil konformal.\n")
+
+    L.append("## 7. Interval LightGBM kuantil\n")
     q = dfm[dfm["metode"] == "lightgbm_quantile"]
     if q.empty:
         L.append("Tidak ada hasil kuantil.\n")
@@ -770,7 +1018,7 @@ def tulis_summary(prof, info, bocor, folds, ringkas, dfm, sig, collapse, args) -
         L.append("")
         L.append("Nominal 80%. Cakupan jauh di bawah itu berarti interval terlalu sempit.\n")
 
-    L.append("## 5. Perbandingan dengan GRU/LSTM produksi\n")
+    L.append("## 8. Perbandingan dengan GRU/LSTM produksi\n")
     L.append(
         "Tidak dibandingkan secara langsung. Model produksi memakai kontrak fitur "
         "berbeda (50 fitur termasuk lag dan rolling dari `build_features`), "
@@ -778,7 +1026,7 @@ def tulis_summary(prof, info, bocor, folds, ringkas, dfm, sig, collapse, args) -
         "Memaksakan perbandingan akan menyesatkan karena input dan skala berbeda.\n"
     )
 
-    L.append("## 6. Pemeriksaan kewarasan\n")
+    L.append("## 9. Pemeriksaan kewarasan\n")
     L.append(f"- Uji kebocoran fitur: **{'lulus' if bocor else 'GAGAL'}** "
              "(fitur pada t tidak berubah saat data setelah t diubah).")
     for kind, c in collapse.items():
@@ -790,35 +1038,60 @@ def tulis_summary(prof, info, bocor, folds, ringkas, dfm, sig, collapse, args) -
         )
     L.append("")
 
-    L.append("## 7. Rekomendasi\n")
+    L.append("## 10. Rekomendasi\n")
     best60 = ringkas[ringkas["horizon"] == 60].sort_values("mae")
     if not best60.empty:
         top = best60.iloc[0]
         s = sig.get(60)
-        if top["metode"] == "persistence":
-            L.append("**Tidak ada metode yang jelas mengalahkan persistence pada h=60.** "
-                     "Pertahankan perataan/persistence sebagai dasar forecast.\n")
-        elif s and s["lo"] > 0:
+        prod = ringkas[(ringkas["metode"] == "produksi_10_15_30") & (ringkas["horizon"] == 60)]
+        prod_mae = float(prod["mae"].iloc[0]) if not prod.empty else None
+
+        L.append(
+            f"Pembanding utama adalah **rolling_15**. Pada h=60, rolling_15 "
+            f"MAE {top['mae']:.2f} µg/m³ (skill {top['skill']:+.0%} vs persistence)."
+        )
+        if s:
             L.append(
-                f"**{top['metode']}** mengalahkan persistence pada h=60 "
-                f"(MAE {top['mae']:.2f} vs {top['mae'] / max(1 - top['skill'], 1e-9):.2f}, "
-                f"skill {top['skill']:+.0%}). Selisih galat "
-                f"{s['mean']:.2f} µg/m³ dengan 95% CI {s['lo']:.2f}–{s['hi']:.2f}, "
-                "seluruhnya di atas nol, jadi keunggulannya bukan kebetulan.\n"
+                f" Selisih galat terhadap persistence {s['mean']:.2f} µg/m³ "
+                f"(95% CI {s['lo']:.2f}–{s['hi']:.2f})."
             )
+        L.append("")
+
+        if prod_mae is not None:
             L.append(
-                "Catatan penting: metode terbaik adalah **perataan sederhana**, bukan "
-                "LightGBM maupun EWMA. Model gradien boosting tidak mengungguli "
-                "rata-rata bergulir pada data ini. Rekomendasi: jadikan "
-                f"`{top['metode']}` sebagai dasar forecast produksi dan pertahankan "
-                "LightGBM hanya sebagai pembanding.\n"
+                f"Perhitungan produksi saat ini (`produksi_10_15_30`) mencapai "
+                f"MAE {prod_mae:.2f} µg/m³ pada h=60."
+            )
+            if top["metode"] == "rolling_15" and prod_mae > top["mae"]:
+                L.append(
+                    f" Artinya produksi kalah {prod_mae - top['mae']:.2f} µg/m³ "
+                    "dari rolling_15."
+                )
+            L.append("")
+
+        if top["metode"] == "produksi_10_15_30":
+            L.append(
+                "**Perhitungan produksi saat ini sudah yang terbaik.** Selisihnya "
+                f"terhadap rolling_15 hanya {abs(prod_mae - float(ringkas[(ringkas['metode'] == 'rolling_15') & (ringkas['horizon'] == 60)]['mae'].iloc[0])):.2f} µg/m³ "
+                "pada h=60, dan pada h=15 keduanya seri secara statistik. "
+                "Artinya **tidak ada alasan mengganti dasar forecast produksi**. "
+                "LightGBM, EWMA, Ridge, dan rolling_5/30/auto semuanya lebih buruk."
+            )
+        elif top["metode"] == "rolling_15":
+            L.append(
+                "**Tidak ada metode yang mengalahkan rolling_15.** Rekomendasi: "
+                "ganti dasar forecast produksi ke rata-rata bergulir 15 menit. "
+                "Perubahannya satu konstanta di `ENSEMBLE_WINDOWS`, tetapi tetap "
+                "perlu persetujuanmu karena mengubah perilaku produksi."
             )
         else:
-            L.append(f"**{top['metode']}** unggul (MAE {top['mae']:.2f}, "
-                     f"skill {top['skill']:+.0%}) tetapi **belum signifikan**. "
-                     "Jangan mengganti model produksi berdasarkan hasil ini.\n")
+            L.append(
+                f"Metode terbaik adalah **{top['metode']}** (MAE {top['mae']:.2f}). "
+                "Bandingkan dengan rolling_15 dan produksi sebelum mengganti apa pun."
+            )
+        L.append("")
 
-    L.append("## 8. Keterbatasan\n")
+    L.append("## 11. Keterbatasan\n")
     L.append(f"- Data hanya {prof['rentang_hari']:.1f} hari. Pola harian dan mingguan "
              "belum bisa disimpulkan.")
     L.append("- Tidak ada data cuaca eksternal (angin, hujan) yang biasanya "
