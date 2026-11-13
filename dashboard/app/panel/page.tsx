@@ -15,10 +15,7 @@ import {
 } from "recharts";
 import {
   AlertTriangle,
-  ArrowDownRight,
-  ArrowUpRight,
   Database,
-  Minus,
   RefreshCw,
 } from "lucide-react";
 
@@ -26,7 +23,15 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { useSensorData } from "@/components/SensorProvider";
 import { getLatestForecast, subscribeForecast } from "@/lib/api";
 import { aqiOf, POLLUTANT_COLOR } from "@/lib/brand";
-import { toWIB } from "@/lib/ispu";
+import { bandFor, usingQuantiles, BAND_META } from "@/lib/forecastChart";
+import {
+  chartLimitMinutes,
+  FORECAST_HORIZONS,
+  hasReliableHorizon,
+  maxReliableMinutes,
+  reliableHorizons,
+} from "@/lib/forecastHorizons";
+import { ispuOf, toWIB } from "@/lib/ispu";
 import type { ForecastRow } from "@/lib/types";
 
 const DEVICES = ["Node 01 - PENS"];
@@ -131,24 +136,6 @@ export default function SummaryPage() {
     return (first?.key ?? "pm25") as "pm25" | "pm10" | "co";
   }, [activeSeries]);
 
-  const primaryLabel = useMemo(
-    () => SERIES.find((s) => s.key === primaryKey)?.label ?? "-",
-    [primaryKey]
-  );
-
-  // Arah tren dihitung dari titik awal vs akhir siklus, bukan dikarang.
-  const trend = useMemo(() => {
-    if (chart.length < 2) return null;
-    const a = Number(chart[0][primaryKey]);
-    const b = Number(chart[chart.length - 1][primaryKey]);
-    if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
-    const delta = b - a;
-    return {
-      delta,
-      direction: delta > 0.5 ? "naik" : delta < -0.5 ? "turun" : "stabil",
-    };
-  }, [chart, primaryKey]);
-
   /** ISPU puncak sepanjang horizon forecast. */
   const peakIspu = useMemo(() => {
     let max = 0;
@@ -160,44 +147,6 @@ export default function SummaryPage() {
     }
     return max > 0 ? Math.round(max) : null;
   }, [forecast]);
-
-  /** Level perkiraan dan selisihnya terhadap pembacaan terakhir. */
-  const levelInfo = useMemo(() => {
-    const vals = chart
-      .map((p) => Number((p as Record<string, unknown>)[primaryKey]))
-      .filter((v) => Number.isFinite(v));
-    if (!vals.length) return null;
-
-    const min = Math.min(...vals);
-    const max = Math.max(...vals);
-    const level = vals[0];
-
-    const kunci = `${primaryKey}_ugm3` as "pm25_ugm3" | "pm10_ugm3" | "co_ugm3";
-    const mentah = Number(data.latest?.[kunci]);
-    const aktual = Number.isFinite(mentah)
-      ? primaryKey === "co"
-        ? mentah / 1000
-        : mentah
-      : null;
-
-    return {
-      level,
-      min,
-      max,
-      datar: Math.abs(max - min) < 0.05,
-      delta: aktual == null ? null : level - aktual,
-    };
-  }, [chart, primaryKey, data.latest]);
-
-  const primaryUnit = useMemo(
-    () => SERIES.find((s) => s.key === primaryKey)?.unit ?? "µg/m³",
-    [primaryKey]
-  );
-
-  const currentIspu = useMemo(() => {
-    const tone = aqiOf(data.ispu);
-    return { value: data.ispu, ...tone };
-  }, [data.ispu]);
 
   // Gabungan riwayat aktual dan forecast dalam satu deret waktu.
   // Ketidakpastian terukur, dipakai sebagai pita di sekitar forecast.
@@ -216,6 +165,98 @@ export default function SummaryPage() {
       batal = true;
     };
   }, []);
+
+  /** Kartu per horizon: nilai, selisih, rentang, kategori. */
+  const horizonCards = useMemo(() => {
+    const kunci = `${primaryKey}_ugm3` as "pm25_ugm3" | "pm10_ugm3" | "co_ugm3";
+    const mentah = Number(data.latest?.[kunci]);
+    const aktual = Number.isFinite(mentah)
+      ? primaryKey === "co"
+        ? mentah / 1000
+        : mentah
+      : null;
+
+    // Semua horizon yang dikonfigurasi tetap tampil. Yang belum andal
+    // diberi lencana dan diredupkan, bukan disembunyikan diam-diam.
+    const dipakai = FORECAST_HORIZONS;
+
+    return dipakai.map((h) => {
+      // Titik forecast pada menit ke-h. Kalau tidak ada, nilai kosong.
+      const titik = forecast.find((r) => {
+        const menit =
+          (new Date(r.forecast_at).getTime() -
+            new Date(r.generated_at).getTime()) /
+          60_000;
+        return Math.round(menit) === h.minutes;
+      });
+
+      const predKey = `${primaryKey}_ugm3_pred` as keyof ForecastRow;
+      const nilaiMentah = titik ? Number(titik[predKey]) : NaN;
+      const level = Number.isFinite(nilaiMentah)
+        ? primaryKey === "co"
+          ? nilaiMentah / 1000
+          : nilaiMentah
+        : null;
+
+      const pita =
+        level == null
+          ? { low: null, high: null, label: "", detail: null }
+          : bandFor(level, h.minutes, skill[primaryKey]?.mae ?? null);
+
+      const ispu = level == null ? null : ispuOf("pm25_ugm3", level);
+      const tone = ispu == null || !Number.isFinite(ispu) ? null : aqiOf(ispu);
+
+      return {
+        minutes: h.minutes,
+        status: h.status,
+        catatan: h.note,
+        jamTujuan: titik ? toWIB(titik.forecast_at) : "-",
+        level,
+        delta: level == null || aktual == null ? null : level - aktual,
+        low: pita.low,
+        high: pita.high,
+        bandLabel: pita.label,
+        bandDetail: pita.detail,
+        kategori: tone?.label ?? null,
+        warna: tone?.dot ?? null,
+      };
+    });
+  }, [forecast, primaryKey, data.latest, skill]);
+
+  /** Ringkasan satu kalimat, tanpa menyiratkan arah. */
+  const kesimpulan = useMemo(() => {
+    const andal = horizonCards.filter((c) => c.status === "andal");
+    const dipakai = andal.length ? andal : horizonCards;
+    const terjauh = dipakai[dipakai.length - 1];
+    if (!terjauh) return null;
+
+    // Tidak ada horizon tervalidasi: tetap tampilkan kalimat jujur,
+    // jangan sembunyikan kartu.
+    if (!andal.length) {
+      return "Perkiraan berupa level, bukan arah. Akurasi belum tervalidasi.";
+    }
+
+    if (terjauh.kategori == null || terjauh.level == null) {
+      return "Perkiraan berupa level, bukan arah.";
+    }
+
+    const semuaDatar = horizonCards.every(
+      (c) => c.level != null && Math.abs(c.level - terjauh.level!) < 0.05
+    );
+
+    if (semuaDatar) {
+      return `Perkiraan berupa level, bukan arah. Sekitar ${terjauh.level.toFixed(
+        1
+      )} µg/m³ dalam ${terjauh.minutes} menit ke depan.`;
+    }
+
+    return `Dalam ${terjauh.minutes} menit ke depan diperkirakan berada pada kategori ${terjauh.kategori}.`;
+  }, [horizonCards]);
+
+  const currentIspu = useMemo(() => {
+    const tone = aqiOf(data.ispu);
+    return { value: data.ispu, ...tone };
+  }, [data.ispu]);
 
   // Aktual = garis padat di kiri, forecast = area transparan di kanan.
   const combined = useMemo(() => {
@@ -254,6 +295,14 @@ export default function SummaryPage() {
       // basi, sebagian forecast-nya jatuh di belakang pembacaan terakhir
       // dan akan tergambar menumpuk dengan garis aktual.
       .filter((r) => new Date(r.forecast_at).getTime() > terakhirMs)
+      // Sumbu X berhenti di horizon andal terjauh.
+      .filter((r) => {
+        const menit =
+          (new Date(r.forecast_at).getTime() -
+            new Date(r.generated_at).getTime()) /
+          60_000;
+        return menit <= chartLimitMinutes();
+      })
       .map((r) => ({
         iso: r.forecast_at,
         ts: new Date(r.forecast_at).getTime(),
@@ -262,25 +311,31 @@ export default function SummaryPage() {
         pm10: valid(r.pm10_ugm3_pred),
         co: coMg(r.co_ugm3_pred),
         isForecast: true,
+        menit:
+          (new Date(r.forecast_at).getTime() -
+            new Date(r.generated_at).getTime()) /
+          60_000,
         bandLow: null as number | null,
         bandSpan: null as number | null,
-        }));
+        bandLabel: null as string | null,
+      }))
+      // Resolusi grafik 5 menit. Nilai forecast pada menit ke-k adalah
+      // level yang sama, jadi menampilkan tiap menit hanya menambah
+      // kerapatan tanpa informasi baru.
+      .filter((r) => Math.round(r.menit) % 5 === 0);
 
-    // Pita ketidakpastian untuk seri utama. Batasnya galat nyata dari
-    // evaluasi 3 hari terakhir; kalau belum tersedia, dipakai ±1,0
-    // sebagai perkiraan awal yang disebut terang-terangan di legenda.
-    const galat = skill[primaryKey]?.mae ?? 1.0;
+    // Pita ketidakpastian per horizon: kuantil residual benchmark bila
+    // tersedia, selain itu galat rata-rata dengan label berbeda.
     for (const row of fc) {
       const nilai = row[primaryKey];
       if (nilai == null) continue;
-      row.bandLow = Math.max(0, nilai - galat);
-      row.bandSpan = 2 * galat;
+      const pita = bandFor(nilai, row.menit, skill[primaryKey]?.mae ?? null);
+      if (pita.low == null || pita.high == null) continue;
+      row.bandLow = pita.low;
+      row.bandSpan = Math.max(0, pita.high - pita.low);
+      row.bandLabel = pita.label;
     }
 
-    // Titik batas tidak ditambahkan: pita dan garis forecast sama-sama
-    // mulai dari titik forecast pertama, tepat setelah garis "Sekarang".
-    // Lompatan dari pembacaan terakhir ditampilkan oleh garis
-    // penghubung tipis, bukan dengan menanjakkan pita.
     const semua = [...actual, ...fc];
 
     // Urutkan menurut waktu asli; label "HH.mm" tidak bisa dipakai
@@ -358,6 +413,16 @@ export default function SummaryPage() {
       { x: f.ts, y: yf },
     ];
   }, [combined, primaryKey]);
+
+  /** Penanda vertikal di setiap horizon yang ditampilkan. */
+  const horizonMarkers = useMemo(() => {
+    if (!forecast.length) return [];
+    const mulai = new Date(forecast[0].generated_at).getTime();
+    const batas = chartLimitMinutes();
+    return reliableHorizons()
+      .filter((h) => h.minutes <= batas)
+      .map((h) => ({ minutes: h.minutes, ts: mulai + h.minutes * 60_000 }));
+  }, [forecast]);
 
   /** Titik "sekarang" dalam epoch ms: akhir data aktual. */
   const nowTs = useMemo(() => {
@@ -468,14 +533,14 @@ export default function SummaryPage() {
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-[15px] font-bold text-white">
-              Forecast 60 menit
+              Perkiraan {maxReliableMinutes() || chartLimitMinutes()} menit ke depan
             </h2>
             <p className="mt-0.5 text-[12px] text-slate-300">
               {forecastLoading
                 ? "Memuat siklus forecast"
                 : !forecast.length
                   ? "Belum ada siklus forecast"
-                  : `Perkiraan 60 menit ke depan · diperbarui ${toWIB(forecast[0].generated_at)}`}
+                  : `Perkiraan ${maxReliableMinutes() || chartLimitMinutes()} menit ke depan · diperbarui ${toWIB(forecast[0].generated_at)}`}
             </p>
             {(() => {
               // Horizon forecast hanya 60 menit. Kalau siklusnya lebih
@@ -636,6 +701,23 @@ export default function SummaryPage() {
                     />
                   )}
 
+                  {/* Penanda vertikal di setiap horizon yang ditampilkan. */}
+                  {horizonMarkers.map((m) => (
+                    <ReferenceLine
+                      key={`h-${m.minutes}`}
+                      x={m.ts}
+                      stroke="#38bdf8"
+                      strokeOpacity={0.35}
+                      strokeDasharray="3 4"
+                      label={{
+                        value: `${m.minutes}m`,
+                        position: "insideTopRight",
+                        fill: "#7dd3fc",
+                        fontSize: 10,
+                      }}
+                    />
+                  ))}
+
                   {/* Pita ketidakpastian sebagai satu area rentang. */}
                   <Area
                     dataKey={(d: (typeof combined)[number]) =>
@@ -705,30 +787,26 @@ export default function SummaryPage() {
                       "repeating-linear-gradient(90deg, #cbd5e1 0 5px, transparent 5px 9px)",
                   }}
                 />
-                Forecast 60 menit
+                Perkiraan level
               </span>
-              {skill[primaryKey]?.mae != null && (
-                <span className="flex items-center gap-2">
-                  <span
-                    className="h-3 w-6 rounded"
-                    style={{
-                      backgroundColor: `${SERIES.find((s) => s.key === primaryKey)?.color ?? "#38bdf8"}29`,
-                    }}
-                  />
-                  Perkiraan rentang ±{(skill[primaryKey]?.mae ?? 0).toFixed(1)} µg/m³
-                </span>
-              )}
+              <span className="flex items-center gap-2">
+                <span
+                  className="h-3 w-6 rounded"
+                  style={{
+                    backgroundColor: `${SERIES.find((s) => s.key === primaryKey)?.color ?? "#38bdf8"}29`,
+                  }}
+                />
+                {usingQuantiles()
+                  ? "Rentang ±, cakupan sekitar 80%"
+                  : "Galat rata-rata"}
+              </span>
             </div>
 
             <p className="mt-2 text-[12px] leading-relaxed text-slate-300">
-              Garis putus-putus adalah <strong className="text-white">perkiraan level</strong>,
-              bukan ramalan naik-turun. Galat nyata 3 hari terakhir
-              {" "}±{(skill[primaryKey]?.mae ?? 1.0).toFixed(1)} µg/m³, jadi nilainya
-              diperkirakan bertahan di sekitar{" "}
-              {forecast[0]?.[`${primaryKey}_ugm3_pred` as keyof ForecastRow] != null
-                ? Number(forecast[0][`${primaryKey}_ugm3_pred` as keyof ForecastRow]).toFixed(1)
-                : "-"}{" "}
-              µg/m³.
+              Garis putus-putus adalah{" "}
+              <strong className="text-white">perkiraan level</strong>, bukan
+              ramalan naik-turun. Pita menunjukkan rentang ketidakpastian yang
+              melebar seiring horizon.
             </p>
 
             {(() => {
@@ -777,73 +855,97 @@ export default function SummaryPage() {
               </p>
             )}
 
-            <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-              {/* Kesimpulan: paling menonjol, karena inilah yang dicari pembaca. */}
-              <div className="rounded-lg border border-sky-400/30 bg-sky-500/10 px-3 py-2.5">
-                <dt className="text-[12px] font-medium text-sky-200">
-                  Kesimpulan {primaryLabel}
-                </dt>
-                <dd className="mt-1 flex items-center gap-2 text-[15px] font-bold text-white">
-                  {trend ? (
-                    <>
-                      {trend.direction === "naik" ? (
-                        <ArrowUpRight className="h-5 w-5 text-rose-400" />
-                      ) : trend.direction === "turun" ? (
-                        <ArrowDownRight className="h-5 w-5 text-emerald-400" />
-                      ) : (
-                        <Minus className="h-5 w-5 text-slate-300" />
-                      )}
-                      <span className="capitalize">{trend.direction}</span>
-                      <span className="font-mono text-[12px] font-normal tabular-nums text-slate-300">
-                        ({trend.delta > 0 ? "+" : ""}
-                        {trend.delta.toFixed(2)})
+            {/* Kesimpulan ringkas, tanpa menyiratkan arah. */}
+            {kesimpulan && (
+              <div className="mt-4 rounded-lg border border-sky-400/30 bg-sky-500/10 px-3 py-2.5">
+                <p className="text-[12px] font-medium text-sky-200">
+                  Kesimpulan
+                </p>
+                <p className="mt-1 text-[14px] font-semibold leading-snug text-white">
+                  {kesimpulan}
+                </p>
+              </div>
+            )}
+
+            {/* Satu kartu per horizon andal. */}
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {horizonCards.map((c) => {
+                const redup = c.status === "belum_andal";
+                return (
+                  <article
+                    key={c.minutes}
+                    title={c.catatan}
+                    className={`rounded-lg border px-3 py-2.5 ${
+                      redup
+                        ? "border-white/10 bg-slate-900/50 opacity-70"
+                        : "border-white/10"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[12px] font-medium text-slate-300">
+                        {c.minutes} menit
+                      </p>
+                      <span className="font-mono text-[11px] tabular-nums text-slate-400">
+                        {c.jamTujuan}
                       </span>
-                    </>
-                  ) : (
-                    "-"
-                  )}
-                </dd>
-                <p className="mt-1 text-[12px] leading-snug text-slate-300">
-                  {trend?.direction === "stabil"
-                    ? "Diperkirakan bertahan pada level sekarang."
-                    : trend?.direction === "naik"
-                      ? "Cenderung meningkat dalam satu jam ke depan."
-                      : trend?.direction === "turun"
-                        ? "Cenderung menurun dalam satu jam ke depan."
-                        : "Belum cukup data untuk menyimpulkan arah."}
-                </p>
-              </div>
+                    </div>
 
-              <div className="rounded-lg border border-white/10 px-3 py-2.5">
-                <dt className="text-[12px] font-medium text-slate-300">
-                  Level perkiraan
-                </dt>
-                <dd className="mt-1 text-[15px] font-semibold font-mono tabular-nums text-white">
-                  {levelInfo
-                    ? levelInfo.datar
-                      ? `${levelInfo.level.toFixed(2)} ${primaryUnit}`
-                      : `${levelInfo.min.toFixed(2)}–${levelInfo.max.toFixed(2)} ${primaryUnit}`
-                    : "-"}
-                </dd>
-                <p className="mt-1 text-[12px] text-slate-300">
-                  {levelInfo?.delta != null
-                    ? `${levelInfo.delta > 0 ? "+" : ""}${levelInfo.delta.toFixed(2)} dari sekarang`
-                    : "belum ada pembanding"}
-                </p>
-              </div>
+                    <p className="mt-1 text-[18px] font-semibold font-mono tabular-nums text-white">
+                      {c.level == null ? "–" : c.level.toFixed(2)}
+                      <span className="ml-1 text-[11px] font-normal text-slate-400">
+                        µg/m³
+                      </span>
+                    </p>
 
-              <div className="rounded-lg border border-white/10 px-3 py-2.5">
-                <dt className="text-[12px] font-medium text-slate-300">
-                  Akurasi terukur
-                </dt>
-                <dd className="mt-1 text-[15px] font-semibold font-mono tabular-nums text-white">
-                  ±{(skill[primaryKey]?.mae ?? 1.0).toFixed(1)} µg/m³
-                </dd>
-                <p className="mt-1 text-[12px] text-slate-300">
-                  galat rata-rata 3 hari terakhir
-                </p>
-              </div>
-            </dl>
+                    <p className="mt-0.5 text-[12px] text-slate-300">
+                      {c.delta == null
+                        ? "tanpa pembanding"
+                        : `${c.delta > 0 ? "+" : ""}${c.delta.toFixed(2)} dari sekarang`}
+                    </p>
+
+                    <p
+                      className="mt-1 text-[12px] leading-snug text-slate-300"
+                      title={c.bandDetail ?? undefined}
+                    >
+                      {c.low == null || c.high == null
+                        ? "Rentang tidak tersedia"
+                        : `${c.low.toFixed(1)}–${c.high.toFixed(1)} µg/m³`}
+                      <span className="block text-[11px] text-slate-400">
+                        {c.bandLabel}
+                      </span>
+                    </p>
+
+                    <div className="mt-2 flex items-center gap-1.5">
+                      {c.warna && (
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: c.warna }}
+                        />
+                      )}
+                      <span className="text-[12px] font-medium text-slate-200">
+                        {c.kategori ?? "kategori tidak tersedia"}
+                      </span>
+                    </div>
+
+                    {redup && (
+                      <span className="mt-2 inline-block rounded border border-amber-400/30 bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-amber-200">
+                        Belum andal
+                      </span>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+
+            {/* Batas keandalan dan asal angka pita. */}
+            <p className="mt-3 text-[12px] leading-relaxed text-slate-300">
+              {hasReliableHorizon()
+                ? `Perkiraan hanya ditampilkan sampai ${maxReliableMinutes()} menit karena itu batas yang terbukti andal.`
+                : "Akurasi perkiraan belum divalidasi."}{" "}
+              {usingQuantiles()
+                ? BAND_META.catatan
+                : "Data kuantil tidak tersedia; rentang memakai galat rata-rata."}
+            </p>
           </>
         )}
       </section>
