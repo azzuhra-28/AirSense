@@ -63,15 +63,20 @@ export type HorizonCard = {
  * Bangun pita untuk satu titik forecast.
  *
  * Sumber utama: kuantil residual dari benchmark (cakupan sekitar 80%).
+ * Kuantil itu hanya dihitung untuk PM2.5, jadi polutan lain wajib memakai
+ * fallback galat rata-rata — memakai kuantil PM2.5 untuk CO akan
+ * melebarkan pita sekitar 1000x karena satuannya berbeda.
+ *
  * Fallback: galat rata-rata (MAE) dengan label berbeda, supaya pembaca
  * tidak menyangka itu interval statistik.
  */
 export function bandFor(
   level: number,
   minutes: number,
-  fallbackMae: number | null
+  fallbackMae: number | null,
+  pakaiKuantil = true
 ): { low: number | null; high: number | null; label: string; detail: string | null } {
-  const b = bandAt(level, minutes);
+  const b = pakaiKuantil ? bandAt(level, minutes) : null;
   if (b) {
     return {
       low: b.low,

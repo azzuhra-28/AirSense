@@ -166,6 +166,38 @@ export default function SummaryPage() {
     };
   }, []);
 
+  /**
+   * Jangkar waktu forecast.
+   *
+   * Pipeline menulis `forecast_at = pembacaan terakhir + k menit`, k = 1..60,
+   * sehingga titik pertama selalu tepat 1 menit setelah jangkar. Memakai
+   * pembacaan terakhir dari dashboard tidak akurat: sensor terus mengirim
+   * setelah siklus forecast dibuat, jadi jangkar bergeser beberapa menit dan
+   * titik ke-60 tidak lagi cocok dengan kartu.
+   */
+  const anchorTs = useMemo(() => {
+    if (forecast.length) {
+      return new Date(forecast[0].forecast_at).getTime() - 60_000;
+    }
+
+    const rows = data.rows;
+    return rows.length
+      ? new Date(rows[rows.length - 1].created_at).getTime()
+      : null;
+  }, [forecast, data.rows]);
+
+  /**
+   * Pita kuantil benchmark hanya dihitung untuk PM2.5. PM10 dan CO memakai
+   * galat rata-rata terukur; untuk CO, MAE dibagi 1000 agar satuannya
+   * mg/m³ seperti sumbu, bukan µg/m³.
+   */
+  const pakaiKuantil = primaryKey === "pm25";
+  const maeTampil = useMemo(() => {
+    const mae = skill[primaryKey]?.mae ?? null;
+    if (mae == null || !Number.isFinite(mae)) return null;
+    return primaryKey === "co" ? mae / 1000 : mae;
+  }, [skill, primaryKey]);
+
   /** Kartu per horizon: nilai, selisih, rentang, kategori. */
   const horizonCards = useMemo(() => {
     const kunci = `${primaryKey}_ugm3` as "pm25_ugm3" | "pm10_ugm3" | "co_ugm3";
@@ -181,12 +213,11 @@ export default function SummaryPage() {
     const dipakai = FORECAST_HORIZONS;
 
     return dipakai.map((h) => {
-      // Titik forecast pada menit ke-h. Kalau tidak ada, nilai kosong.
+      // Titik forecast pada menit ke-h, dihitung dari pembacaan terakhir.
       const titik = forecast.find((r) => {
+        if (anchorTs == null) return false;
         const menit =
-          (new Date(r.forecast_at).getTime() -
-            new Date(r.generated_at).getTime()) /
-          60_000;
+          (new Date(r.forecast_at).getTime() - anchorTs) / 60_000;
         return Math.round(menit) === h.minutes;
       });
 
@@ -201,9 +232,18 @@ export default function SummaryPage() {
       const pita =
         level == null
           ? { low: null, high: null, label: "", detail: null }
-          : bandFor(level, h.minutes, skill[primaryKey]?.mae ?? null);
+          : bandFor(level, h.minutes, maeTampil, pakaiKuantil);
 
-      const ispu = level == null ? null : ispuOf("pm25_ugm3", level);
+      // Kategori ISPU memakai ambang polutan yang sedang dilihat. CO
+      // dihitung dari µg/m³, sedangkan nilai tampilannya mg/m³.
+      const ispu =
+        level == null
+          ? null
+          : primaryKey === "co"
+            ? ispuOf("co_ugm3", level * 1000)
+            : primaryKey === "pm10"
+              ? ispuOf("pm10_ugm3", level)
+              : ispuOf("pm25_ugm3", level);
       const tone = ispu == null || !Number.isFinite(ispu) ? null : aqiOf(ispu);
 
       return {
@@ -222,7 +262,7 @@ export default function SummaryPage() {
         warna: tone?.dot ?? null,
       };
     });
-  }, [forecast, primaryKey, data.latest, skill]);
+  }, [forecast, primaryKey, data.latest, maeTampil, pakaiKuantil, anchorTs]);
 
   /** Ringkasan satu kalimat, tanpa menyiratkan arah. */
   const kesimpulan = useMemo(() => {
@@ -291,6 +331,8 @@ export default function SummaryPage() {
       ? new Date(actualRows[actualRows.length - 1].created_at).getTime()
       : 0;
 
+    const jangkar = anchorTs ?? terakhirMs;
+
     const fc = forecast
       // Hanya titik yang benar-benar di masa depan. Kalau siklus sudah
       // basi, sebagian forecast-nya jatuh di belakang pembacaan terakhir
@@ -298,10 +340,7 @@ export default function SummaryPage() {
       .filter((r) => new Date(r.forecast_at).getTime() > terakhirMs)
       // Sumbu X berhenti di horizon andal terjauh.
       .filter((r) => {
-        const menit =
-          (new Date(r.forecast_at).getTime() -
-            new Date(r.generated_at).getTime()) /
-          60_000;
+        const menit = (new Date(r.forecast_at).getTime() - jangkar) / 60_000;
         return menit <= chartLimitMinutes();
       })
       .map((r) => ({
@@ -312,10 +351,7 @@ export default function SummaryPage() {
         pm10: valid(r.pm10_ugm3_pred),
         co: coMg(r.co_ugm3_pred),
         isForecast: true,
-        menit:
-          (new Date(r.forecast_at).getTime() -
-            new Date(r.generated_at).getTime()) /
-          60_000,
+        menit: (new Date(r.forecast_at).getTime() - jangkar) / 60_000,
         bandLow: null as number | null,
         bandSpan: null as number | null,
         bandLabel: null as string | null,
@@ -330,7 +366,7 @@ export default function SummaryPage() {
     for (const row of fc) {
       const nilai = row[primaryKey];
       if (nilai == null) continue;
-      const pita = bandFor(nilai, row.menit, skill[primaryKey]?.mae ?? null);
+      const pita = bandFor(nilai, row.menit, maeTampil, pakaiKuantil);
       if (pita.low == null || pita.high == null) continue;
       row.bandLow = pita.low;
       row.bandSpan = Math.max(0, pita.high - pita.low);
@@ -344,7 +380,7 @@ export default function SummaryPage() {
     return semua.sort(
       (a, b) => new Date(a.iso).getTime() - new Date(b.iso).getTime()
     );
-  }, [data.rows, forecast, skill, primaryKey]);
+  }, [data.rows, forecast, primaryKey, anchorTs, maeTampil, pakaiKuantil]);
 
   /** Batas sumbu Y mengikuti data, bukan 0-24 tetap. */
   /**
@@ -417,13 +453,12 @@ export default function SummaryPage() {
 
   /** Penanda vertikal di setiap horizon yang ditampilkan. */
   const horizonMarkers = useMemo(() => {
-    if (!forecast.length) return [];
-    const mulai = new Date(forecast[0].generated_at).getTime();
+    if (anchorTs == null) return [];
     const batas = chartLimitMinutes();
     return reliableHorizons()
       .filter((h) => h.minutes <= batas)
-      .map((h) => ({ minutes: h.minutes, ts: mulai + h.minutes * 60_000 }));
-  }, [forecast]);
+      .map((h) => ({ minutes: h.minutes, ts: anchorTs + h.minutes * 60_000 }));
+  }, [anchorTs]);
 
   /** Titik "sekarang" dalam epoch ms: akhir data aktual. */
   const nowTs = useMemo(() => {
@@ -797,7 +832,7 @@ export default function SummaryPage() {
                     backgroundColor: `${SERIES.find((s) => s.key === primaryKey)?.color ?? "#38bdf8"}29`,
                   }}
                 />
-                {usingQuantiles()
+                {pakaiKuantil && usingQuantiles()
                   ? "Rentang ±, cakupan sekitar 80%"
                   : "Galat rata-rata"}
               </span>
@@ -943,9 +978,9 @@ export default function SummaryPage() {
               {hasReliableHorizon()
                 ? `Perkiraan hanya ditampilkan sampai ${maxReliableMinutes()} menit karena itu batas yang terbukti andal.`
                 : "Akurasi perkiraan belum divalidasi."}{" "}
-              {usingQuantiles()
+              {pakaiKuantil && usingQuantiles()
                 ? BAND_META.catatan
-                : "Data kuantil tidak tersedia; rentang memakai galat rata-rata."}
+                : "Polutan ini memakai galat rata-rata terukur, bukan kuantil benchmark PM2.5."}
             </p>
           </>
         )}
