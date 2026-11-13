@@ -251,6 +251,23 @@ export default function SummaryPage() {
                   ? `${forecast.length} titik dari siklus ${forecast[0] ? toWIB(forecast[0].generated_at) : "-"}`
                   : "Belum ada siklus forecast"}
             </p>
+            {(() => {
+              // Horizon forecast hanya 60 menit. Kalau siklusnya lebih
+              // tua dari itu, isinya sudah kedaluwarsa dan tidak boleh
+              // ditampilkan seolah masih berlaku.
+              if (!forecast.length) return null;
+              const umur =
+                (Date.now() - new Date(forecast[0].generated_at).getTime()) / 60_000;
+              if (!Number.isFinite(umur) || umur <= 60) return null;
+
+              return (
+                <p className="mt-1.5 rounded-lg border border-amber-400/25 bg-amber-500/10 px-2 py-1.5 text-[10px] leading-snug text-amber-200">
+                  Siklus ini berumur {Math.round(umur)} menit, sedangkan
+                  horizonnya hanya 60 menit. Isinya sudah kedaluwarsa; garis
+                  aktual tetap ditampilkan.
+                </p>
+              );
+            })()}
           </div>
 
           <div className="flex flex-wrap gap-1.5">
