@@ -93,7 +93,7 @@
   - Selesai mendiagnosis dan memperbaiki sinkronisasi forecast: query `getLatestForecast()` di `dashboard/lib/api.ts` kini toleran terhadap data uji coba 1-baris dan selalu memilih batch 60-titik yang valid.
   - Berhasil menjalankan model forecast recurrent (`python -m src.run_forecast_rnn`) yang menghasilkan 60 titik prediksi baru ke `tb_forecast`.
   - Sukses mengeksekusi ulang pipeline forecast dengan data live sensor ESP32 hari ini (29 Sep 2026), memperbarui proyeksi 60 menit ke depan, dan mengeliminasi warning drift di halaman `/predict`.
-  - Berhasil mengaktifkan otomatisasi pipeline cloud 24/7 via GitHub Actions (`.github/workflows/forecast-nightly.yml`, run #86 sukses `Success`) yang berjalan otomatis setiap 30 menit.
+  - Berhasil mengaktifkan otomatisasi pipeline cloud 24/7 via GitHub Actions (`.github/workflows/forecast-nightly.yml`, run #86 sukses `Success`) yang berjalan otomatis setiap 10 menit (dalam praktik ditunda GitHub menjadi tiap 3-7 jam).
   - Selesai menyempurnakan halaman **Prediksi** (`dashboard/app/predict/page.tsx`):
     1. Ditambahkan 3 Kartu Ringkasan Puncak & Arah Tren per polutan (Nilai akhir, waktu puncak, delta %).
     2. Ditambahkan Garis Ambang Batas Kategori ISPU (ReferenceLine: 50 Baik, 100 Sedang, 200 Tidak Sehat) pada grafik.
@@ -106,7 +106,7 @@
 ## 4. KEPUTUSAN / CATATAN PENTING
 
 - **Otomatisasi Cloud GitHub Actions:**
-  Pipeline ML recurrent (LSTM/GRU) dijalankan setiap 30 menit secara serverless dan gratis di GitHub Actions dengan secret `SUPABASE_URL` dan `SUPABASE_KEY`, membebaskan laptop dari keharusan menyala terus menerus.
+  Pipeline ML recurrent (LSTM/GRU) dijalankan otomatis secara serverless dan gratis di GitHub Actions dengan secret `SUPABASE_URL` dan `SUPABASE_KEY`, membebaskan laptop dari keharusan menyala terus menerus.
 - **Server Dashboard di Windows:**
   `next dev` dengan Turbopack di Windows sempat menyebabkan crash *out of memory (os error 1450)* dan BSOD akibat memori kernel habis. Solusi stabil permanen: gunakan mode production via `npm run start -- -p 3000` (penggunaan RAM hanya ~86 MB, CPU < 1%).
 - **Sanitasi Nilai Negatif Sensor (Zero-clamping):**
@@ -129,7 +129,9 @@
 
 ## 5. NEXT STEPS
 
-1. Hubungkan pipeline analytics otomatis (`src/scheduler.py` atau cron GitHub Actions) agar rutin memperbarui `tb_forecast` dan `tb_alert`.
+1. Otomatisasi sudah berjalan: GitHub Actions tiap 10 menit (ditunda
+   GitHub menjadi 3-7 jam) ditambah loop lokal 5 menit saat laptop
+   menyala. `src/scheduler.py` tidak dipakai lagi dan bisa dihapus.
 2. Lakukan pengujian migrasi kredensial Supabase baru ke firmware ESP32 dan lingkungan live.
 3. Lanjutkan pengembangan modul analitik lanjutan: anomaly detection UI dan fitur tanya-jawab "Ask AirSense".
 

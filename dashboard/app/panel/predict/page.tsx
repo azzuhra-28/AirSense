@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 
 import { getLatestForecast, subscribeForecast } from "@/lib/api";
+import { fetchSkill, type Skill } from "@/lib/forecast-skill";
 import { aqiOf, POLLUTANT_COLOR } from "@/lib/brand";
 import { toWIB } from "@/lib/ispu";
 import { useSensorData } from "@/components/SensorProvider";
@@ -71,6 +72,24 @@ export default function PredictPage() {
   const [activeSeries, setActiveSeries] = useState<string[]>(["pm25", "pm10", "co"]);
   const [showDriftDetails, setShowDriftDetails] = useState(false);
   const [showModelDetails, setShowModelDetails] = useState(false);
+
+  // Ketidakpastian terukur: dihitung dari forecast yang benar-benar
+  // terbit dibandingkan pembacaan sesudahnya, bukan angka karangan.
+  const [skill, setSkill] = useState<Record<string, Skill>>({});
+
+  useEffect(() => {
+    let batal = false;
+    fetchSkill(3)
+      .then((hasil) => {
+        if (!batal) setSkill(hasil);
+      })
+      .catch(() => {
+        // Tanpa data evaluasi, kartu tetap tampil tanpa angka galat.
+      });
+    return () => {
+      batal = true;
+    };
+  }, []);
 
   const { rows: actualRows } = useSensorData();
 
@@ -715,10 +734,21 @@ export default function PredictPage() {
                   </span>
                 </div>
 
+                {(() => {
+                  const galat = skill[stat.key]?.mae;
+                  if (galat == null) return null;
+                  return (
+                    <p className="relative mt-3 rounded-lg border border-white/10 bg-slate-950/40 px-2.5 py-2 text-[10px] leading-snug text-slate-400">
+                      Ketidakpastian ±{galat.toFixed(1)} µg/m³
+                      {" — "}rata-rata galat nyata 3 hari terakhir pada horizon
+                      31-60 menit. Perkiraan level, bukan prediksi per menit.
+                    </p>
+                  );
+                })()}
+
                 <div className="relative mt-5 grid grid-cols-2 gap-3 border-t border-white/10 pt-4">
                   <div>
-                    <p className="text-[10px] text-slate-400">Nilai awal</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-200">
+                    <p className="text-[10px] text-slate-400">Nilai awal</p><p className="mt-1 text-sm font-semibold text-slate-200">
                       {(isConc ? stat.initialConc : stat.initialIspu).toFixed(1)}
                       <span className="ml-1 text-[10px] font-normal text-slate-400">
                         {unit}

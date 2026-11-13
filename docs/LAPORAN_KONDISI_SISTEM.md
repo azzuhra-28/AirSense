@@ -1,5 +1,25 @@
 # Laporan Kondisi Sistem AirSense
 
+> **Pembaruan 13 November 2026** — angka di bawah pada bagian 2 dan 4
+> sudah tidak berlaku. Kondisi terbaru:
+>
+> - **Sensor debu pulih.** PM2.5 dan PM10 membaca 6-30 ug/m3 tanpa nilai
+>   negatif. O3 dan NO2 tetap tidak terbaca.
+> - **Data seminggu penuh tercapai:** 6-12 Nov, 99,2-99,4% per hari,
+>   satu segmen bersambung 9.245 baris (7 hari tanpa jeda).
+> - **Galat forecast terukur:** PM2.5 MAE 1,24 vs baseline 1,42
+>   (**menang 12%**), PM10 2,06 vs 1,87 (kalah), CO 114 vs 65 (kalah).
+> - **Horizon berguna 0-60 menit sebagai perkiraan level.** Galat hanya
+>   tumbuh dari 1,0 ke 1,4 sepanjang satu jam, artinya yang membatasi
+>   adalah derau sensor, bukan jarak ramalan. Perubahan PM2.5 yang
+>   benar-benar terjadi dalam satu jam hanya 1,4 ug/m3 (median).
+> - **Blending:** LSTM, XGBoost, dan pola rata-rata per jam digabung
+>   dengan bobot dari galat masing-masing. Komponen yang lebih dari 20%
+>   lebih buruk tidak diikutkan.
+> - **CI sempat gagal 11-13 Nov** karena build_features menuntut kolom
+>   target NO2 yang kosong sehingga seluruh baris latih terbuang. Sudah
+>   diperbaiki.
+
 **Periode:** 30 Agustus - 5 November 2026
 **Disusun untuk:** diskusi dengan dosen penanggung jawab alat
 **Status:** sistem berjalan, 3 dari 6 kanal sensor bermasalah
