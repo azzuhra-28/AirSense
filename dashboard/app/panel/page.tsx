@@ -582,6 +582,9 @@ export default function SummaryPage() {
                       fontSize: 12,
                     }}
                     labelStyle={{ color: "#e2e8f0", fontWeight: 600 }}
+                    labelFormatter={(v) =>
+                      toWIB(new Date(Number(v)).toISOString())
+                    }
                     formatter={(value, name, item) => {
                       const s = SERIES.find((x) => x.key === name);
                       const phase = item?.payload?.isForecast ? "forecast" : "aktual";
@@ -645,6 +648,7 @@ export default function SummaryPage() {
                     fillOpacity={0.25}
                     isAnimationActive={false}
                     activeDot={false}
+                    tooltipType="none"
                   />
 
                   {/* Garis penghubung digambar bersama penanda "Sekarang". */}

@@ -43,7 +43,7 @@ function nearest(sorted: { t: number; v: number }[], t: number): number | null {
   return best ? best.v : null;
 }
 
-export type Skill = { mae: number | null; n: number };
+export type Skill = { mae: number | null; p90: number | null; n: number };
 
 export function computeSkill(
   forecast: ForecastRow[],
@@ -73,8 +73,14 @@ export function computeSkill(
       errors.push(Math.abs(pred - act));
     }
 
+    const urut = [...errors].sort((a, b) => a - b);
+    const p90 = urut.length
+      ? urut[Math.min(urut.length - 1, Math.floor(urut.length * 0.9))]
+      : null;
+
     hasil[s.key] = {
       mae: errors.length ? errors.reduce((a, b) => a + b, 0) / errors.length : null,
+      p90,
       n: errors.length,
     };
   }
