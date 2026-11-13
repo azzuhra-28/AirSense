@@ -19,7 +19,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
-import { POLLUTANTS } from "@/lib/brand";
+import { POLLUTANTS_AKTIF } from "@/lib/brand";
 import { toWIB } from "@/lib/ispu";
 import { useSensorData } from "@/components/SensorProvider";
 import { AnomalyPanel } from "@/components/AnomalyPanel";
@@ -35,13 +35,13 @@ const LIMIT_OPTIONS = [
 export default function AnalyticsPage() {
   const { loading, failed, rows, reload } = useSensorData();
   const [active, setActive] = useState<string>(
-    POLLUTANTS[0].key
+    POLLUTANTS_AKTIF[0].key
   );
   const [limit, setLimit] = useState<number>(60);
 
   const meta =
-    POLLUTANTS.find((p) => p.key === active) ??
-    POLLUTANTS[0];
+    POLLUTANTS_AKTIF.find((p) => p.key === active) ??
+    POLLUTANTS_AKTIF[0];
 
   // Batasi jumlah titik sesuai pilihan.
   const activeRows = useMemo(() => {
@@ -173,7 +173,7 @@ export default function AnalyticsPage() {
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          {POLLUTANTS.map((p) => {
+          {POLLUTANTS_AKTIF.map((p) => {
             const on = p.key === active;
             return (
               <button

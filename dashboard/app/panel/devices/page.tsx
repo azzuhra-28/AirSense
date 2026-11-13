@@ -19,18 +19,16 @@ import {
 
 import { PageHeader } from "@/components/PageHeader";
 import { useSensorData } from "@/components/SensorProvider";
-import { POLLUTANTS } from "@/lib/brand";
+import { POLLUTANTS_AKTIF } from "@/lib/brand";
 import { toWIB } from "@/lib/ispu";
 import { DEVICE_STATUS_META } from "@/lib/device";
 
 const CHANNELS = [
-  { key: "pm25_ugm3", label: "PM2.5", unit: "µg/m³", sensor: "GP2Y1010AU0F" },
-  { key: "pm10_ugm3", label: "PM10", unit: "µg/m³", sensor: "GP2Y1010AU0F" },
-  { key: "co_ugm3", label: "CO", unit: "µg/m³", sensor: "MiCS-6814" },
-  { key: "no2_ugm3", label: "NO₂", unit: "µg/m³", sensor: "MiCS-6814" },
-  { key: "o3_ugm3", label: "O₃", unit: "µg/m³", sensor: "MQ-131" },
-  { key: "temperature", label: "Suhu", unit: "°C", sensor: "DHT22" },
-  { key: "humidity", label: "Kelembapan", unit: "%RH", sensor: "DHT22" },
+  { key: "pm25_ugm3", label: "PM2.5", unit: "µg/m³", sensor: "GP2Y1010AU0F", scale: 1, cekBeku: true },
+  { key: "pm10_ugm3", label: "PM10", unit: "µg/m³", sensor: "GP2Y1010AU0F", scale: 1, cekBeku: true },
+  { key: "co_ugm3", label: "CO", unit: "mg/m³", sensor: "MiCS-6814", scale: 1 / 1000, cekBeku: true },
+  { key: "temperature", label: "Suhu", unit: "°C", sensor: "DHT22", scale: 1, cekBeku: false },
+  { key: "humidity", label: "Kelembapan", unit: "%RH", sensor: "DHT22", scale: 1, cekBeku: false },
 ] as const;
 
 const CHANNEL_META = {
@@ -159,7 +157,9 @@ export default function DevicesPage() {
     return CHANNELS.map((channel) => {
       const values = tail
         .map((row) => Number((row as unknown as Record<string, unknown>)[channel.key]))
-        .filter((v) => Number.isFinite(v) && v > -900);
+        .filter((v) => Number.isFinite(v) && v > -900)
+        // Satuan tampilan: CO disajikan mg/m³, sama seperti halaman lain.
+        .map((v) => v * channel.scale);
 
       if (!values.length) {
         return {
@@ -180,7 +180,7 @@ export default function DevicesPage() {
         };
       }
 
-      if (unique <= 1 && values.length >= 10) {
+      if (channel.cekBeku && unique <= 1 && values.length >= 10) {
         return {
           ...channel,
           state: "stuck" as const,
@@ -188,7 +188,7 @@ export default function DevicesPage() {
         };
       }
 
-      if (unique <= 2 && values.length >= 10) {
+      if (channel.cekBeku && unique <= 2 && values.length >= 10) {
         return {
           ...channel,
           state: "stuck" as const,
@@ -435,6 +435,11 @@ export default function DevicesPage() {
             );
           })}
         </div>
+
+        <p className="mt-3 rounded-lg border border-white/10 bg-slate-950/40 px-3 py-2 text-[12px] leading-relaxed text-slate-300">
+          NO₂ dan O₃ tidak ditampilkan karena sensornya tidak mengirim data:
+          NO₂ tidak terpasang (pin mengambang) dan O₃ membeku pada satu nilai.
+        </p>
       </section>
 
       {/* KOMPONEN SENSOR */}
@@ -504,7 +509,7 @@ export default function DevicesPage() {
         </div>
 
         <div className="grid gap-3 border-t border-white/10 bg-slate-950/40 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-3">
-          {POLLUTANTS.map((p) => {
+          {POLLUTANTS_AKTIF.map((p) => {
             const value = latest
               ? Number(latest[p.key as keyof typeof latest])
               : NaN;

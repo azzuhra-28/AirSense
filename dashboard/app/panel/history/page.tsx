@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
-import { POLLUTANTS } from "@/lib/brand";
+import { POLLUTANTS_AKTIF } from "@/lib/brand";
 import { toWIB } from "@/lib/ispu";
 import { useSensorData } from "@/components/SensorProvider";
 import type { KonsentrasiGas } from "@/lib/types";
@@ -185,7 +185,7 @@ export default function HistoryPage() {
                     Waktu pembacaan
                   </th>
 
-                  {POLLUTANTS.map((p) => (
+                  {POLLUTANTS_AKTIF.map((p) => (
                     <th
                       key={p.key}
                       className="px-4 py-4 text-right text-[10px] font-bold uppercase tracking-wider text-slate-400"
@@ -229,7 +229,7 @@ export default function HistoryPage() {
                       {toWIB(row.created_at)}
                     </td>
 
-                    {POLLUTANTS.map((p) => (
+                    {POLLUTANTS_AKTIF.map((p) => (
                       <td
                         key={p.key}
                         className="px-4 py-4 text-right text-xs font-mono tabular-nums text-slate-200"
@@ -271,7 +271,7 @@ export default function HistoryPage() {
                 </div>
 
                 <dl className="grid grid-cols-3 gap-2">
-                  {POLLUTANTS.map((p) => (
+                  {POLLUTANTS_AKTIF.map((p) => (
                     <div
                       key={p.key}
                       className="min-w-0 rounded-xl border border-white/10 bg-slate-900/60 px-2 py-1.5"

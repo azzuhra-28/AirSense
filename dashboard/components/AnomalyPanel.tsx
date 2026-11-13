@@ -13,7 +13,7 @@ import {
 } from "recharts";
 import { Activity, CheckCircle2, WifiOff } from "lucide-react";
 
-import { POLLUTANTS } from "@/lib/brand";
+import { POLLUTANTS_AKTIF } from "@/lib/brand";
 import { toWIB } from "@/lib/ispu";
 import {
   Z_THRESHOLD,
@@ -30,7 +30,7 @@ const LEVEL_STYLE = {
   "Gangguan perangkat": "bg-slate-800 text-slate-300 ring-slate-700",
 } as const;
 
-const KEYS = POLLUTANTS.map((p) => p.key as string);
+const KEYS = POLLUTANTS_AKTIF.map((p) => p.key as string);
 
 function fmt(v: number) {
   if (!Number.isFinite(v)) return "-";
@@ -54,7 +54,7 @@ export function AnomalyPanel({
   onSelect: (key: string) => void;
 }) {
   const meta =
-    POLLUTANTS.find((p) => p.key === active) ?? POLLUTANTS[0];
+    POLLUTANTS_AKTIF.find((p) => p.key === active) ?? POLLUTANTS_AKTIF[0];
 
   const enough = rows.length > Z_WINDOW;
 
@@ -84,7 +84,7 @@ export function AnomalyPanel({
 
   const counts = useMemo(
     () =>
-      POLLUTANTS.map((p) => ({
+      POLLUTANTS_AKTIF.map((p) => ({
         key: p.key as string,
         label: p.label as string,
         color: p.color as string,
@@ -101,7 +101,7 @@ export function AnomalyPanel({
   );
 
   const meterOf = (key: string) =>
-    POLLUTANTS.find((p) => p.key === key) ?? POLLUTANTS[0];
+    POLLUTANTS_AKTIF.find((p) => p.key === key) ?? POLLUTANTS_AKTIF[0];
 
   return (
     <section className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 sm:p-6 text-slate-100">

@@ -16,7 +16,7 @@ import {
   subscribeGas,
   supabaseConfigured,
 } from "@/lib/api";
-import { aqiOf, POLLUTANTS } from "@/lib/brand";
+import { aqiOf, POLLUTANTS_AKTIF } from "@/lib/brand";
 import {
   DEVICE_DESCRIPTION,
   deviceStatusFrom,
@@ -174,7 +174,7 @@ export function SensorProvider({ children }: { children: ReactNode }) {
 
   const pollutants = useMemo<PollutantReading[]>(() => {
     if (!latest) return [];
-    return POLLUTANTS.map((p) => {
+    return POLLUTANTS_AKTIF.map((p) => {
       const raw = Number(latest[p.key as keyof KonsentrasiGas]);
       const safe = Number.isFinite(raw) ? Math.max(0, raw) : 0;
       return {

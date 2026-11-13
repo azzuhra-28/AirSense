@@ -212,6 +212,7 @@ export default function SummaryPage() {
         catatan: h.note,
         jamTujuan: titik ? toWIB(titik.forecast_at) : "-",
         level,
+        unit: primaryKey === "co" ? "mg/m³" : "µg/m³",
         delta: level == null || aktual == null ? null : level - aktual,
         low: pita.low,
         high: pita.high,
@@ -246,8 +247,8 @@ export default function SummaryPage() {
 
     if (semuaDatar) {
       return `Perkiraan berupa level, bukan arah. Sekitar ${terjauh.level.toFixed(
-        1
-      )} µg/m³ dalam ${terjauh.minutes} menit ke depan.`;
+        2
+      )} ${terjauh.unit} dalam ${terjauh.minutes} menit ke depan.`;
     }
 
     return `Dalam ${terjauh.minutes} menit ke depan diperkirakan berada pada kategori ${terjauh.kategori}.`;
@@ -893,7 +894,7 @@ export default function SummaryPage() {
                     <p className="mt-1 text-[18px] font-semibold font-mono tabular-nums text-white">
                       {c.level == null ? "–" : c.level.toFixed(2)}
                       <span className="ml-1 text-[11px] font-normal text-slate-400">
-                        µg/m³
+                        {c.unit}
                       </span>
                     </p>
 
@@ -909,7 +910,7 @@ export default function SummaryPage() {
                     >
                       {c.low == null || c.high == null
                         ? "Rentang tidak tersedia"
-                        : `${c.low.toFixed(1)}–${c.high.toFixed(1)} µg/m³`}
+                        : `${c.low.toFixed(2)}–${c.high.toFixed(2)} ${c.unit}`}
                       <span className="block text-[11px] text-slate-400">
                         {c.bandLabel}
                       </span>

@@ -91,14 +91,21 @@ export const POLLUTANT_COLOR = {
  * CO secara konvensi kualitas udara disajikan dalam mg/m³
  * (nilai sensor ~2900 µg/m³ → 2,9 mg/m³), sedangkan partikulat
  * tetap µg/m³. `scale` mengubah nilai sensor ke satuan tampilan.
+ *
+ * `tersedia` menandai apakah sensor benar-benar mengirim nilai.
+ * NO2 tidak terpasang (ADC mengambang) dan O3 membeku pada satu nilai,
+ * sehingga keduanya tidak ditampilkan sebagai data pengukuran.
  */
 export const POLLUTANTS = [
-  { key: "pm25_ugm3", label: "PM2.5", unit: "µg/m³", scale: 1, color: POLLUTANT_COLOR.pm25 },
-  { key: "pm10_ugm3", label: "PM10", unit: "µg/m³", scale: 1, color: POLLUTANT_COLOR.pm10 },
-  { key: "co_ugm3", label: "CO", unit: "mg/m³", scale: 1 / 1000, color: POLLUTANT_COLOR.co },
-  { key: "no2_ugm3", label: "NO₂", unit: "µg/m³", scale: 1, color: POLLUTANT_COLOR.no2 },
-  { key: "o3_ugm3", label: "O₃", unit: "µg/m³", scale: 1, color: POLLUTANT_COLOR.o3 },
+  { key: "pm25_ugm3", label: "PM2.5", unit: "µg/m³", scale: 1, color: POLLUTANT_COLOR.pm25, tersedia: true },
+  { key: "pm10_ugm3", label: "PM10", unit: "µg/m³", scale: 1, color: POLLUTANT_COLOR.pm10, tersedia: true },
+  { key: "co_ugm3", label: "CO", unit: "mg/m³", scale: 1 / 1000, color: POLLUTANT_COLOR.co, tersedia: true },
+  { key: "no2_ugm3", label: "NO₂", unit: "µg/m³", scale: 1, color: POLLUTANT_COLOR.no2, tersedia: false },
+  { key: "o3_ugm3", label: "O₃", unit: "µg/m³", scale: 1, color: POLLUTANT_COLOR.o3, tersedia: false },
 ] as const;
+
+/** Polutan yang benar-benar mengirim data; dipakai untuk tampilan. */
+export const POLLUTANTS_AKTIF = POLLUTANTS.filter((p) => p.tersedia);
 
 export type PollutantKey = (typeof POLLUTANTS)[number]["key"];
 

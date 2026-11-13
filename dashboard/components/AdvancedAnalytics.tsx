@@ -15,8 +15,6 @@ const POLUTAN = [
   { key: "pm25_ugm3", label: "PM2.5" },
   { key: "pm10_ugm3", label: "PM10" },
   { key: "co_ugm3", label: "CO" },
-  { key: "no2_ugm3", label: "NO₂" },
-  { key: "o3_ugm3", label: "O₃" },
 ] as const;
 
 const JAM = Array.from({ length: 24 }, (_, i) => i);
