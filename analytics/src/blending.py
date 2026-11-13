@@ -110,13 +110,18 @@ def blend_forecast(
     df: pd.DataFrame,
     target: str,
     steps: int = 60,
+    lstm: dict | None = None,
 ) -> dict | None:
     """
-    Hitung prediksi gabungan untuk t+1..t+steps.
+    Gabungkan XGBoost, pola rata-rata per jam, dan (bila ada) LSTM.
 
-    `df` harus kronologis, sudah bersih dari sentinel, dan hanya berisi
-    segmen yang bersambung. Mengembalikan None bila artifact tidak ada,
-    data kurang, atau bentuk fiturnya tidak cocok.
+    Bobot dihitung dari galat masing-masing komponen pada data
+    validasi, bukan ditetapkan manual. Komponen yang galatnya jauh
+    lebih buruk dari yang terbaik diberi bobot nol, supaya tidak ikut
+    menyeret hasil akhir.
+
+    `lstm` berbentuk {"curve": list[float], "mae": float}. Bila tidak
+    diberikan, hanya XGBoost dan pola historis yang dipakai.
     """
     bundle = load_xgb(target)
     if bundle is None or df.empty:
@@ -127,23 +132,17 @@ def blend_forecast(
     if len(usable) < 30:
         return None
 
-    # ---------------------------------------------------------
-    # Jendela validasi: 30% terakhir. Bobot dihitung di sini, bukan
-    # di seluruh data, supaya mencerminkan kondisi terkini.
-    # ---------------------------------------------------------
     split = int(len(usable) * 0.70)
-    fit = usable.iloc[:split]
     validation = usable.iloc[split:]
-    if len(fit) < 20 or len(validation) < 10:
+    if len(validation) < 10:
         return None
 
     model = bundle["model"]
     xgb_val = np.clip(
         model.predict(validation[XGB_ALL_FEATURES].to_numpy()), 0, None
     )
-    historic_val = (
-        validation["created_at"].dt.hour.map(_history_profile(df, target)).to_numpy()
-    )
+    profile = _history_profile(df, target)
+    historic_val = validation["created_at"].dt.hour.map(profile).to_numpy()
     actual_val = validation[target].to_numpy(dtype=float)
 
     mask = np.isfinite(historic_val) & np.isfinite(actual_val)
@@ -153,45 +152,61 @@ def blend_forecast(
     mae_xgb = float(np.mean(np.abs(xgb_val[mask] - actual_val[mask])))
     mae_hist = float(np.mean(np.abs(historic_val[mask] - actual_val[mask])))
 
-    # Bobot berbanding terbalik dengan galat.
-    inverse_xgb = 1.0 / (mae_xgb + 1e-6)
-    inverse_hist = 1.0 / (mae_hist + 1e-6)
-    w_xgb = inverse_xgb / (inverse_xgb + inverse_hist)
-    w_hist = 1.0 - w_xgb
-
-    # Batasi supaya kedua komponen selalu terwakili.
-    w_hist = max(MIN_HISTORY_WEIGHT, min(w_hist, 1.0 - MIN_HISTORY_WEIGHT))
-    w_xgb = 1.0 - w_hist
-
     # ---------------------------------------------------------
-    # Prediksi dari titik terakhir.
+    # Nilai satu langkah ke depan dari tiap komponen.
     # ---------------------------------------------------------
     last = usable.iloc[[-1]]
     xgb_next = float(
         np.clip(model.predict(last[XGB_ALL_FEATURES].to_numpy())[0], 0, None)
     )
-    hist_next = float(_history_profile(df, target).get(df["created_at"].iloc[-1].hour, xgb_next))
+    jam_terakhir = df["created_at"].iloc[-1].hour
+    hist_next = float(profile.get(jam_terakhir, xgb_next))
 
-    blended = w_xgb * xgb_next + w_hist * hist_next
-
-    # Periode dianggap tidak berubah (1 menit/baris), jadi bentuk kurva
-    # mengikuti selisih antara titik gabungan dan nilai aktual terakhir,
-    # lalu meluruh linear menuju 0 pada langkah terakhir. Ini menjaga
-    # kurva tetap menyambung dengan pembacaan nyata.
-    last_actual = float(df[target].iloc[-1])
-    gap = blended - last_actual
-    predictions = [
-        max(0.0, last_actual + gap * (k / steps)) for k in range(1, steps + 1)
+    komponen = [
+        {"nama": "xgboost", "nilai": xgb_next, "mae": mae_xgb},
+        {"nama": "historis", "nilai": hist_next, "mae": mae_hist},
     ]
+
+    lstm_curve = None
+    if lstm and lstm.get("curve") and np.isfinite(lstm.get("mae") or np.nan):
+        lstm_curve = list(lstm["curve"])
+        komponen.append(
+            {"nama": "lstm", "nilai": float(np.mean(lstm_curve)), "mae": float(lstm["mae"])}
+        )
+
+    # ---------------------------------------------------------
+    # Bobot berbanding terbalik dengan galat. Komponen yang lebih
+    # dari 1,2x lebih buruk dari yang terbaik dianggap tidak layak
+    # ikut, bukan sekadar diberi porsi kecil.
+    # ---------------------------------------------------------
+    mae_terbaik = min(k["mae"] for k in komponen)
+    batas = mae_terbaik * 1.2
+
+    dipakai = [k for k in komponen if k["mae"] <= batas]
+    invers = np.array([1.0 / (k["mae"] + 1e-6) for k in dipakai])
+    bobot = invers / invers.sum()
+
+    level = float(sum(b["nilai"] * w for b, w in zip(dipakai, bobot)))
+
+    # ---------------------------------------------------------
+    # Bentuk kurva diambil dari LSTM bila ikut dipakai, karena hanya
+    # LSTM yang punya bentuk. Kurvanya digeser agar rata-ratanya sama
+    # dengan level gabungan.
+    # ---------------------------------------------------------
+    pakai_lstm = lstm_curve is not None and any(k["nama"] == "lstm" for k in dipakai)
+
+    if pakai_lstm and len(lstm_curve) == steps:
+        offset = level - float(np.mean(lstm_curve))
+        predictions = [max(0.0, p + offset) for p in lstm_curve]
+    else:
+        predictions = [max(0.0, level)] * steps
 
     return {
         "predictions": predictions,
-        "weight_xgb": w_xgb,
-        "weight_history": w_hist,
-        "mae_xgb": mae_xgb,
-        "mae_history": mae_hist,
-        "xgb_next": xgb_next,
-        "history_next": hist_next,
+        "weights": {k["nama"]: float(w) for k, w in zip(dipakai, bobot)},
+        "mae": {k["nama"]: float(k["mae"]) for k in komponen},
+        "dipakai": [k["nama"] for k in dipakai],
+        "level": level,
     }
 
 

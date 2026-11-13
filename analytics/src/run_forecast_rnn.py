@@ -809,27 +809,42 @@ def main():
             continue
 
         # ------------------------------------------------------
-        # Adaptive weight blending: XGBoost + pola rata-rata
-        # historis per jam. Dipakai kalau menyediakan hasil; bila
-        # artifact tidak ada atau datanya kurang, prediksi LSTM
-        # tetap dipakai apa adanya.
+        # Adaptive weight blending: LSTM + XGBoost + pola rata-rata
+        # historis. Bobot dihitung dari galat masing-masing pada data
+        # validasi; komponen yang jauh lebih buruk tidak diikutkan.
         # ------------------------------------------------------
         blended = None
         try:
             from .blending import blend_forecast
 
-            blended = blend_forecast(raw_df, target, steps=len(preds))
+            # LSTM hanya diikutkan kalau lolos gate, karena kalau kalah
+            # `preds` sebenarnya sudah berisi perataan, bukan model.
+            lstm_part = (
+                {"curve": preds, "mae": gate["mae"]}
+                if gate.get("method") == "model" and gate.get("mae")
+                else None
+            )
+
+            blended = blend_forecast(
+                raw_df, target, steps=len(preds), lstm=lstm_part
+            )
         except Exception as exc:  # artefak rusak tidak boleh mematikan pipeline
             print(f"  [{target}] blending gagal ({type(exc).__name__}): {exc}")
 
         if blended is not None:
             preds = blended["predictions"]
-            print(
-                f"  [{target}] blending: XGBoost {blended['weight_xgb'] * 100:.0f}% "
-                f"+ historis {blended['weight_history'] * 100:.0f}% "
-                f"(MAE XGB={blended['mae_xgb']:.2f}, "
-                f"historis={blended['mae_history']:.2f})"
+            rincian = ", ".join(
+                f"{nama} {bobot * 100:.0f}%" for nama, bobot in blended["weights"].items()
             )
+            galat = ", ".join(
+                f"{nama}={mae:.2f}" for nama, mae in blended["mae"].items()
+            )
+            print(f"  [{target}] blending: {rincian} (MAE {galat})")
+            if "lstm" not in blended["weights"]:
+                print(
+                    f"  [{target}] LSTM tidak diikutkan: galatnya lebih dari 20% "
+                    "di atas komponen terbaik"
+                )
         else:
             print(f"  [{target}] blending tidak tersedia, memakai keluaran model")
 
