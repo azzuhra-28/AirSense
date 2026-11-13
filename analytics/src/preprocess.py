@@ -245,6 +245,7 @@ def build_features(
     horizon_minutes: int = HORIZON_MINUTES,
     include_targets: bool = True,
     features: list[str] | None = None,
+    targets: list[str] | None = None,
 ) -> tuple[pd.DataFrame, list[str]]:
     """
     Build forecasting features.
@@ -443,7 +444,10 @@ def build_features(
 
     if include_targets:
 
-        for target in TARGETS:
+        # Hanya target yang diminta. Kalau semua target dipaksakan,
+        # polutan yang sensornya mati (mis. NO2 mengirim -999) membuat
+        # seluruh baris terbuang karena kolom targetnya kosong.
+        for target in (targets if targets is not None else TARGETS):
 
             target_name = (
                 f"{target}"

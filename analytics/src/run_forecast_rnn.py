@@ -296,6 +296,7 @@ def forecast_target(
         horizon_minutes=HORIZON_MINUTES,
         include_targets=True,
         features=live,
+        targets=[target],
     )
 
     # Fitur INFERENSI dari segmen terbaru saja, tanpa target, agar
