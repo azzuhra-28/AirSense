@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   CheckCircle2,
@@ -113,8 +113,15 @@ export default function DevicesPage() {
 
   const meta = DEVICE_STATUS_META[status];
 
+  // Waktu sekarang disimpan di state agar render tetap murni.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
   const activity = useMemo(() => {
-    const now = Date.now();
+    const now = nowMs;
 
     return Array.from({ length: 6 }, (_, index) => {
       const end = now - (5 - index) * 60 * 60 * 1000;

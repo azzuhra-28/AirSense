@@ -66,12 +66,15 @@ export function DashboardHeader({
   source = "supabase",
 }: DashboardHeaderProps) {
   const [open, setOpen] = useState(false);
-  const [, forceTick] = useState(0);
   const active = device ?? devices[0];
 
-  // Segarkan status dan label "x menit lalu" tiap 30 detik.
+  // Waktu "sekarang" disimpan di state dan diperbarui berkala, supaya
+  // render tetap murni (Date.now() langsung di render melanggar aturan
+  // React dan membuat hasil tidak stabil).
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
   useEffect(() => {
-    const t = setInterval(() => forceTick((n) => n + 1), 30_000);
+    const t = setInterval(() => setNowMs(Date.now()), 30_000);
     return () => clearInterval(t);
   }, []);
 
@@ -79,7 +82,7 @@ export function DashboardHeader({
     if (!lastSynced) return Infinity;
     const then = new Date(lastSynced).getTime();
     if (!Number.isFinite(then)) return Infinity;
-    return (Date.now() - then) / 60_000;
+    return (nowMs - then) / 60_000;
   })();
 
   const statusKey: StatusKey =

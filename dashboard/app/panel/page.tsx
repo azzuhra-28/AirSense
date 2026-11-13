@@ -69,6 +69,13 @@ export default function SummaryPage() {
   const [activeSeries, setActiveSeries] = useState<string[]>(["pm25"]);
   const reduceMotion = useReducedMotion();
 
+  // Waktu sekarang disimpan di state agar render tetap murni.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
   const loadForecast = useCallback(async () => {
     setForecastError(null);
     try {
@@ -382,9 +389,11 @@ export default function SummaryPage() {
             <p className="mt-0.5 text-[12px] text-slate-300">
               {forecastLoading
                 ? "Memuat siklus forecast"
-                : forecast.length
-                  ? `${futurePoints} titik ke depan dari siklus ${forecast[0] ? toWIB(forecast[0].generated_at) : "-"}`
-                  : "Belum ada siklus forecast"}
+                : !forecast.length
+                  ? "Belum ada siklus forecast"
+                  : futurePoints === 0
+                    ? `Siklus ${toWIB(forecast[0].generated_at)} sudah lewat; menunggu siklus baru`
+                    : `${futurePoints} titik ke depan dari siklus ${toWIB(forecast[0].generated_at)}`}
             </p>
             {(() => {
               // Horizon forecast hanya 60 menit. Kalau siklusnya lebih
@@ -392,7 +401,7 @@ export default function SummaryPage() {
               // ditampilkan seolah masih berlaku.
               if (!forecast.length) return null;
               const umur =
-                (Date.now() - new Date(forecast[0].generated_at).getTime()) / 60_000;
+                (nowMs - new Date(forecast[0].generated_at).getTime()) / 60_000;
               if (!Number.isFinite(umur) || umur <= 60) return null;
 
               return (
