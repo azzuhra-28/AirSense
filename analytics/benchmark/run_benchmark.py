@@ -467,7 +467,8 @@ def main() -> None:
                     m = float(np.mean(np.abs(pv[ok] - av[ok])))
                     if m < best_mae:
                         best_mae, best_alpha = m, alpha
-                kandidat[f"ewma_{best_alpha}"] = pred_ewma(pm, idx, best_alpha)
+                kandidat["ewma"] = pred_ewma(pm, idx, best_alpha)
+                alpha_terpilih = best_alpha
 
                 # Ridge
                 try:
@@ -494,6 +495,8 @@ def main() -> None:
                     m.update(
                         {"metode": nama, "horizon": h, "target": kind, "fold": fi + 1}
                     )
+                    if nama == "ewma":
+                        m["alpha"] = alpha_terpilih
                     baris.append(m)
 
                     # Simpan galat per sampel untuk block bootstrap.
@@ -804,11 +807,11 @@ def tulis_summary(prof, info, bocor, folds, ringkas, dfm, sig, collapse, args) -
                 "seluruhnya di atas nol, jadi keunggulannya bukan kebetulan.\n"
             )
             L.append(
-                "Catatan penting: metode terbaik adalah **perataan/EWMA**, bukan "
-                "LightGBM. Model gradien boosting tidak mengungguli perataan sederhana "
-                "pada data ini. Rekomendasi: ganti dasar forecast produksi ke EWMA "
-                "alpha 0,1 (atau perataan 15 menit) dan pertahankan LightGBM hanya "
-                "sebagai pembanding.\n"
+                "Catatan penting: metode terbaik adalah **perataan sederhana**, bukan "
+                "LightGBM maupun EWMA. Model gradien boosting tidak mengungguli "
+                "rata-rata bergulir pada data ini. Rekomendasi: jadikan "
+                f"`{top['metode']}` sebagai dasar forecast produksi dan pertahankan "
+                "LightGBM hanya sebagai pembanding.\n"
             )
         else:
             L.append(f"**{top['metode']}** unggul (MAE {top['mae']:.2f}, "
