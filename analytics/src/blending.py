@@ -152,6 +152,15 @@ def blend_forecast(
     mae_xgb = float(np.mean(np.abs(xgb_val[mask] - actual_val[mask])))
     mae_hist = float(np.mean(np.abs(historic_val[mask] - actual_val[mask])))
 
+    # Pembanding: perataan 10/15/30, metode terbaik pada benchmark.
+    # Dipakai untuk menilai apakah blend layak diterbitkan.
+    from .run_forecast_rnn import smooth_series
+
+    smooth_val = smooth_series(df, target).loc[validation.index].to_numpy(
+        dtype=float
+    )
+    mae_smooth = float(np.nanmean(np.abs(smooth_val - actual_val)))
+
     # ---------------------------------------------------------
     # Nilai satu langkah ke depan dari tiap komponen.
     # ---------------------------------------------------------
@@ -207,6 +216,13 @@ def blend_forecast(
         "mae": {k["nama"]: float(k["mae"]) for k in komponen},
         "dipakai": [k["nama"] for k in dipakai],
         "level": level,
+        # Galat blend diperkirakan dari rata-rata berbobot galat komponen.
+        # Ini batas atas yang konservatif: MAE gabungan tidak mungkin lebih
+        # besar daripada rata-rata berbobot MAE komponennya.
+        "mae_blend": float(
+            sum(k["mae"] * w for k, w in zip(dipakai, bobot))
+        ),
+        "mae_smooth": mae_smooth,
     }
 
 

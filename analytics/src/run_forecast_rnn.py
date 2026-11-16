@@ -493,6 +493,21 @@ def forecast_target(
     return predictions, gate, baseline_preds
 
 
+def pilih_keluaran(blended, smooth_preds, preds):
+    """
+    Pilih keluaran yang diterbitkan: blend atau perataan.
+
+    Blend bisa menyeret level jauh dari pembacaan sekarang karena pola
+    jam historis adalah rata-rata mingguan, bukan nowcast. Kalau galat
+    validasinya lebih buruk daripada perataan, perataan yang dipakai.
+    """
+    if blended is None:
+        return preds, "model"
+    if smooth_preds and blended["mae_blend"] > blended["mae_smooth"]:
+        return smooth_preds, "perataan"
+    return blended["predictions"], "blend"
+
+
 # ============================================================
 # Gate kualitas: bandingkan model dengan tebakan sederhana
 # ============================================================
@@ -868,7 +883,6 @@ def main():
             print(f"  [{target}] blending gagal ({type(exc).__name__}): {exc}")
 
         if blended is not None:
-            preds = blended["predictions"]
             rincian = ", ".join(
                 f"{nama} {bobot * 100:.0f}%" for nama, bobot in blended["weights"].items()
             )
@@ -880,6 +894,18 @@ def main():
                 print(
                     f"  [{target}] LSTM tidak diikutkan: galatnya lebih dari 20% "
                     "di atas komponen terbaik"
+                )
+
+            # Gate terakhir: blend hanya diterbitkan kalau lebih baik
+            # daripada perataan. Pola jam historis bisa menyeret level
+            # jauh dari pembacaan sekarang (mis. 17,7 vs aktual 24).
+            preds, metode = pilih_keluaran(blended, smooth_preds, preds)
+            gate = {**gate, "method": metode}
+            if metode == "perataan":
+                print(
+                    f"  [{target}] blend kalah dari perataan "
+                    f"(MAE {blended['mae_blend']:.2f} vs "
+                    f"{blended['mae_smooth']:.2f}); memakai perataan"
                 )
         else:
             print(f"  [{target}] blending tidak tersedia, memakai keluaran model")

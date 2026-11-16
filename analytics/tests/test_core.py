@@ -237,5 +237,45 @@ class TestIspuSpike(unittest.TestCase):
         self.assertEqual(self._jalankan(df), [])
 
 
+class TestPilihKeluaran(unittest.TestCase):
+    """Blend yang kalah dari perataan tidak boleh diterbitkan."""
+
+    def test_blend_kalah_memakai_perataan(self):
+        from src.run_forecast_rnn import pilih_keluaran
+
+        blended = {
+            "predictions": [17.0] * 60,
+            "mae_blend": 1.8,
+            "mae_smooth": 1.0,
+        }
+
+        hasil, metode = pilih_keluaran(blended, [24.0] * 60, [20.0] * 60)
+
+        self.assertEqual(metode, "perataan")
+        self.assertEqual(hasil[0], 24.0)
+
+    def test_blend_menang_memakai_blend(self):
+        from src.run_forecast_rnn import pilih_keluaran
+
+        blended = {
+            "predictions": [22.0] * 60,
+            "mae_blend": 0.8,
+            "mae_smooth": 1.0,
+        }
+
+        hasil, metode = pilih_keluaran(blended, [24.0] * 60, [20.0] * 60)
+
+        self.assertEqual(metode, "blend")
+        self.assertEqual(hasil[0], 22.0)
+
+    def test_tanpa_blend_memakai_model(self):
+        from src.run_forecast_rnn import pilih_keluaran
+
+        hasil, metode = pilih_keluaran(None, [24.0] * 60, [20.0] * 60)
+
+        self.assertEqual(metode, "model")
+        self.assertEqual(hasil[0], 20.0)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
