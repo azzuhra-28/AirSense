@@ -6,11 +6,13 @@
 # ============================================================
 
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 import requests
 
-load_dotenv()
+# Path eksplisit: jangan bergantung pada working directory systemd.
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")

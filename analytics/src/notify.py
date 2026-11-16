@@ -6,13 +6,15 @@ tetap jalan di mesin yang belum dikonfigurasi.
 """
 
 import os
+from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
 
 # notify.py bisa diimpor sebelum supabase_client.py, jadi .env harus
-# dimuat di sini juga. Tanpa ini, variabel dibaca sebagai string kosong.
-load_dotenv()
+# dimuat di sini juga. Path eksplisit supaya tidak bergantung pada
+# working directory systemd.
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 
 def _token() -> str:
