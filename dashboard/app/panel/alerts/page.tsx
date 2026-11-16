@@ -9,6 +9,7 @@ import {
   Cpu,
   LineChart,
   RefreshCw,
+  Send,
   Wind,
 } from "lucide-react";
 
@@ -76,6 +77,9 @@ const SEVERITY_STYLE: Record<string, string> = {
   MEDIUM: "border-amber-500/30 bg-amber-500/20 text-amber-300",
   LOW: "border-white/10 bg-slate-800 text-slate-300",
 };
+
+/** Channel publik untuk notifikasi di luar web. */
+const TELEGRAM_URL = "https://t.me/AirSenseSDT";
 
 export default function AlertsPage() {
   const { loading, ispu, tone, dominant, status } = useSensorData();
@@ -213,6 +217,22 @@ export default function AlertsPage() {
           </div>
         </section>
       </div>
+
+      {/* LANGGANAN TELEGRAM */}
+      <a
+        href={TELEGRAM_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-400/30 bg-sky-500/10 px-4 py-3 transition hover:bg-sky-500/15"
+      >
+        <span className="flex items-center gap-2 text-sm text-sky-100">
+          <Send size={16} className="shrink-0 text-sky-300" />
+          Dapatkan peringatan langsung di Telegram, walau web ditutup.
+        </span>
+        <span className="rounded-lg bg-sky-500 px-3 py-1.5 text-[11px] font-bold text-slate-950">
+          Ikuti channel
+        </span>
+      </a>
 
       {/* RIWAYAT ALERT */}
       <section className="rounded-3xl border border-sky-400/30 bg-slate-900/70 p-5 sm:p-6">

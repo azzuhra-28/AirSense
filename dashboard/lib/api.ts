@@ -139,8 +139,13 @@ export function subscribeAlerts(
   const client = supabase;
   if (!client) return () => {};
 
+  // Nama channel harus unik per pelanggan. Kalau dua komponen memakai
+  // nama yang sama, Supabase menolak callback kedua setelah subscribe()
+  // dan halaman ikut crash.
   const channel = client
-    .channel("airsense-alerts")
+    .channel(
+      `airsense-alerts-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    )
     .on(
       "postgres_changes",
       {
