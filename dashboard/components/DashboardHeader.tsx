@@ -58,7 +58,7 @@ const STATUS_META: Record<
  */
 export function DashboardHeader({
   lastSynced,
-  devices = ["Node 01 - PENS"],
+  devices = ["Auditorium Lantai 6 Gedung PS PENS"],
   device,
   onDeviceChange,
   onRefresh,

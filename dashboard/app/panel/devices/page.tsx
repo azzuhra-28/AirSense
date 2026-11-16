@@ -181,7 +181,7 @@ export default function DevicesPage() {
             </div>
 
             <h2 className="mt-4 text-2xl font-bold tracking-tight text-white sm:text-3xl">
-              Node 01 - PENS
+              Auditorium Lantai 6 Gedung PS PENS
             </h2>
 
             <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">

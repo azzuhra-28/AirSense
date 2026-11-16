@@ -34,7 +34,7 @@ import {
 import { ispuOf, toWIB } from "@/lib/ispu";
 import type { ForecastRow } from "@/lib/types";
 
-const DEVICES = ["Node 01 - PENS"];
+const DEVICES = ["Auditorium Lantai 6 Gedung PS PENS"];
 
 /**
  * Ambang konsentrasi PM2.5 untuk batas kategori ISPU (µg/m³).

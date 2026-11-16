@@ -162,7 +162,7 @@ export default function AlertsPage() {
                   {deviceMeta.label}
                 </p>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  Node 01 - PENS
+                  Auditorium Lantai 6 Gedung PS PENS
                 </p>
               </div>
             </div>
@@ -426,7 +426,9 @@ export default function AlertsPage() {
  */
 function bukanUji(a: AlertRow) {
   const pesan = (a.message ?? "").trim().toLowerCase();
-  return pesan !== "" && pesan !== "x" && pesan !== "test";
+  if (!pesan || pesan === "x" || pesan === "test") return false;
+  if (pesan.startsWith("uji notifikasi")) return false;
+  return true;
 }
 
 function formatStamp(iso: string) {
