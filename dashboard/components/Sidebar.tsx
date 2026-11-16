@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
@@ -61,9 +62,14 @@ export function Sidebar() {
             collapsed ? "justify-center px-0" : ""
           }`}
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/30">
-            <Cpu className="h-5 w-5" />
-          </div>
+          <Image
+            src="/airsense-icon.png"
+            alt=""
+            width={40}
+            height={40}
+            priority
+            className="h-10 w-10 shrink-0 rounded-xl"
+          />
           {!collapsed && (
             <div className="truncate">
               <span className="font-display text-lg tracking-wider text-white block">

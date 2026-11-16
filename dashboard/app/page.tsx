@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, useReducedMotion } from "framer-motion";
-import { Wind, ArrowRight, ShieldCheck, Activity, Cpu } from "lucide-react";
+import { ArrowRight, ShieldCheck, Activity, Cpu } from "lucide-react";
 
 export default function LandingPage() {
   const reduceMotion = useReducedMotion();
@@ -59,9 +59,14 @@ export default function LandingPage() {
       {/* Header / Navbar */}
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-6 relative z-10">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-sky-400/30 bg-sky-500/20 text-sky-300 shadow-sm">
-            <Wind className="h-5 w-5" strokeWidth={2.4} />
-          </span>
+          <Image
+            src="/airsense-icon.png"
+            alt=""
+            width={40}
+            height={40}
+            priority
+            className="h-10 w-10 rounded-xl"
+          />
           <span className="font-display text-xl tracking-wider text-white">
             AirSense
           </span>
@@ -93,7 +98,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="mt-6 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg drop-shadow">
-            AirSense adalah platform cerdas berbasis IoT untuk memantau indeks kualitas udara (ISPU), polutan berbahaya (PM2.5, PM10, CO, NO2, O3), serta prediksi tren udara secara real-time.
+            AirSense adalah platform cerdas berbasis IoT untuk memantau indeks kualitas udara (ISPU), polutan berbahaya (PM2.5, PM10, CO), serta prediksi tren udara secara real-time.
           </p>
 
           <div className="mt-10 flex items-center justify-center">
