@@ -165,11 +165,17 @@ export default function EvaluasiPage() {
 
   /** Pasangkan tiap prediksi ke aktual & baseline, lalu ukur. */
   const evaluation = useMemo(() => {
+    // CO disajikan mg/m³ seperti halaman lain; PM2.5/PM10 tetap µg/m³.
+    const scale = series.key === "co" ? 1 / 1000 : 1;
+
     const actualSorted = actual
-      .map((r) => ({
-        t: new Date(r.created_at).getTime(),
-        v: num(r[series.actual]),
-      }))
+      .map((r) => {
+        const v = num(r[series.actual]);
+        return {
+          t: new Date(r.created_at).getTime(),
+          v: v === null ? null : v * scale,
+        };
+      })
       .filter((p): p is { t: number; v: number } => p.v !== null)
       .sort((a, b) => a.t - b.t);
 
@@ -185,8 +191,9 @@ export default function EvaluasiPage() {
     }[] = [];
 
     for (const row of forecast) {
-      const pred = num(row[series.pred]);
-      if (pred === null) continue;
+      const predRaw = num(row[series.pred]);
+      if (predRaw === null) continue;
+      const pred = predRaw * scale;
 
       const tPred = new Date(row.forecast_at).getTime();
       const tGen = new Date(row.generated_at).getTime();
@@ -258,6 +265,7 @@ export default function EvaluasiPage() {
   }, [forecast, actual, series]);
 
   const best = evaluation?.all;
+  const unit = series.key === "co" ? "mg/m³" : "µg/m³";
 
   return (
     <div className="space-y-5">
@@ -316,8 +324,8 @@ export default function EvaluasiPage() {
         <>
           <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { label: "MAE", value: best.mae.toFixed(2), hint: "rata-rata selisih absolut" },
-              { label: "RMSE", value: best.rmse.toFixed(2), hint: "menghukum error besar" },
+              { label: "MAE", value: best.mae.toFixed(2), hint: `rata-rata selisih absolut (${unit})` },
+              { label: "RMSE", value: best.rmse.toFixed(2), hint: `menghukum error besar (${unit})` },
               {
                 label: "nMAE",
                 value: best.nmae === null ? "-" : `${best.nmae.toFixed(1)}%`,
@@ -355,8 +363,8 @@ export default function EvaluasiPage() {
                   <tr className="text-[10px] uppercase tracking-wide text-slate-400">
                     <th className="pb-2 font-medium">Horizon</th>
                     <th className="pb-2 text-right font-medium">n</th>
-                    <th className="pb-2 text-right font-medium">MAE model</th>
-                    <th className="pb-2 text-right font-medium">MAE baseline</th>
+                    <th className="pb-2 text-right font-medium">MAE model ({unit})</th>
+                    <th className="pb-2 text-right font-medium">MAE baseline ({unit})</th>
                     <th className="pb-2 text-right font-medium">Selisih</th>
                   </tr>
                 </thead>
