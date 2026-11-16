@@ -24,6 +24,7 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 
 from .ispu import category_of, ispu_value
+from .notify import kirim_telegram
 from .run_forecast_rnn import (
     forecast_target,
     build_forecast_rows,
@@ -72,6 +73,13 @@ ISPU_COLS = {
     "pm25_ugm3": "pm25_ispu_pred",
     "pm10_ugm3": "pm10_ispu_pred",
     "co_ugm3": "co_ispu_pred",
+}
+
+ALERT_LABEL = {
+    "DEVICE_OFFLINE": "Perangkat offline",
+    "ISPU_HIGH": "Kualitas udara memburuk",
+    "ISPU_SPIKE": "Lonjakan ISPU",
+    "FORECAST_HIGH": "Peringatan prediksi",
 }
 
 
@@ -123,6 +131,13 @@ def should_alert(
     return len(recent_alerts(sess, alert_type, cooldown_hours)) == 0
 
 
+def tulis_alert(sess, row: dict):
+    """Tulis alert ke Supabase, lalu teruskan ke Telegram bila aktif."""
+    insert_rows(sess, TABLE_ALERT, [row])
+    label = ALERT_LABEL.get(row["alert_type"], row["alert_type"])
+    kirim_telegram(f"<b>AirSense · {label}</b>\n{row['message']}")
+
+
 # ============================================================
 # Tugas 1 - Deteksi alat mati
 # ============================================================
@@ -150,27 +165,24 @@ def check_device(sess, latest_row: dict | None) -> str:
     if status == "offline" and should_alert(
         sess, "DEVICE_OFFLINE", OFFLINE_ALERT_COOLDOWN_H
     ):
-        insert_rows(
+        tulis_alert(
             sess,
-            TABLE_ALERT,
-            [
-                {
-                    "alert_type": "DEVICE_OFFLINE",
-                    "severity": "HIGH",
-                    "message": (
-                        "Alat tidak mengirim data lebih dari "
-                        f"{OFFLINE_MINUTES} menit. Periksa daya, "
-                        "konektivitas, atau firmware perangkat."
-                    ),
-                    "payload": {
-                        "last_seen": (
-                            latest_row.get("created_at")
-                            if latest_row
-                            else None
-                        )
-                    },
-                }
-            ],
+            {
+                "alert_type": "DEVICE_OFFLINE",
+                "severity": "HIGH",
+                "message": (
+                    "Alat tidak mengirim data lebih dari "
+                    f"{OFFLINE_MINUTES} menit. Periksa daya, "
+                    "konektivitas, atau firmware perangkat."
+                ),
+                "payload": {
+                    "last_seen": (
+                        latest_row.get("created_at")
+                        if latest_row
+                        else None
+                    )
+                },
+            },
         )
         print("  [alert] DEVICE_OFFLINE ditulis.")
 
@@ -228,26 +240,23 @@ def check_ispu(sess, ispu_info: dict | None):
     ):
         return
 
-    insert_rows(
+    tulis_alert(
         sess,
-        TABLE_ALERT,
-        [
-            {
-                "alert_type": "ISPU_HIGH",
-                "severity": "HIGH",
-                "message": (
-                    "Kualitas udara 24 jam berada pada kategori "
-                    f"{ispu_info['category']} "
-                    f"(ISPU {ispu_info['total']}, dominan "
-                    f"{ispu_info['dominant']})."
-                ),
-                "payload": {
-                    "ispu": ispu_info["total"],
-                    "category": ispu_info["category"],
-                    "dominant_pollutant": ispu_info["dominant"],
-                },
-            }
-        ],
+        {
+            "alert_type": "ISPU_HIGH",
+            "severity": "HIGH",
+            "message": (
+                "Kualitas udara 24 jam berada pada kategori "
+                f"{ispu_info['category']} "
+                f"(ISPU {ispu_info['total']}, dominan "
+                f"{ispu_info['dominant']})."
+            ),
+            "payload": {
+                "ispu": ispu_info["total"],
+                "category": ispu_info["category"],
+                "dominant_pollutant": ispu_info["dominant"],
+            },
+        },
     )
     print("  [alert] ISPU_HIGH ditulis.")
 
@@ -324,26 +333,23 @@ def check_ispu_spike(sess, sensor_df: pd.DataFrame):
     if not should_alert(sess, "ISPU_SPIKE", SPIKE_ALERT_COOLDOWN_H):
         return
 
-    insert_rows(
+    tulis_alert(
         sess,
-        TABLE_ALERT,
-        [
-            {
-                "alert_type": "ISPU_SPIKE",
-                "severity": "HIGH",
-                "message": (
-                    "Lonjakan ISPU mendadak: dari "
-                    f"{baseline:.0f} menjadi {now['total']:.0f} "
-                    f"(dominan {now['dominant']})."
-                ),
-                "payload": {
-                    "ispu": round(now["total"], 1),
-                    "baseline": round(baseline, 1),
-                    "jump": round(jump, 1),
-                    "dominant_pollutant": now["dominant"],
-                },
-            }
-        ],
+        {
+            "alert_type": "ISPU_SPIKE",
+            "severity": "HIGH",
+            "message": (
+                "Lonjakan ISPU mendadak: dari "
+                f"{baseline:.0f} menjadi {now['total']:.0f} "
+                f"(dominan {now['dominant']})."
+            ),
+            "payload": {
+                "ispu": round(now["total"], 1),
+                "baseline": round(baseline, 1),
+                "jump": round(jump, 1),
+                "dominant_pollutant": now["dominant"],
+            },
+        },
     )
     print("  [alert] ISPU_SPIKE ditulis.")
 
@@ -401,20 +407,17 @@ def check_forecast(sess, fc_rows: list[dict]):
     ):
         return
 
-    insert_rows(
+    tulis_alert(
         sess,
-        TABLE_ALERT,
-        [
-            {
-                "alert_type": "FORECAST_HIGH",
-                "severity": "MEDIUM",
-                "message": (
-                    "Indikator prediksi RNN menunjukkan puncak "
-                    f"ISPU {peak:.0f} dalam 60 menit ke depan."
-                ),
-                "payload": {"peak_ispu": round(peak, 1)},
-            }
-        ],
+        {
+            "alert_type": "FORECAST_HIGH",
+            "severity": "MEDIUM",
+            "message": (
+                "Indikator prediksi RNN menunjukkan puncak "
+                f"ISPU {peak:.0f} dalam 60 menit ke depan."
+            ),
+            "payload": {"peak_ispu": round(peak, 1)},
+        },
     )
     print("  [alert] FORECAST_HIGH ditulis.")
 
@@ -591,11 +594,30 @@ def parse_args():
         default=60,
         help="Jumlah langkah prediksi (default 60).",
     )
+    parser.add_argument(
+        "--test-telegram",
+        action="store_true",
+        help="Kirim satu pesan uji ke Telegram lalu keluar.",
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+
+    if args.test_telegram:
+        from .notify import kirim_telegram, telegram_aktif
+
+        if not telegram_aktif():
+            print(
+                "TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID belum diisi di .env."
+            )
+            return
+        ok = kirim_telegram(
+            "<b>AirSense</b>\nPesan uji: notifikasi Telegram aktif."
+        )
+        print("Terkirim." if ok else "Gagal. Periksa token dan chat_id.")
+        return
 
     if args.once:
         run_cycle(args.reforecast, args.steps)
