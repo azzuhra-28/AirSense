@@ -83,7 +83,7 @@ export default function AlertsPage() {
 
     getRecentAlerts(30)
       .then((rows) => {
-        setAlerts(rows);
+        setAlerts(rows.filter(bukanUji));
         setFailed(false);
       })
       .catch(() => {
@@ -111,10 +111,6 @@ export default function AlertsPage() {
   }, []);
 
   const deviceMeta = DEVICE_STATUS_META[status];
-
-  const activeAlerts = alerts.filter(
-    (a) => a.is_active !== false
-  );
 
   if (loading) {
     return (
@@ -211,91 +207,6 @@ export default function AlertsPage() {
           </div>
         </section>
       </div>
-
-      {/* STATUS PERINGATAN */}
-      <section className="rounded-3xl border border-sky-400/30 bg-slate-900/70 p-5 sm:p-6">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/25 text-sky-300 border border-sky-400/30 shadow-sm">
-              <BellRing className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-white">
-                Status Peringatan
-              </h2>
-              <p className="mt-0.5 text-[11px] text-slate-400">
-                Kondisi alert yang sedang tercatat
-              </p>
-            </div>
-          </div>
-
-          <span
-            className={`rounded-full px-3 py-1.5 text-[11px] font-bold border ${
-              activeAlerts.length > 0
-                ? "border-rose-500/30 bg-rose-500/20 text-rose-300"
-                : "border-white/10 bg-slate-800 text-slate-300"
-            }`}
-          >
-            {activeAlerts.length > 0
-              ? `${activeAlerts.length} alert aktif`
-              : "Tidak ada alert aktif"}
-          </span>
-        </div>
-
-        {activeAlerts.length > 0 ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {activeAlerts.slice(0, 3).map((a) => {
-              const meta = TYPE_META[a.alert_type] ?? {
-                label: a.alert_type,
-                icon: AlertTriangle,
-                color: "#94A3B8",
-                soft: "rgba(148, 163, 184, 0.15)",
-              };
-              const Icon = meta.icon;
-
-              return (
-                <div
-                  key={a.id}
-                  className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-800/50"
-                >
-                  <div className="flex items-start gap-3">
-                    <span
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 shadow-sm"
-                      style={{
-                        backgroundColor: meta.soft,
-                        color: meta.color,
-                      }}
-                    >
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <div className="min-w-0">
-                      <p
-                        className="text-xs font-bold"
-                        style={{ color: meta.color }}
-                      >
-                        {meta.label}
-                      </p>
-                      <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-slate-300">
-                        {a.message ?? "-"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-white/10 bg-slate-950/40 py-7 text-center">
-            <CheckCircle2 className="mx-auto h-7 w-7 text-sky-400" />
-            <p className="mt-2 text-sm font-semibold text-white">
-              Kondisi aman
-            </p>
-            <p className="mt-1 text-xs text-slate-400">
-              Tidak ada peringatan aktif saat ini.
-            </p>
-          </div>
-        )}
-      </section>
 
       {/* RIWAYAT ALERT */}
       <section className="rounded-3xl border border-sky-400/30 bg-slate-900/70 p-5 sm:p-6">
@@ -411,7 +322,7 @@ export default function AlertsPage() {
                     </div>
 
                     <p className="mt-1 text-xs leading-relaxed text-slate-300">
-                      {a.message ?? "-"}
+                      {pesanBersih(a.message)}
                     </p>
                     <p className="mt-1.5 text-[10px] text-slate-400">
                       {formatStamp(a.created_at)}
@@ -483,10 +394,29 @@ export default function AlertsPage() {
   );
 }
 
+/**
+ * Baris uji coba dari masa pengembangan ("x", "test") tidak ditampilkan.
+ * Baris seperti itu bukan peringatan nyata dan hanya mengotori riwayat.
+ */
+function bukanUji(a: AlertRow) {
+  const pesan = (a.message ?? "").trim().toLowerCase();
+  return pesan !== "" && pesan !== "x" && pesan !== "test";
+}
+
 function formatStamp(iso: string) {
   return new Date(iso).toLocaleString("id-ID", {
     dateStyle: "medium",
     timeStyle: "short",
     timeZone: "Asia/Jakarta",
   });
+}
+
+/**
+ * Buang klaim keyakinan dari pesan alert.
+ *
+ * Pipeline lama menulis "(conf 100%)" padahal tidak ada distribusi
+ * probabilitas yang dihitung. Menampilkannya berarti mengarang presisi.
+ */
+function pesanBersih(pesan: string | null | undefined) {
+  return (pesan ?? "-").replace(/\s*\(conf\s*\d+%\)/gi, "");
 }

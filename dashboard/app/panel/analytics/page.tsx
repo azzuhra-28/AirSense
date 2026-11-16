@@ -22,7 +22,6 @@ import { PageHeader } from "@/components/PageHeader";
 import { POLLUTANTS_AKTIF } from "@/lib/brand";
 import { toWIB } from "@/lib/ispu";
 import { useSensorData } from "@/components/SensorProvider";
-import { AnomalyPanel } from "@/components/AnomalyPanel";
 import { AdvancedAnalytics } from "@/components/AdvancedAnalytics";
 
 const LIMIT_OPTIONS = [
@@ -417,8 +416,6 @@ export default function AnalyticsPage() {
           </div>
         </div>
       </section>
-
-      <AnomalyPanel rows={rows} active={active} onSelect={setActive} />
 
       <AdvancedAnalytics rows={rows} />
     </div>

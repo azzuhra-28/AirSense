@@ -1,18 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
-  Activity,
   CheckCircle2,
   Clock3,
-  Cpu,
   Database,
   RefreshCw,
   Radio,
   Thermometer,
   Wifi,
   WifiOff,
-  Wind,
   Droplets,
   Gauge,
 } from "lucide-react";
@@ -69,32 +66,6 @@ const CHANNEL_META = {
   },
 } as const;
 
-const SENSORS = [  {
-    name: "ESP32",
-    type: "Mikrokontroler",
-    description: "Memproses dan mengirimkan data dari perangkat sensor.",
-    icon: Cpu,
-  },
-  {
-    name: "GP2Y1010AU0F",
-    type: "Sensor partikulat",
-    description: "Digunakan untuk pengukuran partikulat sesuai integrasi perangkat.",
-    icon: Wind,
-  },
-  {
-    name: "MiCS-6814",
-    type: "Sensor gas",
-    description: "Digunakan untuk pembacaan gas sesuai konfigurasi perangkat.",
-    icon: Activity,
-  },
-  {
-    name: "DHT22",
-    type: "Sensor lingkungan",
-    description: "Mengukur suhu dan kelembapan lingkungan.",
-    icon: Thermometer,
-  },
-];
-
 export default function DevicesPage() {
   const {
     loading,
@@ -111,37 +82,6 @@ export default function DevicesPage() {
 
   const meta = DEVICE_STATUS_META[status];
 
-  // Waktu sekarang disimpan di state agar render tetap murni.
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNowMs(Date.now()), 60_000);
-    return () => clearInterval(t);
-  }, []);
-
-  const activity = useMemo(() => {
-    const now = nowMs;
-
-    return Array.from({ length: 6 }, (_, index) => {
-      const end = now - (5 - index) * 60 * 60 * 1000;
-      const start = end - 60 * 60 * 1000;
-
-      const count = rows.filter((row) => {
-        const time = new Date(row.created_at).getTime();
-        return time >= start && time < end;
-      }).length;
-
-      return {
-        label: new Date(end).toLocaleTimeString("id-ID", {
-          hour: "2-digit",
-          minute: "2-digit",
-          timeZone: "Asia/Jakarta",
-        }),
-        count,
-      };
-    });
-  }, [rows]);
-
-  const maxCount = Math.max(...activity.map((item) => item.count), 1);
   const latest = rows.length ? rows[rows.length - 1] : null;
 
   /**
@@ -238,21 +178,6 @@ export default function DevicesPage() {
               <span className="rounded-lg border border-white/10 bg-slate-950/40 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-300">
                 Device monitoring
               </span>
-
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold border ${
-                  status === "online"
-                    ? "border-emerald-500/30 bg-emerald-500/20 text-emerald-300"
-                    : "border-rose-500/30 bg-rose-500/20 text-rose-300"
-                }`}
-              >
-                <span
-                  className={`h-1.5 w-1.5 rounded-full ${
-                    status === "online" ? "bg-emerald-400" : "bg-rose-400"
-                  }`}
-                />
-                {statusText}
-              </span>
             </div>
 
             <h2 className="mt-4 text-2xl font-bold tracking-tight text-white sm:text-3xl">
@@ -268,11 +193,6 @@ export default function DevicesPage() {
               <span className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2">
                 <Clock3 size={14} className="text-sky-400" />
                 {formatAge(lastSeenMinutes)}
-              </span>
-
-              <span className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2">
-                <Database size={14} className="text-sky-400" />
-                Sumber: {sourceLabel(source)}
               </span>
             </div>
           </div>
@@ -311,7 +231,7 @@ export default function DevicesPage() {
           </div>
         </div>
 
-        <div className="grid border-t border-white/10 sm:grid-cols-3 bg-slate-950/40">
+        <div className="grid border-t border-white/10 sm:grid-cols-2 bg-slate-950/40">
           <StatusItem
             icon={<Radio size={17} />}
             label="Koneksi node"
@@ -320,74 +240,9 @@ export default function DevicesPage() {
           />
           <StatusItem
             icon={<Database size={17} />}
-            label="Data tersedia"
-            value={`${rows.length.toLocaleString("id-ID")} baris`}
-          />
-          <StatusItem
-            icon={<Activity size={17} />}
             label="Sumber data"
             value={sourceLabel(source)}
           />
-        </div>
-      </section>
-
-      {/* AKTIVITAS PEMBACAAN */}
-      <section className="rounded-3xl border border-sky-400/30 bg-slate-900/70 p-5 sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 text-sky-300">
-              <Activity size={18} />
-              <span className="text-[10px] font-bold uppercase tracking-[0.18em]">
-                Device activity
-              </span>
-            </div>
-
-            <h2 className="mt-2 text-lg font-bold text-white">
-              Aktivitas pembacaan
-            </h2>
-
-            <p className="mt-1 text-xs leading-5 text-slate-300">
-              Jumlah rekaman yang diterima pada setiap interval satu jam.
-            </p>
-          </div>
-
-          <span className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-xs font-semibold text-slate-300">
-            6 jam terakhir
-          </span>
-        </div>
-
-        <div className="mt-7 grid grid-cols-6 gap-2 sm:gap-4">
-          {activity.map((item, index) => {
-            const height =
-              item.count === 0 ? 5 : Math.max(12, (item.count / maxCount) * 100);
-
-            return (
-              <div key={`${item.label}-${index}`} className="min-w-0 text-center">
-                <div className="flex h-32 items-end justify-center rounded-xl border border-white/10 bg-slate-950/40 p-2">
-                  <div
-                    title={`${item.count} rekaman`}
-                    className={`w-full max-w-10 rounded-t-lg transition-all ${
-                      item.count > 0 ? "bg-sky-500" : "bg-slate-800"
-                    }`}
-                    style={{ height: `${height}%` }}
-                  />
-                </div>
-
-                <p className="mt-2 truncate text-[10px] font-medium text-slate-400">
-                  {item.label}
-                </p>
-
-                <p className="mt-1 text-xs font-bold font-mono tabular-nums text-white">
-                  {item.count}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="mt-4 flex items-center gap-2 text-[10px] text-slate-400">
-          <span className="h-2 w-2 rounded-full bg-sky-400" />
-          Jumlah rekaman per jam, berdasarkan data yang tersedia di aplikasi.
         </div>
       </section>
 
@@ -440,56 +295,6 @@ export default function DevicesPage() {
           NO₂ dan O₃ tidak ditampilkan karena sensornya tidak mengirim data:
           NO₂ tidak terpasang (pin mengambang) dan O₃ membeku pada satu nilai.
         </p>
-      </section>
-
-      {/* KOMPONEN SENSOR */}
-      <section>
-        <div className="mb-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
-            Hardware overview
-          </p>
-          <h2 className="mt-1 text-xl font-bold text-white sm:text-2xl">
-            Komponen perangkat
-          </h2>
-          <p className="mt-1 text-xs leading-5 text-slate-300">
-            Komponen yang digunakan pada rancangan perangkat AirSense.
-          </p>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {SENSORS.map((sensor) => {
-            const Icon = sensor.icon;
-
-            return (
-              <article
-                key={sensor.name}
-                className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 transition hover:-translate-y-0.5"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/30 shadow-sm">
-                    <Icon size={21} />
-                  </div>
-
-                  <span className="rounded-lg border border-white/10 bg-slate-950/40 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-slate-300">
-                    Hardware
-                  </span>
-                </div>
-
-                <h3 className="mt-5 break-words text-sm font-bold text-white">
-                  {sensor.name}
-                </h3>
-
-                <p className="mt-1 text-xs font-medium text-sky-300">
-                  {sensor.type}
-                </p>
-
-                <p className="mt-3 text-xs leading-5 text-slate-300">
-                  {sensor.description}
-                </p>
-              </article>
-            );
-          })}
-        </div>
       </section>
 
       {/* PEMBACAAN TERBARU */}

@@ -205,10 +205,19 @@ export default function EvaluasiPage() {
     // Urutkan naik supaya siklus terbaru ada di akhir, lalu ambil satu
     // siklus saja untuk kurva (tiap siklus punya 60 titik sendiri).
     points.sort((a, b) => a.t - b.t);
-    const newestGen = points.reduce(
-      (acc, p) => (p.gen > acc ? p.gen : acc),
-      points[0].gen
-    );
+    // Pilih siklus terbaru yang sudah punya pembacaan aktual penuh.
+    // Siklus terbaru biasanya masih berjalan, sehingga hanya beberapa
+    // titik awalnya yang punya pembanding dan kurvanya jadi sangat pendek.
+    const jumlahPerGen = new Map<string, number>();
+    for (const p of points) {
+      jumlahPerGen.set(p.gen, (jumlahPerGen.get(p.gen) ?? 0) + 1);
+    }
+    const genLengkap = [...jumlahPerGen.entries()]
+      .filter(([, n]) => n >= 50)
+      .sort((a, b) => (a[0] < b[0] ? 1 : -1));
+    const newestGen =
+      genLengkap[0]?.[0] ??
+      points.reduce((acc, p) => (p.gen > acc ? p.gen : acc), points[0].gen);
 
     const bucketOf = (h: number) =>
       BUCKETS.find((b) => h >= b.lo && h <= b.hi) ?? null;
@@ -391,8 +400,9 @@ export default function EvaluasiPage() {
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
                 Selisih positif berarti model lebih baik daripada menahan nilai
-                terakhir. Selama angkanya negatif, forecast memang tidak
-                diterbitkan ke dashboard.
+                terakhir. Selisih negatif berarti model belum lebih baik pada
+                horizon itu. Angka ini dihitung dari data live beberapa hari
+                terakhir, bukan dari benchmark offline.
               </span>
             </p>
           </section>
@@ -400,11 +410,11 @@ export default function EvaluasiPage() {
           {evaluation.curve.length > 2 && (
             <section className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-4">
               <h2 className="text-sm font-semibold text-white">
-                Aktual vs prediksi, siklus terakhir
+                Aktual vs prediksi, siklus lengkap terakhir
               </h2>
               <p className="mt-0.5 text-[11px] text-slate-400">
                 Garis putus-putus adalah prediksi, garis penuh adalah pembacaan
-                sensor sesudahnya.
+                sensor sesudahnya. Hanya siklus yang sudah selesai dinilai.
               </p>
 
               <div className="mt-3 h-64 w-full">

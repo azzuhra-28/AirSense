@@ -7,8 +7,6 @@ import {
   Database,
   History,
   RefreshCw,
-  Thermometer,
-  Droplets,
   Activity,
   Clock3,
 } from "lucide-react";
@@ -35,32 +33,10 @@ export default function HistoryPage() {
     safePage * PAGE_SIZE + PAGE_SIZE
   );
 
-  const stats = useMemo(() => {
-    if (!rows.length) {
-      return { total: 0, temperature: "-", humidity: "-" };
-    }
-
-    const latest = rows[rows.length - 1];
-
-    return {
-      total: rows.length,
-      temperature: formatNumber(latest.temperature),
-      humidity: formatNumber(latest.humidity),
-    };
-  }, [rows]);
-
   if (loading) {
     return (
       <div className="space-y-5">
         <div className="h-24 animate-pulse rounded-2xl bg-slate-800/50" />
-        <div className="grid gap-4 sm:grid-cols-3">
-          {[1, 2, 3].map((n) => (
-            <div
-              key={n}
-              className="h-28 animate-pulse rounded-2xl border border-sky-400/30 bg-slate-900/60"
-            />
-          ))}
-        </div>
         <div className="h-80 animate-pulse rounded-2xl border border-sky-400/30 bg-slate-900/60" />
       </div>
     );
@@ -112,30 +88,6 @@ export default function HistoryPage() {
         subtitle="Rekam jejak data sensor kualitas udara AirSense."
       />
 
-      {/* RINGKASAN */}
-      <section className="grid gap-4 sm:grid-cols-3">
-        <SummaryCard
-          icon={<Database size={20} />}
-          label="Total pembacaan"
-          value={stats.total.toLocaleString("id-ID")}
-          detail="Seluruh data tersedia"
-        />
-
-        <SummaryCard
-          icon={<Thermometer size={20} />}
-          label="Suhu terakhir"
-          value={stats.temperature === "-" ? "-" : `${stats.temperature} °C`}
-          detail="Pembacaan sensor terbaru"
-        />
-
-        <SummaryCard
-          icon={<Droplets size={20} />}
-          label="Kelembapan terakhir"
-          value={stats.humidity === "-" ? "-" : `${stats.humidity} %`}
-          detail="Pembacaan sensor terbaru"
-        />
-      </section>
-
       {/* TABEL RIWAYAT */}
       <section className="overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70">
         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6 border-b border-white/10">
@@ -166,7 +118,7 @@ export default function HistoryPage() {
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-4 py-3 sm:px-5">
             <span className="flex items-center gap-2 text-xs text-slate-300">
               <Activity size={14} className="text-sky-400" />
-              Total {rows.length.toLocaleString("id-ID")} baris
+              Menampilkan {rows.length.toLocaleString("id-ID")} baris terbaru
             </span>
             <span className="flex items-center gap-2 text-xs text-slate-400">
               <Clock3 size={14} />
@@ -364,33 +316,6 @@ export default function HistoryPage() {
         konsentrasi nol.
       </p>
     </div>
-  );
-}
-
-function SummaryCard({
-  icon,
-  label,
-  value,
-  detail,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <article className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 transition hover:-translate-y-0.5">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-medium text-slate-400">{label}</p>
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/30 shadow-sm">
-          {icon}
-        </span>
-      </div>
-      <p className="mt-4 text-2xl font-bold tracking-tight text-white">
-        {value}
-      </p>
-      <p className="mt-1 text-[11px] text-slate-400">{detail}</p>
-    </article>
   );
 }
 

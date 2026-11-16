@@ -24,7 +24,6 @@ import {
   Gauge,
   RefreshCw,
   ShieldAlert,
-  ShieldCheck,
   Sparkles,
   TriangleAlert,
   Wind,
@@ -174,7 +173,6 @@ export default function PredictPage() {
       dominant,
       generated: forecast[0]?.generated_at,
       horizon: forecast.length,
-      insight: forecast.find((r) => r.insight?.trim())?.insight ?? null,
     };
   }, [forecast]);
 
@@ -240,61 +238,6 @@ export default function PredictPage() {
       };
     });
   }, [forecast]);
-
-  const actionPlan = useMemo(() => {
-    if (!forecast.length) return null;
-
-    let minIdx = 0;
-    let minIspu = Infinity;
-
-    forecast.forEach((r, idx) => {
-      const maxInRow = Math.max(
-        Number(r.pm25_ispu_pred) || 0,
-        Number(r.pm10_ispu_pred) || 0,
-        Number(r.co_ispu_pred) || 0
-      );
-
-      if (maxInRow < minIspu) {
-        minIspu = maxInRow;
-        minIdx = idx;
-      }
-    });
-
-    const bestTime = toWIB(forecast[minIdx]?.forecast_at);
-
-    const overallPeak = Math.max(
-      ...forecast.map((r) =>
-        Math.max(
-          Number(r.pm25_ispu_pred) || 0,
-          Number(r.pm10_ispu_pred) || 0,
-          Number(r.co_ispu_pred) || 0
-        )
-      )
-    );
-
-    const peakTone = aqiOf(overallPeak);
-
-    return {
-      bestTime,
-      minIspu: Math.round(minIspu),
-      overallPeak: Math.round(overallPeak),
-      peakTone,
-      outdoorAdvice:
-        overallPeak <= 50
-          ? "Forecast berada dalam kategori Baik. Aktivitas luar ruangan dapat dipertimbangkan sesuai kondisi tubuh dan lingkungan."
-          : overallPeak <= 100
-            ? "Forecast udara berada dalam kategori Sedang. Kelompok sensitif sebaiknya mempertimbangkan untuk mengurangi aktivitas berat di luar."
-            : "Pertimbangkan mengurangi aktivitas berat di luar ruangan dan pantau perkembangan kualitas udara.",
-      ventilationAdvice:
-        overallPeak <= 50
-          ? "Kondisi forecast relatif baik. Ventilasi alami dapat dipertimbangkan jika kondisi sekitar mendukung."
-          : "Pertimbangkan mengurangi masuknya udara luar yang tercemar. Gunakan penyaring udara jika tersedia.",
-      sensitiveAdvice:
-        summary?.dominant === "PM2.5"
-          ? "Partikel PM2.5 menjadi polutan dominan dalam Forecast. Kelompok sensitif perlu memperhatikan gejala pernapasan dan membatasi paparan bila diperlukan."
-          : "Kelompok sensitif seperti anak-anak, lansia, dan orang dengan gangguan pernapasan sebaiknya terus memantau kualitas udara.",
-    };
-  }, [forecast, summary]);
 
   const drift = useMemo(() => {
     if (!forecast.length || actualRows.length < 10) return null;
@@ -509,7 +452,7 @@ export default function PredictPage() {
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-sky-400 disabled:cursor-wait disabled:opacity-60 cursor-pointer shadow-lg"
             >
               <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
-              {refreshing ? "Memperbarui..." : "Perbarui prediksi"}
+              {refreshing ? "Memuat..." : "Muat ulang data"}
             </button>
           </div>
         </div>
@@ -612,26 +555,6 @@ export default function PredictPage() {
                   })}
                 </div>
               )}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* INSIGHT */}
-      {summary?.insight && (
-        <section className="relative overflow-hidden rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 sm:p-6">
-          <div className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-sky-500/10 blur-2xl" />
-          <div className="relative flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/30 shadow-sm">
-              <Sparkles size={19} />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-sky-300">
-                Insight dari pipeline analytics
-              </p>
-              <p className="mt-2 text-sm leading-6 text-slate-200">
-                {summary.insight}
-              </p>
             </div>
           </div>
         </section>
@@ -1049,51 +972,6 @@ export default function PredictPage() {
         </div>
       </section>
 
-      {/* REKOMENDASI */}
-      {actionPlan && (
-        <section>
-          <div className="mb-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
-              Suggested actions
-            </p>
-            <h2 className="mt-1 text-xl font-bold tracking-tight text-white sm:text-2xl">
-              Panduan berdasarkan forecast
-            </h2>
-            <p className="mt-1 text-xs leading-5 text-slate-400">
-              Rekomendasi indikatif untuk membantu memahami hasil prediksi.
-              Tetap perhatikan kondisi aktual di lingkunganmu.
-            </p>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-3">
-            <AdviceCard
-              icon={<Activity size={19} />}
-              number="01"
-              title="Aktivitas luar ruangan"
-              metricLabel="Titik terendah"
-              metric={`${actionPlan.bestTime} · ISPU ${actionPlan.minIspu}`}
-              description={actionPlan.outdoorAdvice}
-            />
-            <AdviceCard
-              icon={<Wind size={19} />}
-              number="02"
-              title="Ventilasi ruangan"
-              metricLabel="Puncak forecast"
-              metric={`ISPU ${actionPlan.overallPeak} · ${actionPlan.peakTone.label}`}
-              description={actionPlan.ventilationAdvice}
-            />
-            <AdviceCard
-              icon={<ShieldCheck size={19} />}
-              number="03"
-              title="Kelompok sensitif"
-              metricLabel="Polutan dominan"
-              metric={summary?.dominant ?? "-"}
-              description={actionPlan.sensitiveAdvice}
-            />
-          </div>
-        </section>
-      )}
-
       {/* DETAIL MODEL */}
       <section className="overflow-hidden rounded-3xl border border-sky-400/30 bg-slate-900/70">
         <button
@@ -1165,41 +1043,6 @@ export default function PredictPage() {
         </span>
       </footer>
     </div>
-  );
-}
-
-function AdviceCard({
-  icon,
-  number,
-  title,
-  metricLabel,
-  metric,
-  description,
-}: {
-  icon: React.ReactNode;
-  number: string;
-  title: string;
-  metricLabel: string;
-  metric: string;
-  description: string;
-}) {
-  return (
-    <article className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-5 transition hover:-translate-y-0.5">
-      <div className="flex items-center justify-between">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/30">
-          {icon}
-        </span>
-        <span className="text-xs font-bold text-sky-300">{number}</span>
-      </div>
-      <h3 className="mt-4 text-sm font-bold text-white">{title}</h3>
-      <div className="mt-3 rounded-xl border border-white/10 bg-slate-950/40 p-3">
-        <p className="text-[10px] text-slate-400">{metricLabel}</p>
-        <p className="mt-1 break-words text-xs font-bold leading-5 text-slate-200">
-          {metric}
-        </p>
-      </div>
-      <p className="mt-3 text-xs leading-6 text-slate-300">{description}</p>
-    </article>
   );
 }
 
