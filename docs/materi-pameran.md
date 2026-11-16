@@ -45,7 +45,149 @@ Kalimat: "Sensor → cloud → analitik → dashboard. Tidak ada server lokal ya
 
 ---
 
-## 4. Angka yang boleh diklaim
+## 4. Parameter yang diukur
+
+| Parameter | Apa itu | Satuan | Kenapa penting |
+|---|---|---|---|
+| **PM2.5** | Partikel sangat halus, diameter ≤ 2,5 mikrometer (sekitar 1/30 tebal rambut) | µg/m³ | Bisa masuk jauh ke paru-paru dan aliran darah. Polutan paling berbahaya untuk kesehatan. |
+| **PM10** | Partikel lebih besar, diameter ≤ 10 mikrometer | µg/m³ | Debu, serbuk, jamur. Tertahan di hidung dan tenggorokan. |
+| **CO** | Karbon monoksida, gas tak berwarna dan tak berbau dari pembakaran tidak sempurna | mg/m³ | Mengikat hemoglobin, mengurangi oksigen dalam darah. |
+| **Suhu** | Suhu udara | °C | Mempengaruhi penyebaran polutan. |
+| **Kelembapan** | Uap air di udara | % | Kelembapan tinggi bisa mengganggu sensor debu optik. |
+| **ISPU** | Indeks Standar Pencemar Udara, skala 0–300+ | indeks | Menyeragamkan semua polutan ke satu angka yang mudah dibaca publik. |
+
+### Cara membaca ISPU
+
+| Rentang | Kategori | Arti singkat |
+|---|---|---|
+| 0–50 | Baik | Udara bersih |
+| 51–100 | Sedang | Masih aman, kelompok sensitif perlu waspada |
+| 101–200 | Tidak Sehat | Kurangi aktivitas luar |
+| 201–300 | Sangat Tidak Sehat | Hindari aktivitas luar |
+| >300 | Berbahaya | Tetap di dalam ruangan |
+
+ISPU diambil dari polutan dengan nilai tertinggi saat itu. Itu yang disebut **polutan dominan**.
+
+### µg/m³ dan mg/m³
+
+- **µg/m³** = mikrogram per meter kubik (sepersejuta gram)
+- **mg/m³** = miligram per meter kubik (seperseribu gram)
+- 1 mg = 1.000 µg
+
+CO disajikan dalam mg/m³ karena konsentrasinya lebih besar. PM2.5 dan PM10 dalam µg/m³.
+
+---
+
+## 5. Cara kerja forecast
+
+### Intinya: moving average
+
+Forecast 60 menit dihitung dari **rata-rata pembacaan terakhir**, bukan dari prediksi arah.
+
+```
+rata-rata 10 menit terakhir
+rata-rata 15 menit terakhir
+rata-rata 30 menit terakhir
+        ↓
+dirata-rata lagi
+        ↓
+satu angka level untuk 60 menit ke depan
+```
+
+Contoh nyata:
+
+```
+10 menit : 24,94
+15 menit : 24,91
+30 menit : 24,34
+────────────────
+hasil    : 24,73
+```
+
+Angka 24,73 diulang untuk 60 menit. Karena itu garisnya datar.
+
+### Kenapa bukan LSTM/GRU?
+
+Karena sudah diuji dan kalah. LSTM belajar pola mingguan ("jam 1 malam biasanya 17,7"), sedangkan malam itu aktualnya 24–26. Moving average tidak peduli pola mingguan; dia ikut level sekarang.
+
+### Quality gate
+
+Setiap siklus, sistem membandingkan tiga kandidat:
+
+1. LSTM/GRU
+2. Blend XGBoost + pola jam historis
+3. Moving average 10/15/30
+
+Yang galatnya paling kecil, itu yang diterbitkan. Kalau model kalah, model dibuang. Log-nya bisa dilihat di VPS.
+
+### Penyeleksian otomatis di VPS
+
+Penyeleksian terjadi di server, bukan di dashboard. Tiap 5 menit, untuk setiap polutan, sistem menguji tiga kandidat:
+
+| Kandidat | Isi |
+|---|---|
+| LSTM/GRU | Model neural network |
+| Blend | XGBoost + pola jam historis |
+| Moving average 10/15/30 | Rata-rata pembacaan terakhir |
+
+Yang galatnya paling kecil pada 300 pembacaan terakhir, itu yang diterbitkan.
+
+Contoh log nyata:
+
+```
+[pm25] model dilewati: kalah dari garis datar (MAE 2.74 vs 2.57)
+[pm25] memakai perataan 10/15/30 = 24.73
+[pm25] blend kalah dari perataan (1.67 vs 0.98); memakai perataan
+```
+
+Artinya:
+
+1. LSTM kalah → dibuang
+2. Moving average dipakai sementara
+3. Blend juga kalah → moving average tetap dipakai
+
+Penyeleksian diulang tiap siklus, jadi bisa berubah. Kalau besok LSTM menang, LSTM yang dipakai.
+
+**Batasan:** dashboard tidak menyimpan metode yang menang. Jejaknya hanya ada di log VPS.
+
+### Rentang ketidakpastian
+
+Pita di sekitar garis forecast berasal dari kuantil residual benchmark. Artinya: "80% kesalahan historis jatuh di dalam rentang ini." Pita melebar seiring horizon karena tebakan jangka panjang lebih tidak pasti.
+
+### Alur lengkap satu siklus forecast
+
+```
+ESP32 ──60 detik──► Supabase ──► VPS (tiap 5 menit)
+                                    │
+                                    ├─ 1. ambil data terbaru
+                                    ├─ 2. bersihkan & potong segmen
+                                    ├─ 3. bangun fitur
+                                    ├─ 4. kandidat LSTM/GRU
+                                    ├─ 5. quality gate
+                                    ├─ 6. blend + gate terakhir
+                                    ├─ 7. hitung ISPU
+                                    └─ 8. tulis 60 baris forecast
+                                              │
+                                              ▼
+                                     Dashboard + Telegram
+```
+
+| Langkah | Yang terjadi | Kalau gagal |
+|---|---|---|
+| 1 | Ambil 1.000–12.000 pembacaan terakhir | Siklus dilewati |
+| 2 | Buang sentinel -999, pisahkan segmen jika jeda > 3 menit | Data kurang → forecast ditahan |
+| 3 | Bangun lag, rata-rata bergerak, jam, hari | — |
+| 4 | Muat LSTM/GRU dari cache; latih ulang maksimal sekali sehari | Pakai cache lama |
+| 5 | Bandingkan galat model vs moving average | Model dibuang, pakai moving average |
+| 6 | Blend XGBoost + pola jam, lalu bandingkan lagi dengan moving average | Blend dibuang, pakai moving average |
+| 7 | Konversi tiap polutan ke ISPU, ambil yang tertinggi | — |
+| 8 | Tulis 60 baris (satu per menit) ke `tb_forecast` | Tidak ada forecast baru |
+
+Setelah itu dashboard membaca siklus terbaru dan menampilkannya. Scheduler alert berjalan paralel untuk mengecek offline, ISPU tinggi, lonjakan, dan puncak forecast.
+
+---
+
+## 6. Angka yang boleh diklaim
 
 | Klaim | Angka | Sumber |
 |---|---|---|
@@ -63,7 +205,7 @@ Kalimat: "Sensor → cloud → analitik → dashboard. Tidak ada server lokal ya
 
 ---
 
-## 5. Tanya-jawab
+## 7. Tanya-jawab
 
 ### Untuk pengunjung umum
 
@@ -181,7 +323,7 @@ Kalimat: "Sensor → cloud → analitik → dashboard. Tidak ada server lokal ya
 
 ---
 
-## 6. Yang jangan dikatakan
+## 8. Yang jangan dikatakan
 
 | Jangan | Katakan |
 |---|---|
@@ -194,7 +336,7 @@ Kalimat: "Sensor → cloud → analitik → dashboard. Tidak ada server lokal ya
 
 ---
 
-## 7. Rencana cadangan
+## 9. Rencana cadangan
 
 | Masalah | Tindakan |
 |---|---|
@@ -206,6 +348,6 @@ Kalimat: "Sensor → cloud → analitik → dashboard. Tidak ada server lokal ya
 
 ---
 
-## 8. Satu kalimat penutup
+## 10. Satu kalimat penutup
 
 > "AirSense bukan alat kalibrasi dan bukan pengganti BMKG. Ini sistem pemantauan terjangkau yang jujur soal batasannya—dan justru karena jujur, angkanya bisa dipertanggungjawabkan."
