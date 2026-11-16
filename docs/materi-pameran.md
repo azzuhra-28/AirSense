@@ -146,7 +146,7 @@ Artinya:
 2. Moving average dipakai sementara
 3. Blend juga kalah → moving average tetap dipakai
 
-Penyeleksian diulang tiap siklus, jadi bisa berubah. Kalau besok LSTM menang, LSTM yang dipakai.
+Penyeleksian diulang tiap siklus (**5 menit**), jadi bisa berubah kapan saja. Modelnya sendiri dilatih ulang maksimal sekali sehari; yang berjalan tiap 5 menit hanya inferensi dan penilaian ulang.
 
 **Batasan:** dashboard tidak menyimpan metode yang menang. Jejaknya hanya ada di log VPS.
 
