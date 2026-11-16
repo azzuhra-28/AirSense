@@ -8,25 +8,37 @@ tetap jalan di mesin yang belum dikonfigurasi.
 import os
 
 import requests
+from dotenv import load_dotenv
 
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+# notify.py bisa diimpor sebelum supabase_client.py, jadi .env harus
+# dimuat di sini juga. Tanpa ini, variabel dibaca sebagai string kosong.
+load_dotenv()
+
+
+def _token() -> str:
+    return os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+
+
+def _chat_id() -> str:
+    return os.getenv("TELEGRAM_CHAT_ID", "").strip()
 
 
 def telegram_aktif() -> bool:
-    return bool(TOKEN and CHAT_ID)
+    return bool(_token() and _chat_id())
 
 
 def kirim_telegram(pesan: str) -> bool:
     """Kirim satu pesan. Return True kalau Telegram menerimanya."""
-    if not telegram_aktif():
+    token = _token()
+    chat_id = _chat_id()
+    if not token or not chat_id:
         return False
 
     try:
         r = requests.post(
-            f"https://api.telegram.org/bot{TOKEN}/sendMessage",
+            f"https://api.telegram.org/bot{token}/sendMessage",
             json={
-                "chat_id": CHAT_ID,
+                "chat_id": chat_id,
                 "text": pesan,
                 "parse_mode": "HTML",
                 "disable_web_page_preview": True,
