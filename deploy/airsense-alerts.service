@@ -1,0 +1,16 @@
+[Unit]
+Description=AirSense alert scheduler
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=airsense
+WorkingDirectory=/opt/airsense/analytics
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/airsense/analytics/.venv/bin/python -m src.scheduler --loop 5
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

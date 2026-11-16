@@ -71,25 +71,32 @@ fi
 chown -R "$USER_NAME:$USER_NAME" "$APP"
 
 install -m 644 "$APP/deploy/airsense-forecast.service" /etc/systemd/system/
+install -m 644 "$APP/deploy/airsense-alerts.service" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now airsense-forecast
+systemctl enable --now airsense-alerts
 
 # ------------------------------------------------------------
 # Verifikasi singkat: service harus hidup setelah 20 detik.
 # ------------------------------------------------------------
 sleep 20
-if systemctl is-active --quiet airsense-forecast; then
+if systemctl is-active --quiet airsense-forecast && systemctl is-active --quiet airsense-alerts; then
   echo
-  echo "Service berjalan."
-  echo "Log terakhir:"
-  journalctl -u airsense-forecast -n 15 --no-pager || true
+  echo "Kedua service berjalan."
+  echo "Log forecast terakhir:"
+  journalctl -u airsense-forecast -n 10 --no-pager || true
+  echo "Log alert terakhir:"
+  journalctl -u airsense-alerts -n 10 --no-pager || true
 else
   echo
-  echo "Service TIDAK berjalan. Periksa:"
-  journalctl -u airsense-forecast -n 40 --no-pager || true
+  echo "Ada service yang TIDAK berjalan. Periksa:"
+  journalctl -u airsense-forecast -n 30 --no-pager || true
+  journalctl -u airsense-alerts -n 30 --no-pager || true
   exit 1
 fi
 
 echo
-echo "Selesai. Pantau dengan: journalctl -u airsense-forecast -f"
+echo "Selesai. Pantau dengan:"
+echo "  journalctl -u airsense-forecast -f"
+echo "  journalctl -u airsense-alerts -f"
 echo "Siklus pertama bisa 5-10 menit karena model dilatih dari nol."

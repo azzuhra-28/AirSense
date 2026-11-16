@@ -194,5 +194,48 @@ class TestEvaluasiPrediksi(unittest.TestCase):
         self.assertEqual(hasil["all"]["n"], 150)
 
 
+class TestIspuSpike(unittest.TestCase):
+    """Lonjakan mendadak harus tertangkap, bukan hanya rata-rata 24 jam."""
+
+    def _jalankan(self, df: pd.DataFrame) -> list[dict]:
+        from src import scheduler
+
+        ditulis: list[dict] = []
+        asli_should = scheduler.should_alert
+        asli_insert = scheduler.insert_rows
+        scheduler.should_alert = lambda *a, **k: True
+        scheduler.insert_rows = lambda sess, table, rows: ditulis.extend(rows)
+        try:
+            scheduler.check_ispu_spike(None, df)
+        finally:
+            scheduler.should_alert = asli_should
+            scheduler.insert_rows = asli_insert
+        return ditulis
+
+    def test_lonjakan_parah_memicu_alert(self):
+        df = frame(70)
+        df["pm25_ugm3"] = 10.0
+        df.loc[65:, "pm25_ugm3"] = 150.0
+
+        ditulis = self._jalankan(df)
+
+        self.assertEqual(len(ditulis), 1)
+        self.assertEqual(ditulis[0]["alert_type"], "ISPU_SPIKE")
+        self.assertEqual(ditulis[0]["severity"], "HIGH")
+
+    def test_udara_normal_tidak_memicu(self):
+        df = frame(70)
+        df["pm25_ugm3"] = 10.0
+
+        self.assertEqual(self._jalankan(df), [])
+
+    def test_naik_sedikit_tidak_memicu(self):
+        df = frame(70)
+        df["pm25_ugm3"] = 10.0
+        df.loc[65:, "pm25_ugm3"] = 20.0
+
+        self.assertEqual(self._jalankan(df), [])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

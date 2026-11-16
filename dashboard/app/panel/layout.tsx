@@ -2,6 +2,7 @@
 
 import { SensorProvider } from "@/components/SensorProvider";
 import { Sidebar } from "@/components/Sidebar";
+import { AlertNotifier } from "@/components/AlertNotifier";
 
 export default function PanelLayout({
   children,
@@ -24,6 +25,8 @@ export default function PanelLayout({
         <div className="absolute inset-0 bg-slate-950/50 -z-0 pointer-events-none"></div>
 
         <Sidebar />
+
+        <AlertNotifier />
 
         <main className="min-w-0 flex-1 relative z-10">
           <div className="mx-auto max-w-6xl px-4 py-6 pb-24 sm:px-6 sm:py-8 sm:pb-24 lg:pb-8 text-slate-100">

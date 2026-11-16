@@ -55,6 +55,13 @@ ISPU_ALERT_CATEGORIES = {
 
 FORECAST_ALERT_THRESHOLD = 100
 
+# Lonjakan mendadak: ISPU saat ini dibanding median satu jam sebelumnya.
+# Rata-rata 24 jam meredam kejadian seperti ini, jadi dicek terpisah.
+SPIKE_MIN_ISPU = 100
+SPIKE_MIN_JUMP = 30
+SPIKE_WINDOW_MIN = 60
+SPIKE_ALERT_COOLDOWN_H = 1
+
 # Jeda minimum antar alert sejenis (anti-spam).
 OFFLINE_ALERT_COOLDOWN_H = 6
 ISPU_ALERT_COOLDOWN_H = 3
@@ -246,6 +253,102 @@ def check_ispu(sess, ispu_info: dict | None):
 
 
 # ============================================================
+# Tugas 2b - Lonjakan ISPU mendadak
+# ============================================================
+
+def current_ispu(sensor_df: pd.DataFrame) -> dict | None:
+    """ISPU dari pembacaan terakhir, bukan rata-rata 24 jam."""
+    if sensor_df.empty:
+        return None
+
+    last = sensor_df.iloc[-1]
+    per_pollutant = {}
+    for pollutant in POLLUTANTS:
+        value = last.get(pollutant)
+        if pd.isna(value):
+            continue
+        ispu = ispu_value(pollutant, float(value))
+        if ispu is None:
+            continue
+        per_pollutant[pollutant] = float(ispu)
+
+    if not per_pollutant:
+        return None
+
+    dominant = max(per_pollutant, key=per_pollutant.get)
+    return {
+        "total": per_pollutant[dominant],
+        "dominant": dominant,
+        "per_pollutant": per_pollutant,
+    }
+
+
+def check_ispu_spike(sess, sensor_df: pd.DataFrame):
+    """
+    Tulis alert bila ISPU melonjak tajam dibanding satu jam sebelumnya.
+
+    Syarat: ISPU saat ini minimal 100 (Tidak Sehat) dan naik minimal 30
+    poin dari median satu jam sebelumnya. Tanpa syarat kedua, udara yang
+    memang sudah buruk akan memicu alert terus-menerus.
+    """
+    now = current_ispu(sensor_df)
+    if now is None or now["total"] < SPIKE_MIN_ISPU:
+        return
+
+    # Buang 5 menit terakhir dari baseline supaya lonjakan yang sedang
+    # diukur tidak ikut menaikkan pembandingnya sendiri.
+    cutoff = sensor_df["created_at"].max() - pd.Timedelta(minutes=5)
+    window = sensor_df[sensor_df["created_at"] <= cutoff].tail(SPIKE_WINDOW_MIN)
+    if len(window) < 10:
+        return
+
+    baseline_values = []
+    for _, row in window.iterrows():
+        values = [
+            ispu_value(p, float(row[p]))
+            for p in POLLUTANTS
+            if pd.notna(row.get(p))
+        ]
+        values = [v for v in values if v is not None]
+        if values:
+            baseline_values.append(max(values))
+
+    if not baseline_values:
+        return
+
+    baseline = float(pd.Series(baseline_values).median())
+    jump = now["total"] - baseline
+    if jump < SPIKE_MIN_JUMP:
+        return
+
+    if not should_alert(sess, "ISPU_SPIKE", SPIKE_ALERT_COOLDOWN_H):
+        return
+
+    insert_rows(
+        sess,
+        TABLE_ALERT,
+        [
+            {
+                "alert_type": "ISPU_SPIKE",
+                "severity": "HIGH",
+                "message": (
+                    "Lonjakan ISPU mendadak: dari "
+                    f"{baseline:.0f} menjadi {now['total']:.0f} "
+                    f"(dominan {now['dominant']})."
+                ),
+                "payload": {
+                    "ispu": round(now["total"], 1),
+                    "baseline": round(baseline, 1),
+                    "jump": round(jump, 1),
+                    "dominant_pollutant": now["dominant"],
+                },
+            }
+        ],
+    )
+    print("  [alert] ISPU_SPIKE ditulis.")
+
+
+# ============================================================
 # Tugas 3 - Indikator forecast dari tb_forecast (RNN)
 # ============================================================
 
@@ -257,6 +360,7 @@ def latest_forecast_rows(sess) -> list[dict]:
         select="generated_at",
         order="generated_at.desc",
         limit=1,
+        max_rows=1,
     )
     if not gen:
         return []
@@ -326,6 +430,7 @@ def is_forecast_stale(sess, max_age_min: int) -> bool:
         select="generated_at",
         order="generated_at.desc",
         limit=1,
+        max_rows=1,
     )
     if not gen:
         return True
@@ -436,6 +541,9 @@ def run_cycle(reforecast_minutes: int | None, steps: int):
             f"({ispu_info['category']})"
         )
     check_ispu(sess, ispu_info)
+
+    # 2b. Lonjakan mendadak (tidak tertangkap rata-rata 24 jam)
+    check_ispu_spike(sess, sensor_df)
 
     # 3. Forecast indicator
     fc_rows = latest_forecast_rows(sess)

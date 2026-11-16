@@ -51,6 +51,12 @@ const TYPE_META: Record<
     color: "#FBBF24",
     soft: "rgba(251, 191, 36, 0.15)",
   },
+  ISPU_SPIKE: {
+    label: "Lonjakan ISPU",
+    icon: Activity,
+    color: "#FB7185",
+    soft: "rgba(251, 113, 133, 0.15)",
+  },
   ANOMALY: {
     label: "Anomali",
     icon: Activity,
