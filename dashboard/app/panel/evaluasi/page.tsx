@@ -360,7 +360,7 @@ export default function EvaluasiPage() {
             <div className="mt-3 overflow-x-auto">
               <table className="w-full min-w-[420px] text-left text-xs">
                 <thead>
-                  <tr className="text-[10px] uppercase tracking-wide text-slate-400">
+                  <tr className="text-[10px] tracking-wide text-slate-400">
                     <th className="pb-2 font-medium">Horizon</th>
                     <th className="pb-2 text-right font-medium">n</th>
                     <th className="pb-2 text-right font-medium">MAE model ({unit})</th>
