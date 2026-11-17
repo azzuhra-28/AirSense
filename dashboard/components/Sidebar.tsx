@@ -24,7 +24,9 @@ const navItems = [
   { name: "Evaluasi", href: "/panel/evaluasi", icon: Target },
   { name: "Riwayat", href: "/panel/history", icon: History },
   { name: "Perangkat", href: "/panel/devices", icon: Cpu },
-  { name: "Peringatan", href: "/panel/alerts", icon: Bell },
+  // `short` hanya dipakai nav bawah, tempat tujuh kolom harus muat
+  // dalam lebar 390 px.
+  { name: "Peringatan", short: "Alert", href: "/panel/alerts", icon: Bell },
 ];
 
 export function Sidebar() {
@@ -132,7 +134,7 @@ export function Sidebar() {
 
       {/* NAVIGASI BAWAH UNTUK LAYAR KECIL */}
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-sky-400/20 bg-slate-900/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden">
-        <div className="mx-auto grid max-w-lg grid-cols-6">
+        <div className="mx-auto grid max-w-lg grid-cols-7">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
@@ -142,7 +144,8 @@ export function Sidebar() {
                 key={item.href}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className="flex min-h-[44px] flex-col items-center justify-center gap-1 py-2"
+                aria-label={item.name}
+                className="flex min-h-[44px] flex-col items-center justify-center gap-1 px-0.5 py-2"
               >
                 <Icon
                   className={`h-[18px] w-[18px] ${
@@ -150,11 +153,11 @@ export function Sidebar() {
                   }`}
                 />
                 <span
-                  className={`text-[10px] font-medium ${
+                  className={`max-w-full truncate text-[10px] font-medium leading-tight ${
                     active ? "text-sky-300" : "text-slate-400"
                   }`}
                 >
-                  {item.name}
+                  {item.short ?? item.name}
                 </span>
               </Link>
             );

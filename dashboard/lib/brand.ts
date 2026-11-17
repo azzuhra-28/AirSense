@@ -115,20 +115,3 @@ export const SHADOW = {
   raised:
     "shadow-[0_2px_4px_rgba(15,23,42,0.05),0_16px_40px_-16px_rgba(15,23,42,0.14)]",
 } as const;
-
-/**
- * Struktur navigasi aplikasi.
- *
- * Dipakai bersama oleh Sidebar desktop dan bottom-nav mobile,
- * agar daftar menu hanya didefinisikan sekali.
- */
-export const NAV = [
-  { href: "/panel", label: "Ringkasan", icon: "gauge" },
-  { href: "/panel/analytics", label: "Analitik", icon: "trending" },
-  { href: "/panel/predict", label: "Prediksi", icon: "sparkles" },
-  { href: "/panel/history", label: "Riwayat", icon: "list" },
-  { href: "/panel/devices", label: "Perangkat", icon: "cpu" },
-  { href: "/panel/alerts", label: "Peringatan", icon: "bell" },
-] as const;
-
-export type NavItem = (typeof NAV)[number];
