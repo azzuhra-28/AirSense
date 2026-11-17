@@ -73,9 +73,27 @@ const SARAN_KATEGORI: Record<string, string> = {
 };
 
 const SERIES = [
-  { key: "pm25", label: "PM2.5", unit: "µg/m³", color: POLLUTANT_COLOR.pm25 },
-  { key: "pm10", label: "PM10", unit: "µg/m³", color: POLLUTANT_COLOR.pm10 },
-  { key: "co", label: "CO", unit: "mg/m³", color: POLLUTANT_COLOR.co },
+  {
+    key: "pm25",
+    label: "PM2.5",
+    unit: "µg/m³",
+    color: POLLUTANT_COLOR.pm25,
+    hint: "Partikel sangat halus (≤2,5 mikrometer) yang bisa masuk paru-paru.",
+  },
+  {
+    key: "pm10",
+    label: "PM10",
+    unit: "µg/m³",
+    color: POLLUTANT_COLOR.pm10,
+    hint: "Debu dan serbuk yang tertahan di hidung dan tenggorokan.",
+  },
+  {
+    key: "co",
+    label: "CO",
+    unit: "mg/m³",
+    color: POLLUTANT_COLOR.co,
+    hint: "Gas tak berwarna dan tak berbau dari pembakaran tidak sempurna.",
+  },
 ] as const;
 
 export default function SummaryPage() {
@@ -149,6 +167,9 @@ export default function SummaryPage() {
     const first = SERIES.find((s) => activeSeries.includes(s.key));
     return (first?.key ?? "pm25") as "pm25" | "pm10" | "co";
   }, [activeSeries]);
+
+  /** Metadata seri yang sedang jadi fokus grafik. */
+  const activeMeta = SERIES.find((s) => s.key === primaryKey) ?? SERIES[0];
 
   /** ISPU puncak sepanjang horizon forecast. */
   const peakIspu = useMemo(() => {
@@ -530,6 +551,10 @@ export default function SummaryPage() {
                 ? `Polutan dominan ${data.dominant?.label ?? "-"}`
                 : "Menunggu pembacaan sensor"}
             </p>
+            <p className="mt-1 text-[11px] leading-snug text-slate-400">
+              Skala ISPU: 0–50 Baik · 51–100 Sedang · 101–200 Tidak Sehat ·
+              201–300 Sangat Tidak Sehat
+            </p>
           </div>
 
           <div>
@@ -594,6 +619,7 @@ export default function SummaryPage() {
                   type="button"
                   onClick={() => toggleSeries(s.key)}
                   aria-pressed={on}
+                  title={s.hint}
                   className={`flex min-h-[36px] items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400 ${
                     on
                       ? "border-sky-400/40 bg-sky-500/15 text-sky-200"
@@ -820,6 +846,11 @@ export default function SummaryPage() {
                 </AreaChart>
               </ResponsiveContainer>
             </div>
+
+            {/* Penjelas singkat seri yang sedang aktif. */}
+            <p className="mt-2 text-[12px] text-slate-300">
+              {activeMeta.label}: {activeMeta.hint}
+            </p>
 
             {/* Legenda fase + pita ketidakpastian */}
             <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-slate-300">
