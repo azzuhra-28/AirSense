@@ -7,6 +7,7 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
+  ReferenceArea,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -22,7 +23,7 @@ import {
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { useSensorData } from "@/components/SensorProvider";
 import { getLatestForecast, subscribeForecast } from "@/lib/api";
-import { aqiOf, POLLUTANT_COLOR } from "@/lib/brand";
+import { aqiOf, AQI, POLLUTANT_COLOR } from "@/lib/brand";
 import { bandFor, usingQuantiles, BAND_META } from "@/lib/forecastChart";
 import {
   chartLimitMinutes,
@@ -37,14 +38,27 @@ import type { ForecastRow } from "@/lib/types";
 const DEVICES = ["Auditorium Lantai 6 Gedung PS PENS"];
 
 /**
- * Ambang konsentrasi PM2.5 untuk batas kategori ISPU (µg/m³).
- * Dipakai sebagai garis referensi di grafik, bukan untuk menghitung ISPU.
+ * Kolom konsentrasi untuk tiap seri grafik.
+ * CO memakai µg/m³ karena breakpoint ISPU memakai satuan itu.
  */
-const PM25_THRESHOLDS = [
-  { value: 15.5, label: "Sedang" },
-  { value: 55.4, label: "Tidak Sehat" },
-  { value: 150.4, label: "Sangat Tidak Sehat" },
-] as const;
+const ISPU_COLUMN = {
+  pm25: "pm25_ugm3",
+  pm10: "pm10_ugm3",
+  co: "co_ugm3",
+} as const;
+
+/**
+ * Ubah nilai seri ke ISPU.
+ *
+ * CO masuk dalam mg/m³ (sudah dibagi 1000), sedangkan breakpoint ISPU
+ * memakai µg/m³, jadi dikalikan 1000 lebih dulu.
+ */
+function toIspu(key: "pm25" | "pm10" | "co", value: number | null) {
+  if (value == null || !Number.isFinite(value)) return null;
+  const ugm3 = key === "co" ? value * 1000 : value;
+  const ispu = ispuOf(ISPU_COLUMN[key], ugm3);
+  return Number.isFinite(ispu) ? ispu : null;
+}
 
 /**
  * Saran tindakan per kategori ISPU. Satu tempat supaya mudah diubah
@@ -317,9 +331,9 @@ export default function SummaryPage() {
       iso: r.created_at,
       ts: new Date(r.created_at).getTime(),
       t: toWIB(r.created_at),
-      pm25: valid(r.pm25_ugm3),
-      pm10: valid(r.pm10_ugm3),
-      co: coMg(r.co_ugm3),
+      pm25: toIspu("pm25", valid(r.pm25_ugm3)),
+      pm10: toIspu("pm10", valid(r.pm10_ugm3)),
+      co: toIspu("co", coMg(r.co_ugm3)),
       isForecast: false,
       // Pita hanya digambar pada bagian forecast. Nilai null di sini
       // mencegah pita menanjak dari garis aktual (efek "tangga").
@@ -347,9 +361,16 @@ export default function SummaryPage() {
         iso: r.forecast_at,
         ts: new Date(r.forecast_at).getTime(),
         t: toWIB(r.forecast_at),
-        pm25: valid(r.pm25_ugm3_pred),
-        pm10: valid(r.pm10_ugm3_pred),
-        co: coMg(r.co_ugm3_pred),
+        pm25: toIspu("pm25", valid(r.pm25_ugm3_pred)),
+        pm10: toIspu("pm10", valid(r.pm10_ugm3_pred)),
+        co: toIspu("co", coMg(r.co_ugm3_pred)),
+        // Konsentrasi untuk menghitung pita; dikonversi ke ISPU setelahnya.
+        conc:
+          primaryKey === "co"
+            ? coMg(r.co_ugm3_pred)
+            : valid(
+                r[`${primaryKey}_ugm3_pred` as keyof ForecastRow] as number | null
+              ),
         isForecast: true,
         menit: (new Date(r.forecast_at).getTime() - jangkar) / 60_000,
         bandLow: null as number | null,
@@ -363,13 +384,15 @@ export default function SummaryPage() {
 
     // Pita ketidakpastian per horizon: kuantil residual benchmark bila
     // tersedia, selain itu galat rata-rata dengan label berbeda.
+    // Dihitung dalam satuan konsentrasi, lalu dikonversi ke ISPU.
     for (const row of fc) {
-      const nilai = row[primaryKey];
-      if (nilai == null) continue;
-      const pita = bandFor(nilai, row.menit, maeTampil, pakaiKuantil);
-      if (pita.low == null || pita.high == null) continue;
-      row.bandLow = pita.low;
-      row.bandSpan = Math.max(0, pita.high - pita.low);
+      if (row.conc == null) continue;
+      const pita = bandFor(row.conc, row.menit, maeTampil, pakaiKuantil);
+      const low = toIspu(primaryKey, pita.low);
+      const high = toIspu(primaryKey, pita.high);
+      if (low == null || high == null) continue;
+      row.bandLow = low;
+      row.bandSpan = Math.max(0, high - low);
       row.bandLabel = pita.label;
     }
 
@@ -382,55 +405,28 @@ export default function SummaryPage() {
     );
   }, [data.rows, forecast, primaryKey, anchorTs, maeTampil, pakaiKuantil]);
 
-  /** Batas sumbu Y mengikuti data, bukan 0-24 tetap. */
   /**
-   * Skala Y adaptif dengan tick bulat dan berjarak rata.
+   * Batas atas sumbu ISPU.
    *
-   * Recharts memilih tick sendiri kalau hanya diberi domain, dan
-   * hasilnya bisa 14,1 / 17,1 / 22,2 — tidak rata dan sulit dibaca.
-   * Di sini langkah tick dibulatkan ke 1, 2, 5, atau 10 kali pangkat
-   * sepuluh terdekat.
+   * Minimal 300 supaya keempat zona kategori selalu terlihat, lalu
+   * dibulatkan ke 50 terdekat bila ada nilai di atasnya.
    */
-  const yScale = useMemo(() => {
-    const nilai: number[] = [];
+  const yMax = useMemo(() => {
+    let max = 300;
     for (const row of combined) {
       for (const s of SERIES) {
         if (!activeSeries.includes(s.key)) continue;
         const v = row[s.key];
-        if (typeof v === "number" && Number.isFinite(v)) nilai.push(v);
+        if (typeof v === "number" && Number.isFinite(v)) {
+          max = Math.max(max, v);
+        }
       }
-      if (typeof row.bandLow === "number") nilai.push(row.bandLow);
       if (typeof row.bandLow === "number" && typeof row.bandSpan === "number") {
-        nilai.push(row.bandLow + row.bandSpan);
+        max = Math.max(max, row.bandLow + row.bandSpan);
       }
     }
-    if (!nilai.length) return { domain: [0, 10] as [number, number], ticks: [0, 2, 4, 6, 8, 10] };
-
-    const min = Math.min(...nilai);
-    const max = Math.max(...nilai);
-    const rentang = Math.max(max - min, 1);
-    const pad = rentang * 0.12;
-
-    const bawah = Math.max(0, min - pad);
-    const atas = max + pad;
-
-    const langkahKasar = (atas - bawah) / 5;
-    const pangkat = Math.pow(10, Math.floor(Math.log10(langkahKasar)));
-    const sisa = langkahKasar / pangkat;
-    const langkah = (sisa <= 1 ? 1 : sisa <= 2 ? 2 : sisa <= 5 ? 5 : 10) * pangkat;
-
-    const lo = Math.floor(bawah / langkah) * langkah;
-    const hi = Math.ceil(atas / langkah) * langkah;
-
-    const ticks: number[] = [];
-    for (let v = lo; v <= hi + langkah * 0.5; v += langkah) {
-      ticks.push(Number(v.toFixed(6)));
-    }
-
-    return { domain: [lo, hi] as [number, number], ticks };
+    return Math.ceil(max / 50) * 50;
   }, [combined, activeSeries]);
-
-  const yDomain = yScale.domain;
 
   /** Garis penghubung saat ada lompatan nyata ke level forecast. */
   const connectorSegment = useMemo(() => {
@@ -480,14 +476,6 @@ export default function SummaryPage() {
     }
     return ticks;
   }, [combined]);
-
-  /** Ambang ISPU yang masuk rentang sumbu, maksimal satu garis. */
-  const thresholdLine = useMemo(() => {
-    if (primaryKey !== "pm25") return null;
-    const [bawah, atas] = yDomain;
-    const kandidat = PM25_THRESHOLDS.filter((t) => t.value > bawah && t.value < atas);
-    return kandidat.length ? kandidat[0] : null;
-  }, [primaryKey, yDomain]);
 
   // Berapa banyak pembacaan terakhir yang di bawah ambang deteksi.
   const belowDetection = useMemo(() => {
@@ -667,13 +655,19 @@ export default function SummaryPage() {
                     tickLine={false}
                   />
                   <YAxis
-                    domain={yScale.domain}
-                    ticks={yScale.ticks}
+                    domain={[0, yMax]}
+                    ticks={[0, 50, 100, 200, 300]}
                     tick={{ fontSize: 12, fill: "#cbd5e1" }}
                     axisLine={false}
                     tickLine={false}
                     width={46}
-                    allowDecimals
+                    label={{
+                      value: "ISPU",
+                      position: "insideTopLeft",
+                      fill: "#94a3b8",
+                      fontSize: 11,
+                      offset: 8,
+                    }}
                   />
                   <Tooltip
                     contentStyle={{
@@ -688,29 +682,47 @@ export default function SummaryPage() {
                     }
                     formatter={(value, name, item) => {
                       const s = SERIES.find((x) => x.key === name);
-                      const phase = item?.payload?.isForecast ? "forecast" : "aktual";
+                      const ispu = Number(value);
+                      const tone = aqiOf(ispu);
+                      const phase = item?.payload?.isForecast
+                        ? "perkiraan"
+                        : "aktual";
                       return [
-                        `${Number(value).toFixed(2)} ${s?.unit ?? ""} (${phase})`,
+                        `ISPU ${Math.round(ispu)} (${tone.label}) · ${phase}`,
                         s?.label ?? name,
                       ];
                     }}
                   />
 
-                  {/* Ambang kategori ISPU, hanya bila masuk rentang sumbu. */}
-                  {thresholdLine && (
-                    <ReferenceLine
-                      y={thresholdLine.value}
-                      stroke="#f59e0b"
-                      strokeDasharray="4 4"
-                      strokeOpacity={0.55}
-                      label={{
-                        value: `Ambang ${thresholdLine.label} ${thresholdLine.value}`,
-                        position: "insideBottomRight",
-                        fill: "#fbbf24",
-                        fontSize: 11,
-                      }}
-                    />
-                  )}
+                  {/* Zona kategori ISPU sebagai latar berwarna. */}
+                  <ReferenceArea
+                    y1={0}
+                    y2={50}
+                    fill={AQI.good.dot}
+                    fillOpacity={0.08}
+                    stroke="none"
+                  />
+                  <ReferenceArea
+                    y1={50}
+                    y2={100}
+                    fill={AQI.moderate.dot}
+                    fillOpacity={0.08}
+                    stroke="none"
+                  />
+                  <ReferenceArea
+                    y1={100}
+                    y2={200}
+                    fill={AQI.unhealthy.dot}
+                    fillOpacity={0.08}
+                    stroke="none"
+                  />
+                  <ReferenceArea
+                    y1={200}
+                    y2={300}
+                    fill={AQI.veryUnhealthy.dot}
+                    fillOpacity={0.08}
+                    stroke="none"
+                  />
 
                   {/* Penanda "Sekarang" dan garis penghubung lompatan.
                       Sumbu X kini numerik, jadi ReferenceLine bekerja. */}
