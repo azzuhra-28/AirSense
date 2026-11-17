@@ -264,6 +264,35 @@ def pred_produksi(pm: pd.Series, idx: np.ndarray) -> np.ndarray:
 ROLLING_GRID = [5, 10, 15, 20, 30, 45, 60]
 
 
+def pred_profil_jam(
+    d: pd.DataFrame,
+    y: pd.Series,
+    train: np.ndarray,
+    idx: np.ndarray,
+    horizon: int,
+) -> np.ndarray:
+    """
+    Profil rata-rata target per jam (0-23), dihitung HANYA dari data latih.
+
+    Jam yang dipakai adalah jam tujuan (t + horizon), bukan jam saat
+    prediksi dibuat, karena yang ingin dijawab adalah "jam itu biasanya
+    sebesar apa". Jam yang tidak muncul di data latih memakai rata-rata
+    keseluruhan data latih.
+    """
+    waktu_latih = d.index[train] + pd.Timedelta(minutes=horizon)
+    nilai = y.to_numpy()[train]
+    ok = np.isfinite(nilai)
+
+    if not ok.any():
+        return np.full(len(idx), np.nan)
+
+    profil = pd.Series(nilai[ok]).groupby(waktu_latih[ok].hour).mean()
+    fallback = float(np.mean(nilai[ok]))
+
+    waktu_uji = d.index[idx] + pd.Timedelta(minutes=horizon)
+    return np.array([float(profil.get(j, fallback)) for j in waktu_uji.hour])
+
+
 def pilih_jendela(pm: pd.Series, y: pd.Series, train: np.ndarray) -> int:
     """
     Pilih jendela rolling terbaik HANYA dari validasi di dalam data latih.
@@ -531,6 +560,11 @@ def main() -> None:
                 # Replikasi persis perhitungan pipeline produksi.
                 kandidat["produksi_10_15_30"] = pred_produksi(pm, idx)
 
+                # Profil rata-rata per jam, hanya dari data latih.
+                kandidat["profil_jam"] = pred_profil_jam(
+                    d, y, fold.train, idx, h
+                )
+
                 # Ridge
                 try:
                     kandidat["ridge"] = fit_ridge(X, y, fold.train, idx)
@@ -715,6 +749,13 @@ def main() -> None:
             if r:
                 perbandingan[(h, lawan)] = r
 
+    # Perbandingan khusus profil jam terhadap produksi.
+    perbandingan_profil = {}
+    for h in HORIZONS:
+        r = bandingkan("profil_jam", "produksi_10_15_30", h)
+        if r:
+            perbandingan_profil[h] = r
+
     # Ringkasan per metode x horizon (target B sebagai acuan utama).
     ringkas = (
         dfm[dfm["target"] == "B"]
@@ -762,7 +803,7 @@ def main() -> None:
 
     tulis_summary(
         prof, info, bocor, folds, ringkas, dfm, sig, collapse, args,
-        konformal, perbandingan, baris_konf,
+        konformal, perbandingan, baris_konf, perbandingan_profil,
     )
 
     print("\n[6] Selesai. Lihat results/summary.md")
@@ -776,7 +817,7 @@ def buat_gambar(dfm, contoh, importance, ringkas) -> None:
 
     # 1. MAE per horizon
     fig, ax = plt.subplots(figsize=(8, 4.5))
-    for metode in ["persistence", "rolling_15", "ridge", "lightgbm"]:
+    for metode in ["persistence", "rolling_15", "profil_jam", "ridge", "lightgbm"]:
         sub = ringkas[ringkas["metode"] == metode]
         if sub.empty:
             continue
@@ -841,7 +882,8 @@ def buat_gambar(dfm, contoh, importance, ringkas) -> None:
 
 
 def tulis_summary(prof, info, bocor, folds, ringkas, dfm, sig, collapse, args,
-                  konformal=None, perbandingan=None, baris_konf=None) -> None:
+                  konformal=None, perbandingan=None, baris_konf=None,
+                  perbandingan_profil=None) -> None:
     L = []
     L.append("# Benchmark Forecast PM2.5 — AirSense\n")
     L.append(f"Dijalankan: {pd.Timestamp.now(tz='Asia/Jakarta'):%d %b %Y %H:%M} WIB  ")
@@ -981,6 +1023,34 @@ def tulis_summary(prof, info, bocor, folds, ringkas, dfm, sig, collapse, args,
         L.append("| - | - | - | - | data tidak cukup |")
     L.append("")
     L.append("Selisih positif berarti rolling_15 memiliki galat lebih kecil.\n")
+
+    L.append("## 5b. Profil jam vs produksi (block bootstrap)\n")
+    L.append(
+        "Profil jam memprediksi nilai jam tujuan memakai rata-rata target "
+        "pada jam yang sama, dihitung hanya dari data latih tiap fold. "
+        "Selisih positif berarti profil jam memiliki galat lebih kecil "
+        "daripada produksi 10/15/30.\n"
+    )
+    L.append("| Horizon | Selisih MAE | 95% CI | Keputusan |")
+    L.append("|---|---|---|---|")
+    if perbandingan_profil:
+        for h in HORIZONS:
+            r = perbandingan_profil.get(h)
+            if r is None:
+                L.append(f"| {h} | - | - | data tidak cukup |")
+                continue
+            if r["lo"] > 0:
+                putusan = "profil jam lebih baik (signifikan)"
+            elif r["hi"] < 0:
+                putusan = "produksi lebih baik (signifikan)"
+            else:
+                putusan = "seri (tidak signifikan)"
+            L.append(
+                f"| {h} | {r['mean']:+.2f} | {r['lo']:+.2f}–{r['hi']:+.2f} | {putusan} |"
+            )
+    else:
+        L.append("| - | - | - | data tidak cukup |")
+    L.append("")
 
     L.append("## 6. Interval konformal (P10–P90 residual)\n")
     if konformal:
