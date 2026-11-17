@@ -577,6 +577,32 @@ export default function SummaryPage() {
         </div>
       </section>
 
+      {/* Saran tindakan + disclaimer. Ditaruh tepat setelah kondisi terkini
+          karena ini informasi pertama yang dicari pengunjung. */}
+      {(() => {
+        const saran = SARAN_KATEGORI[currentIspu.label] ?? null;
+        if (!saran) return null;
+
+        return (
+          <motion.section
+            initial={reduceMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex items-start gap-3 rounded-xl border border-sky-400/25 bg-slate-900/85 p-4 backdrop-blur-sm"
+          >
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />
+            <div className="space-y-1">
+              <p className="text-[13px] leading-relaxed text-white">{saran}</p>
+              <p className="text-[12px] leading-relaxed text-slate-300">
+                {data.dominant?.label
+                  ? `Polutan dominan ${data.dominant.label}${peakIspu ? ` · ISPU puncak ${peakIspu}` : ""}. `
+                  : ""}
+                Forecast bersifat indikatif, bukan ISPU resmi.
+              </p>
+            </div>
+          </motion.section>
+        );
+      })()}
+
       {/* Forecast: data asli dari tb_forecast, bukan placeholder. */}
       <section className="rounded-xl border border-sky-400/25 bg-slate-900/85 p-5 backdrop-blur-sm">
         <header className="flex flex-wrap items-center justify-between gap-3">
@@ -1029,31 +1055,6 @@ export default function SummaryPage() {
         )}
       </section>
 
-      {/* Saran tindakan + disclaimer. Kalimat yang mengulang kartu lain
-          dihapus supaya tidak bertele-tele. */}
-      {(() => {
-        const saran = SARAN_KATEGORI[currentIspu.label] ?? null;
-        if (!saran) return null;
-
-        return (
-          <motion.section
-            initial={reduceMotion ? false : { opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex items-start gap-3 rounded-xl border border-sky-400/25 bg-slate-900/85 p-4 backdrop-blur-sm"
-          >
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />
-            <div className="space-y-1">
-              <p className="text-[13px] leading-relaxed text-white">{saran}</p>
-              <p className="text-[12px] leading-relaxed text-slate-300">
-                {data.dominant?.label
-                  ? `Polutan dominan ${data.dominant.label}${peakIspu ? ` · ISPU puncak ${peakIspu}` : ""}. `
-                  : ""}
-                Forecast bersifat indikatif, bukan ISPU resmi.
-              </p>
-            </div>
-          </motion.section>
-        );
-      })()}
     </div>
   );
 }
