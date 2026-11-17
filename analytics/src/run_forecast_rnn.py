@@ -76,6 +76,11 @@ NEAR_TERM_STEPS = 10
 # waktu supaya tidak bergantung pada satu angka yang kebetulan bagus.
 ENSEMBLE_WINDOWS = (10, 15, 30)
 
+# Minimum baris untuk perataan cadangan. Model tetap butuh riwayat penuh,
+# tetapi perataan hanya butuh 10 baris agar jendela 30 menit punya cukup
+# sampel. Tanpa ini, satu jeda 3 menit menghapus forecast berjam-jam.
+MIN_SMOOTH_ROWS = 10
+
 # Kalau model konsisten kalah dari garis datar, latih ulang tidak akan
 # mengubah apa pun. Tanpa batas ini setiap siklus 5 menit membuang
 # puluhan detik CPU untuk hasil yang sama.
@@ -284,7 +289,7 @@ def forecast_target(
     if len(newest) < min_len:
         cadangan = (
             smooth_predictions(newest, target, steps)
-            if len(newest) >= max(ENSEMBLE_WINDOWS) + 5
+            if len(newest) >= MIN_SMOOTH_ROWS
             else []
         )
         return [], {

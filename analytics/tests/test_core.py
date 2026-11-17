@@ -118,6 +118,15 @@ class TestSmoothPredictions(unittest.TestCase):
         self.assertEqual(len(hasil), 60)
         self.assertTrue(all(v >= 0 for v in hasil))
 
+    def test_perataan_dengan_sepuluh_baris(self):
+        # Batas bawah perataan: jendela 30 menit butuh 10 sampel.
+        df = frame(10)
+
+        hasil = smooth_predictions(df, "pm25_ugm3", steps=5)
+
+        self.assertEqual(len(hasil), 5)
+        self.assertTrue(all(v >= 0 for v in hasil))
+
     def test_nilai_berasal_dari_jendela_ensemble(self):
         df = frame(120)
         seri = df["pm25_ugm3"]
