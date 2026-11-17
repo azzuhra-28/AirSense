@@ -31,8 +31,9 @@ import {
 
 import { getLatestForecast, subscribeForecast } from "@/lib/api";
 import { fetchSkill, type Skill } from "@/lib/forecast-skill";
+import { bandFor, usingQuantiles } from "@/lib/forecastChart";
 import { aqiOf, POLLUTANT_COLOR } from "@/lib/brand";
-import { toWIB } from "@/lib/ispu";
+import { ispuOf, toWIB } from "@/lib/ispu";
 import { useSensorData } from "@/components/SensorProvider";
 import type { ForecastRow } from "@/lib/types";
 
@@ -133,9 +134,16 @@ export default function PredictPage() {
     };
   }, [retryKey]);
 
-  const data = useMemo(
-    () =>
-      forecast.map((r) => ({
+  const data = useMemo(() => {
+    if (!forecast.length) return [];
+
+    // Jangkar horizon: titik pertama selalu 1 menit setelah pembacaan
+    // terakhir, sama seperti pipeline menulisnya.
+    const anchor = new Date(forecast[0].forecast_at).getTime() - 60_000;
+
+    return forecast.map((r) => {
+      const menit = (new Date(r.forecast_at).getTime() - anchor) / 60_000;
+      const row: Record<string, unknown> = {
         t: toWIB(r.forecast_at),
         pm25_ispu: r.pm25_ispu_pred,
         pm10_ispu: r.pm10_ispu_pred,
@@ -143,9 +151,55 @@ export default function PredictPage() {
         pm25_conc: r.pm25_ugm3_pred,
         pm10_conc: r.pm10_ugm3_pred,
         co_conc: r.co_ugm3_pred != null ? r.co_ugm3_pred / 1000 : null,
-      })),
-    [forecast]
-  );
+      };
+
+      // Pita per polutan, dihitung dalam satuan tampilan yang aktif.
+      for (const s of SERIES) {
+        const conc =
+          s.key === "co"
+            ? r.co_ugm3_pred != null
+              ? r.co_ugm3_pred / 1000
+              : null
+            : Number(r[`${s.key}_ugm3_pred` as keyof ForecastRow]);
+
+        const mae = skill[s.key]?.mae ?? null;
+        const maeTampil =
+          mae == null ? null : s.key === "co" ? mae / 1000 : mae;
+        // Kuantil benchmark hanya dihitung untuk PM2.5.
+        const pakaiKuantil = s.key === "pm25";
+
+        const pita =
+          conc == null || !Number.isFinite(conc)
+            ? null
+            : bandFor(conc, menit, maeTampil, pakaiKuantil);
+
+        if (!pita || pita.low == null || pita.high == null) {
+          row[`${s.key}_band`] = null;
+          continue;
+        }
+
+        if (viewMode === "ispu") {
+          const kolom =
+            s.key === "co"
+              ? "co_ugm3"
+              : s.key === "pm10"
+                ? "pm10_ugm3"
+                : "pm25_ugm3";
+          const low = ispuOf(kolom, s.key === "co" ? pita.low * 1000 : pita.low);
+          const high = ispuOf(
+            kolom,
+            s.key === "co" ? pita.high * 1000 : pita.high
+          );
+          row[`${s.key}_band`] =
+            Number.isFinite(low) && Number.isFinite(high) ? [low, high] : null;
+        } else {
+          row[`${s.key}_band`] = [pita.low, pita.high];
+        }
+      }
+
+      return row;
+    });
+  }, [forecast, viewMode, skill]);
 
   const summary = useMemo(() => {
     if (!forecast.length) return null;
@@ -709,11 +763,11 @@ export default function PredictPage() {
                 </span>
               </div>
               <h2 className="mt-3 text-xl font-bold text-white sm:text-2xl">
-                Perjalanan kualitas udara
+                Perkiraan 60 menit ke depan
               </h2>
               <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-300 sm:text-sm">
-                Bandingkan tren antarpolutan, periksa titik waktu, dan ubah skala
-                pengukuran sesuai kebutuhan analisis.
+                Nilai yang diperkirakan tetap, dengan rentang ketidakpastian
+                yang melebar seiring waktu.
               </p>
             </div>
 
@@ -930,6 +984,20 @@ export default function PredictPage() {
                   }}
                 />
 
+                {/* Pita ketidakpastian di sekitar garis forecast. */}
+                {SERIES.filter((s) => activeSeries.includes(s.key)).map((s) => (
+                  <Area
+                    key={`band-${s.key}`}
+                    dataKey={`${s.key}_band`}
+                    stroke="none"
+                    fill={s.color}
+                    fillOpacity={0.25}
+                    isAnimationActive={false}
+                    activeDot={false}
+                    tooltipType="none"
+                  />
+                ))}
+
                 {SERIES.filter((s) => activeSeries.includes(s.key)).map((s) => {
                   const key = viewMode === "ispu" ? `${s.key}_ispu` : `${s.key}_conc`;
 
@@ -958,6 +1026,27 @@ export default function PredictPage() {
               Pilih minimal satu polutan di atas untuk menampilkan grafik.
             </div>
           )}
+
+          <p className="mt-3 px-2 text-[11px] leading-relaxed text-slate-300">
+            Garis lurus bukan berarti udara tidak berubah. Sistem memperkirakan
+            level terdekat; perubahan yang benar-benar terjadi dalam satu jam
+            biasanya lebih kecil daripada derau sensor.
+          </p>
+
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 px-2 text-[10px] text-slate-400">
+            {SERIES.filter((s) => activeSeries.includes(s.key)).map((s) => (
+              <span key={`leg-${s.key}`} className="flex items-center gap-1.5">
+                <span
+                  className="h-2.5 w-5 rounded"
+                  style={{ backgroundColor: `${s.color}2e` }}
+                />
+                {s.label}:{" "}
+                {s.key === "pm25" && usingQuantiles()
+                  ? "Rentang ±, cakupan sekitar 80%"
+                  : "Galat rata-rata"}
+              </span>
+            ))}
+          </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-white/10 px-2 pt-4 text-[10px] leading-5 text-slate-400">
             <span className="flex items-center gap-1.5">
