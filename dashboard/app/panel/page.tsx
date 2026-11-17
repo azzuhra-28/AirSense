@@ -222,6 +222,9 @@ export default function SummaryPage() {
         : mentah
       : null;
 
+    // ISPU saat ini, dipakai untuk selisih tiap horizon.
+    const ispuSekarang = toIspu(primaryKey, aktual);
+
     // Semua horizon yang dikonfigurasi tetap tampil. Yang belum andal
     // diberi lencana dan diredupkan, bukan disembunyikan diam-diam.
     const dipakai = FORECAST_HORIZONS;
@@ -250,26 +253,25 @@ export default function SummaryPage() {
 
       // Kategori ISPU memakai ambang polutan yang sedang dilihat. CO
       // dihitung dari µg/m³, sedangkan nilai tampilannya mg/m³.
-      const ispu =
-        level == null
-          ? null
-          : primaryKey === "co"
-            ? ispuOf("co_ugm3", level * 1000)
-            : primaryKey === "pm10"
-              ? ispuOf("pm10_ugm3", level)
-              : ispuOf("pm25_ugm3", level);
-      const tone = ispu == null || !Number.isFinite(ispu) ? null : aqiOf(ispu);
+      const ispu = toIspu(primaryKey, level);
+      const tone = ispu == null ? null : aqiOf(ispu);
+
+      // Rentang dihitung dalam konsentrasi, lalu dikonversi ke ISPU.
+      const lowIspu = toIspu(primaryKey, pita.low);
+      const highIspu = toIspu(primaryKey, pita.high);
 
       return {
         minutes: h.minutes,
         status: h.status,
         catatan: h.note,
         jamTujuan: titik ? toWIB(titik.forecast_at) : "-",
-        level,
-        unit: primaryKey === "co" ? "mg/m³" : "µg/m³",
-        delta: level == null || aktual == null ? null : level - aktual,
-        low: pita.low,
-        high: pita.high,
+        ispu: ispu == null ? null : Math.round(ispu),
+        delta:
+          ispu == null || ispuSekarang == null
+            ? null
+            : Math.round(ispu - ispuSekarang),
+        low: lowIspu == null ? null : Math.round(lowIspu),
+        high: highIspu == null ? null : Math.round(highIspu),
         bandLabel: pita.label,
         bandDetail: pita.detail,
         kategori: tone?.label ?? null,
@@ -291,18 +293,16 @@ export default function SummaryPage() {
       return "Perkiraan berupa level, bukan arah. Akurasi belum tervalidasi.";
     }
 
-    if (terjauh.kategori == null || terjauh.level == null) {
+    if (terjauh.kategori == null || terjauh.ispu == null) {
       return "Perkiraan berupa level, bukan arah.";
     }
 
     const semuaDatar = horizonCards.every(
-      (c) => c.level != null && Math.abs(c.level - terjauh.level!) < 0.05
+      (c) => c.ispu != null && Math.abs(c.ispu - terjauh.ispu!) < 1
     );
 
     if (semuaDatar) {
-      return `Perkiraan berupa level, bukan arah. Sekitar ${terjauh.level.toFixed(
-        2
-      )} ${terjauh.unit} dalam ${terjauh.minutes} menit ke depan.`;
+      return `Perkiraan berupa level, bukan arah. Sekitar ${terjauh.ispu} ISPU dalam ${terjauh.minutes} menit ke depan.`;
     }
 
     return `Dalam ${terjauh.minutes} menit ke depan diperkirakan berada pada kategori ${terjauh.kategori}.`;
@@ -939,16 +939,16 @@ export default function SummaryPage() {
                     </div>
 
                     <p className="mt-1 text-[18px] font-semibold font-mono tabular-nums text-white">
-                      {c.level == null ? "–" : c.level.toFixed(2)}
+                      {c.ispu == null ? "–" : c.ispu}
                       <span className="ml-1 text-[11px] font-normal text-slate-400">
-                        {c.unit}
+                        ISPU
                       </span>
                     </p>
 
                     <p className="mt-0.5 text-[12px] text-slate-300">
                       {c.delta == null
                         ? "tanpa pembanding"
-                        : `${c.delta > 0 ? "+" : ""}${c.delta.toFixed(2)} dari sekarang`}
+                        : `${c.delta > 0 ? "+" : ""}${c.delta} dari sekarang`}
                     </p>
 
                     <p
@@ -957,7 +957,7 @@ export default function SummaryPage() {
                     >
                       {c.low == null || c.high == null
                         ? "Rentang tidak tersedia"
-                        : `${c.low.toFixed(2)}–${c.high.toFixed(2)} ${c.unit}`}
+                        : `${c.low}–${c.high} ISPU`}
                       <span className="block text-[11px] text-slate-400">
                         {c.bandLabel}
                       </span>
