@@ -6,6 +6,7 @@ import {
   CartesianGrid,
   ComposedChart,
   Line,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -251,17 +252,53 @@ export default function EvaluasiPage() {
       points.map((p) => p.actual)
     );
 
-    const curve = points
+    // Kurva untuk satu siklus: 30 menit aktual sebelum prediksi dibuat,
+    // lalu prediksi dan aktual sesudahnya. Titik "sebelum" hanya punya
+    // nilai aktual supaya garis prediksi tidak menyambung ke belakang.
+    const siklus = points
       .filter((p) => p.gen === newestGen)
-      .sort((a, b) => a.t - b.t)
+      .sort((a, b) => a.t - b.t);
+
+    const genTs = new Date(newestGen).getTime();
+    const mulaiKonteks = genTs - 30 * 60_000;
+    const sebelum = actualSorted
+      .filter((p) => p.t >= mulaiKonteks && p.t <= genTs)
       .map((p) => ({
-        t: toWIB(new Date(p.t).toISOString()),
-        pred: p.pred,
-        actual: p.actual,
-        base: p.base,
+        ts: p.t,
+        pred: null as number | null,
+        actual: p.v,
       }));
 
-    return { rows, all, allBase, curve, total: points.length };
+    const curve = [
+      ...sebelum,
+      ...siklus.map((p) => ({
+        ts: p.t,
+        pred: p.pred,
+        actual: p.actual,
+      })),
+    ];
+
+    // Galat siklus yang ditampilkan, supaya kalimat ringkas dan grafik
+    // membicarakan hal yang sama.
+    const galatModel = siklus.map((p) => Math.abs(p.pred - p.actual));
+    const galatBase = siklus.map((p) => Math.abs(p.base - p.actual));
+    const maeCurve = galatModel.length
+      ? galatModel.reduce((a, b) => a + b, 0) / galatModel.length
+      : null;
+    const baseCurve = galatBase.length
+      ? galatBase.reduce((a, b) => a + b, 0) / galatBase.length
+      : null;
+
+    return {
+      rows,
+      all,
+      allBase,
+      curve,
+      genTs,
+      maeCurve,
+      baseCurve,
+      total: points.length,
+    };
   }, [forecast, actual, series]);
 
   const best = evaluation?.all;
@@ -348,6 +385,122 @@ export default function EvaluasiPage() {
             ))}
           </section>
 
+          {evaluation.curve.length > 2 && (
+            <section className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-4">
+              <h2 className="text-sm font-semibold text-white">
+                Prediksi satu jam lalu vs kenyataan
+              </h2>
+              <p className="mt-0.5 text-[11px] text-slate-400">
+                Garis tipis sebelum penanda adalah kondisi 30 menit sebelum
+                prediksi dibuat. Garis putus-putus adalah prediksi, garis penuh
+                sesudahnya adalah pembacaan sensor. Area kuning adalah selisih
+                keduanya.
+              </p>
+
+              {evaluation.maeCurve != null && evaluation.baseCurve != null && (
+                <p className="mt-2 rounded-lg border border-sky-400/20 bg-sky-500/10 px-3 py-2 text-[11px] leading-relaxed text-sky-100">
+                  Prediksi meleset rata-rata{" "}
+                  <strong className="text-white">
+                    {evaluation.maeCurve.toFixed(2)} {unit}
+                  </strong>
+                  . Kalau hanya menahan nilai terakhir, melesetnya{" "}
+                  <strong className="text-white">
+                    {evaluation.baseCurve.toFixed(2)} {unit}
+                  </strong>
+                  .
+                </p>
+              )}
+
+              <div className="mt-3 h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={evaluation.curve} margin={{ top: 26, right: 8, bottom: 0, left: -18 }}>
+                    <defs>
+                      <linearGradient id="evalActual" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#38BDF8" stopOpacity={0.32} />
+                        <stop offset="100%" stopColor="#38BDF8" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid stroke="rgba(148,163,184,0.12)" vertical={false} />
+                    <XAxis
+                      dataKey="ts"
+                      type="number"
+                      domain={["dataMin", "dataMax"]}
+                      tickFormatter={(v: number) =>
+                        toWIB(new Date(v).toISOString())
+                      }
+                      tick={{ fill: "#94A3B8", fontSize: 10 }}
+                      tickLine={false}
+                      axisLine={false}
+                      minTickGap={28}
+                    />
+                    <YAxis
+                      tick={{ fill: "#94A3B8", fontSize: 10 }}
+                      tickLine={false}
+                      axisLine={false}
+                      width={46}
+                    />
+                    <Tooltip
+                      contentStyle={TOOLTIP}
+                      labelStyle={{ color: "#94A3B8", fontSize: 10 }}
+                      labelFormatter={(v) =>
+                        toWIB(new Date(Number(v)).toISOString())
+                      }
+                    />
+
+                    {/* Waktu prediksi dibuat. */}
+                    <ReferenceLine
+                      x={evaluation.genTs}
+                      stroke="#94A3B8"
+                      strokeDasharray="3 3"
+                      label={{
+                        value: "Prediksi dibuat",
+                        position: "top",
+                        fill: "#E2E8F0",
+                        fontSize: 10,
+                      }}
+                    />
+
+                    {/* Celah antara prediksi dan aktual. */}
+                    <Area
+                      dataKey={(d: (typeof evaluation.curve)[number]) =>
+                        d.pred != null && d.actual != null
+                          ? [Math.min(d.pred, d.actual), Math.max(d.pred, d.actual)]
+                          : null
+                      }
+                      stroke="none"
+                      fill="#F59E0B"
+                      fillOpacity={0.18}
+                      isAnimationActive={false}
+                      activeDot={false}
+                      tooltipType="none"
+                    />
+
+                    <Area
+                      type="monotone"
+                      dataKey="actual"
+                      name="Aktual"
+                      stroke="#38BDF8"
+                      strokeWidth={2}
+                      fill="url(#evalActual)"
+                      dot={false}
+                      connectNulls={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="pred"
+                      name="Prediksi"
+                      stroke="#A78BFA"
+                      strokeWidth={2}
+                      strokeDasharray="5 4"
+                      dot={false}
+                      connectNulls={false}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+          )}
+
           <section className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-4">
             <h2 className="text-sm font-semibold text-white">
               Per horizon waktu
@@ -414,67 +567,6 @@ export default function EvaluasiPage() {
               </span>
             </p>
           </section>
-
-          {evaluation.curve.length > 2 && (
-            <section className="rounded-2xl border border-sky-400/30 bg-slate-900/70 p-4">
-              <h2 className="text-sm font-semibold text-white">
-                Aktual vs prediksi, siklus lengkap terakhir
-              </h2>
-              <p className="mt-0.5 text-[11px] text-slate-400">
-                Garis putus-putus adalah prediksi, garis penuh adalah pembacaan
-                sensor sesudahnya. Hanya siklus yang sudah selesai dinilai.
-              </p>
-
-              <div className="mt-3 h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={evaluation.curve} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
-                    <defs>
-                      <linearGradient id="evalActual" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#38BDF8" stopOpacity={0.32} />
-                        <stop offset="100%" stopColor="#38BDF8" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid stroke="rgba(148,163,184,0.12)" vertical={false} />
-                    <XAxis
-                      dataKey="t"
-                      tick={{ fill: "#94A3B8", fontSize: 10 }}
-                      tickLine={false}
-                      axisLine={false}
-                      minTickGap={28}
-                    />
-                    <YAxis
-                      tick={{ fill: "#94A3B8", fontSize: 10 }}
-                      tickLine={false}
-                      axisLine={false}
-                      width={46}
-                    />
-                    <Tooltip
-                      contentStyle={TOOLTIP}
-                      labelStyle={{ color: "#94A3B8", fontSize: 10 }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="actual"
-                      name="Aktual"
-                      stroke="#38BDF8"
-                      strokeWidth={2}
-                      fill="url(#evalActual)"
-                      dot={false}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="pred"
-                      name="Prediksi"
-                      stroke="#A78BFA"
-                      strokeWidth={2}
-                      strokeDasharray="5 4"
-                      dot={false}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-            </section>
-          )}
         </>
       )}
     </div>
